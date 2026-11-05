@@ -1,0 +1,304 @@
+/* ==========================================================================
+   Sign-in
+   ========================================================================== */
+.login {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: max(24px, var(--safe-top)) 20px max(24px, var(--safe-bottom));
+}
+.login__grid {
+  position: relative;
+  z-index: 1;
+  width: min(1180px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(360px, 480px);
+  gap: clamp(28px, 5vw, 72px);
+  align-items: center;
+}
+.login__hero {
+  position: relative;
+  animation: rise-in var(--dur-slow) var(--ease-out) both;
+}
+.login__title {
+  margin-top: 34px;
+  font-size: clamp(34px, 5vw, 60px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+}
+.login__sub {
+  margin-top: 18px;
+  max-width: 54ch;
+  color: var(--text-2);
+  font-size: 16px;
+}
+.login__features {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 26px;
+}
+.login__features li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14.5px;
+  color: var(--text-2);
+}
+.login__features svg {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  padding: 7px;
+  border-radius: 10px;
+  color: var(--accent-ink);
+  background: rgb(var(--accent-rgb) / 0.12);
+  border: 1px solid rgb(var(--accent-rgb) / 0.28);
+}
+
+/* Orbit visual — centered behind the sign-in panel */
+.login {
+  overflow: hidden;
+}
+.login__panel-wrap {
+  position: relative;
+}
+.login__panel-wrap > .login__panel {
+  z-index: 1;
+}
+.orbit-visual {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 720px;
+  height: 720px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+}
+.orbit-visual__ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px dashed var(--border-3);
+  animation: spin 50s linear infinite;
+}
+.orbit-visual__ring--1 {
+  inset: 90px;
+}
+.orbit-visual__ring--2 {
+  inset: 20px;
+  border-style: solid;
+  border-color: var(--border-2);
+  animation-duration: 70s;
+  animation-direction: reverse;
+}
+.orbit-visual__sat {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform: rotate(var(--a)) translateY(calc(var(--r, 100px) * -1));
+}
+.orbit-visual__ring--1 .orbit-visual__sat {
+  --r: 270px;
+}
+.orbit-visual__ring--2 .orbit-visual__sat {
+  --r: 340px;
+}
+.orbit-visual__sat > .app-icon {
+  position: absolute;
+  transform: translate(-50%, -50%) rotate(calc(var(--a) * -1));
+  animation: counter-spin 50s linear infinite;
+}
+.orbit-visual__ring--2 .orbit-visual__sat > .app-icon {
+  animation: counter-spin-rev 70s linear infinite;
+}
+@keyframes counter-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(calc(var(--a) * -1));
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(calc(var(--a) * -1 - 360deg));
+  }
+}
+@keyframes counter-spin-rev {
+  from {
+    transform: translate(-50%, -50%) rotate(calc(var(--a) * -1));
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(calc(var(--a) * -1 + 360deg));
+  }
+}
+
+/* Panel */
+.login__panel {
+  position: relative;
+  padding: 28px 24px 22px;
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-lg);
+  animation: rise-in var(--dur-slow) var(--ease-out) 120ms both;
+}
+.login__panel-title {
+  font-size: 24px;
+}
+.login__secure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 18px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* Biometric scan */
+.scan {
+  padding: 18px 0 6px;
+  text-align: center;
+  animation: pop-in var(--dur-slow) var(--ease-out);
+}
+.scan__reader {
+  position: relative;
+  width: 168px;
+  height: 168px;
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+}
+.scan__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgb(var(--accent-rgb) / 0.6);
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+  animation: spin 1.4s linear infinite;
+}
+.scan__ring--2 {
+  inset: 16px;
+  border-color: rgb(var(--accent-2-rgb) / 0.55);
+  border-left-color: transparent;
+  border-top-color: transparent;
+  animation-duration: 1s;
+  animation-direction: reverse;
+}
+.scan__ring--3 {
+  inset: 32px;
+  border: 1px dashed var(--border-3);
+  animation-duration: 8s;
+}
+.scan__core {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  color: var(--accent-ink);
+  background: rgb(var(--accent-rgb) / 0.12);
+  box-shadow: inset 0 0 30px rgb(var(--accent-rgb) / 0.25);
+  overflow: hidden;
+}
+.scan__core svg {
+  width: 44px;
+  height: 44px;
+}
+.scan__beam {
+  position: absolute;
+  left: 42px;
+  right: 42px;
+  top: 40px;
+  bottom: 40px;
+  border-radius: 50%;
+  overflow: hidden;
+  pointer-events: none;
+}
+.scan__beam::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 30%;
+  background: linear-gradient(to bottom, transparent, rgb(var(--accent-rgb) / 0.75), transparent);
+  animation: scan 1.1s ease-in-out infinite alternate;
+}
+.scan__reader.is-granted .scan__ring {
+  border-color: rgb(var(--success-rgb) / 0.7);
+  animation-duration: 3s;
+}
+.scan__reader.is-granted .scan__core {
+  color: var(--success);
+  background: rgb(var(--success-rgb) / 0.14);
+  box-shadow:
+    inset 0 0 30px rgb(var(--success-rgb) / 0.3),
+    0 0 40px rgb(var(--success-rgb) / 0.35);
+}
+.scan__steps {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 20px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-3);
+}
+.scan__steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: color var(--dur);
+}
+.scan__steps li span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-3);
+}
+.scan__steps li.is-on {
+  color: var(--text);
+}
+.scan__steps li.is-on span {
+  border-color: var(--accent);
+  animation: pulse-ring 1.2s infinite;
+}
+.scan__steps li.is-done span {
+  background: var(--success);
+  border-color: var(--success);
+  animation: none;
+}
+
+@media (max-width: 1100px) {
+  .orbit-visual {
+    display: none;
+  }
+}
+@media (max-width: 900px) {
+  .login__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .login__title {
+    margin-top: 22px;
+  }
+  .login__features {
+    display: none;
+  }
+  .login__sub {
+    font-size: 15px;
+  }
+}
+@media (max-width: 520px) {
+  .login {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .login__panel {
+    padding: 22px 14px 18px;
+  }
+  .login__title {
+    font-size: 32px;
+  }
+}

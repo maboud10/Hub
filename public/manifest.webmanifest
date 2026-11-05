@@ -1,0 +1,12 @@
+{
+  "name": "NEXUS · Employee Hub",
+  "short_name": "NEXUS",
+  "description": "Your secure, permission-aware employee hub.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05060d",
+  "theme_color": "#05060d",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

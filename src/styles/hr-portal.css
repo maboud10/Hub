@@ -1,0 +1,242 @@
+/* ==========================================================================
+   HR Portal — portal-level styles (loaded by HRPage after talent.css + hr.css)
+   Hero additions, tab rail and shared HR components (components/shared.tsx).
+   Area styles live in ./hr/*.css and are owned by each screen.
+   ========================================================================== */
+@import './hr/home.css';
+@import './hr/timeoff.css';
+@import './hr/benefits.css';
+@import './hr/documents.css';
+@import './hr/ops.css';
+
+/* ---------- Hero additions ---------- */
+.hr-hero > .hr-hero__main {
+  flex: 1 1 460px;
+}
+.hr-hero > .hr-hero__cta {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.hr-hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.hr-hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--r-full);
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--text-2);
+  background: rgb(var(--hr-1-rgb) / 0.1);
+  border: 1px solid rgb(var(--hr-1-rgb) / 0.28);
+  transition:
+    background var(--dur),
+    border-color var(--dur);
+}
+.hr-hero-chip svg {
+  width: 14px;
+  height: 14px;
+  color: var(--accent-ink);
+}
+.hr-hero-chip b {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--text);
+}
+button.hr-hero-chip:hover {
+  background: rgb(var(--hr-1-rgb) / 0.18);
+  border-color: rgb(var(--hr-1-rgb) / 0.5);
+}
+@media (max-width: 560px) {
+  .hr-hero > .hr-hero__cta {
+    width: 100%;
+  }
+  .hr-hero > .hr-hero__cta .btn {
+    flex: 1 1 auto;
+  }
+}
+
+/* ---------- Tab rail (glass pills, like Talent Hub) ---------- */
+.hr-tabs {
+  position: relative;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  margin-bottom: 20px;
+}
+.hr-tabs .tab {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 11px;
+  transition:
+    color var(--dur),
+    background var(--dur);
+}
+.hr-tabs .tab:hover {
+  background: var(--surface-2);
+}
+.hr-tabs .tab.is-active {
+  color: var(--text);
+  background: linear-gradient(135deg, rgb(var(--accent-rgb) / 0.16), rgb(var(--accent-2-rgb) / 0.12));
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.35);
+}
+.hr-tabs .tab.is-active::after {
+  left: 18px;
+  right: 18px;
+  bottom: 2px;
+  height: 2px;
+}
+.hr-tabs .tab.is-active svg {
+  color: var(--accent-ink);
+}
+
+/* ---------- Shared components ---------- */
+.hr-leave-badge {
+  --lt-h: 160;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--r-full);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: hsl(var(--lt-h) 75% 66%);
+  background: hsl(var(--lt-h) 75% 60% / 0.12);
+  border: 1px solid hsl(var(--lt-h) 75% 60% / 0.3);
+}
+.hr-leave-badge svg {
+  width: 12px;
+  height: 12px;
+}
+.hr-leave-badge--md {
+  height: 28px;
+  padding: 0 11px;
+  font-size: 12.5px;
+}
+.hr-leave-badge--md svg {
+  width: 14px;
+  height: 14px;
+}
+.hr-leave-badge--away {
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-color: var(--border-2);
+}
+[data-theme='light'] .hr-leave-badge:not(.hr-leave-badge--away) {
+  color: hsl(var(--lt-h) 70% 32%);
+}
+
+.hr-ring {
+  --size: 92px;
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--size);
+  height: var(--size);
+}
+.hr-ring svg {
+  display: block;
+}
+.hr-ring__fill {
+  stroke: hsl(var(--lt-h) 80% 62%);
+  filter: drop-shadow(0 0 5px hsl(var(--lt-h) 80% 60% / 0.55));
+  transition: stroke-dasharray var(--dur-slow) var(--ease-out);
+}
+.hr-ring__pending {
+  stroke: hsl(var(--lt-h) 80% 62% / 0.35);
+  stroke-dasharray: 3 3;
+}
+.hr-ring__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.hr-ring__center svg {
+  width: calc(var(--size) * 0.16);
+  height: calc(var(--size) * 0.16);
+  margin-bottom: 3px;
+  color: hsl(var(--lt-h) 80% 66%);
+}
+.hr-ring__center b {
+  font-family: var(--font-display);
+  font-size: calc(var(--size) * 0.27);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.hr-ring__center small {
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: max(9px, calc(var(--size) * 0.1));
+  color: var(--text-3);
+}
+
+.hr-user-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+}
+.hr-user-line__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.hr-user-line__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.hr-user-line__sub {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.hr-money {
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hr-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.hr-panel__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.hr-panel__head .section-title svg {
+  width: 18px;
+  height: 18px;
+  color: var(--accent-ink);
+}
+.hr-panel__sub {
+  margin-top: 3px;
+}
+.hr-panel__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

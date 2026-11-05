@@ -1,0 +1,73 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "requisitionId", "order": "ASCENDING" },
+        { "fieldPath": "stage", "order": "ASCENDING" },
+        { "fieldPath": "stageEnteredAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "teamIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "stageEnteredAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "interviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "interviewerIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "scheduledAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "activity",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "teamIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "activity",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "candidateId", "order": "ASCENDING" },
+        { "fieldPath": "at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "outreach",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "candidateId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "onboarding",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "startDate", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    { "collectionGroup": "requisitions", "fieldPath": "jd", "indexes": [] },
+    { "collectionGroup": "requisitions", "fieldPath": "interviewPlan", "indexes": [] },
+    { "collectionGroup": "candidates", "fieldPath": "experience", "indexes": [] },
+    { "collectionGroup": "candidates", "fieldPath": "education", "indexes": [] },
+    { "collectionGroup": "applications", "fieldPath": "match", "indexes": [] },
+    { "collectionGroup": "applications", "fieldPath": "history", "indexes": [] },
+    { "collectionGroup": "outreach", "fieldPath": "body", "indexes": [] },
+    { "collectionGroup": "scorecards", "fieldPath": "notes", "indexes": [] },
+    { "collectionGroup": "scorecards", "fieldPath": "ratings", "indexes": [] },
+    { "collectionGroup": "onboarding", "fieldPath": "tasks", "indexes": [] }
+  ]
+}

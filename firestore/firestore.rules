@@ -1,0 +1,209 @@
+rules_version = '2';
+
+// =============================================================================
+// Talent Hub · Firestore security rules for the `talenthub` database
+// Mirrors src/talent/access.ts (the app re-checks the same rules for UX).
+//
+// Identity  Google sign-in (Firebase Auth). Access comes from an allowlist
+//           document members/{email} = { hubUserId, perms: [...], active }
+//           managed by NEXUS admins (hub.users.manage). '*' = everything.
+//           `perms` holds the member's EFFECTIVE permissions, e.g.
+//           ['app:recruit', 'talent.hire'] for a hiring manager.
+// Derived   Written by src/talent/backend/firestore.ts so rules stay join-free:
+//           requisitions.panelIds/teamIds and `teamIds` (the requisition's
+//           hiring team) on applications, interviews, scorecards, offers,
+//           outreach, candidates and activity.
+// Private   Sensitive fields live in <collection>/{id}/private/data:
+//           candidate contact + salary expectation, requisition salary band,
+//           offer amounts. Readable by recruiters and compensation viewers only.
+// =============================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── identity ────────────────────────────────────────────────────────────
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function email() {
+      return request.auth.token.email.lower();
+    }
+    function memberPath() {
+      return /databases/$(database)/documents/members/$(email());
+    }
+    function member() {
+      return get(memberPath()).data;
+    }
+    function isMember() {
+      return signedIn() && exists(memberPath()) && member().active == true;
+    }
+    function me() {
+      return member().hubUserId;
+    }
+    function can(p) {
+      return '*' in member().perms || p in member().perms;
+    }
+    function hasApp(app) {
+      return '*' in member().perms || 'app:*' in member().perms || ('app:' + app) in member().perms;
+    }
+
+    // ── capabilities (see TALENT_PERMS in access.ts) ────────────────────────
+    function recruitUser() { return isMember() && hasApp('recruit'); }
+    function hrUser() { return isMember() && hasApp('hr'); }
+    function canManage() { return can('talent.manage'); }
+    function canHire() { return can('talent.hire') || canManage(); }
+    function canSource() { return can('talent.source'); }
+    function canComp() { return canManage() || can('talent.comp.view'); }
+    function canApproveOffers() { return can('talent.offers.approve'); }
+    function canOnboard() { return can('hr.onboarding.manage'); }
+
+    // ── helpers ─────────────────────────────────────────────────────────────
+    function onTeam(data) { return me() in data.get('teamIds', []); }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function unchanged(keys) { return !changed().hasAny(keys); }
+    function onlyChanges(keys) { return changed().hasOnly(keys); }
+    function reqPath(id) { return /databases/$(database)/documents/requisitions/$(id); }
+    function hiringManagerOf(reqId) { return get(reqPath(reqId)).data.hiringManagerId; }
+
+    // ── allowlist ───────────────────────────────────────────────────────────
+    match /members/{memberEmail} {
+      // Everyone may read their own entry (the app loads it right after sign-in).
+      allow get: if signedIn() && (email() == memberEmail || (isMember() && can('hub.users.manage')));
+      allow list, write: if isMember() && can('hub.users.manage');
+    }
+
+    // ── requisitions ────────────────────────────────────────────────────────
+    match /requisitions/{id} {
+      allow read: if recruitUser() && (canManage() || (can('talent.hire') && onTeam(resource.data)));
+      allow create: if recruitUser() && canHire()
+        && request.resource.data.createdBy == me()
+        && request.resource.data.hires == 0
+        && (request.resource.data.status in ['draft', 'pending-approval']
+            // Recruiters may open a role directly, but never for their own team.
+            || (request.resource.data.status == 'open' && canManage() && request.resource.data.hiringManagerId != me()));
+      allow update: if recruitUser() && unchanged(['createdBy', 'createdAt']) && (
+        // Recruiters: everything except approving headcount for their own team (separation of duties).
+        (canManage() && !(resource.data.status == 'pending-approval' && request.resource.data.status == 'open' && resource.data.hiringManagerId == me()))
+        // Hiring managers: their own draft / pending requisitions, without opening them.
+        || (can('talent.hire') && resource.data.hiringManagerId == me()
+            && resource.data.status in ['draft', 'pending-approval']
+            && request.resource.data.status in ['draft', 'pending-approval'])
+      );
+      allow delete: if false;
+
+      match /private/{docId} {
+        allow read: if recruitUser() && canComp();
+        allow write: if recruitUser() && (canManage()
+          || (can('talent.hire') && (!exists(reqPath(id)) || hiringManagerOf(id) == me())));
+      }
+    }
+
+    // ── talent pool ─────────────────────────────────────────────────────────
+    match /candidates/{id} {
+      allow read: if recruitUser() && (canManage() || canSource() || (can('talent.hire') && onTeam(resource.data)));
+      allow create, update: if recruitUser() && (canManage() || canSource());
+      // Right-to-erasure (GDPR / UAE PDPL) requests are handled by recruiters.
+      allow delete: if recruitUser() && canManage();
+
+      match /private/{docId} {
+        allow read: if recruitUser() && canComp();
+        allow write: if recruitUser() && (canManage() || canSource());
+        allow delete: if recruitUser() && canManage();
+      }
+    }
+
+    // ── pipeline ────────────────────────────────────────────────────────────
+    match /applications/{id} {
+      allow read: if recruitUser() && (canManage() || (can('talent.hire') && onTeam(resource.data)));
+      allow create: if recruitUser() && (canManage() || canSource());
+      allow update: if recruitUser() && unchanged(['candidateId', 'requisitionId', 'createdAt']) && (
+        canManage()
+        // Sourcers work the Acquire phase (outreach → interest).
+        || (canSource() && resource.data.stage in ['sourced', 'contacted', 'applied']
+            && request.resource.data.stage in ['sourced', 'contacted', 'applied'])
+        // Hiring managers move their own candidates through Assess / Decide and record
+        // the debrief decision (a "hire" decision advances the candidate to Offer).
+        || (can('talent.hire') && hiringManagerOf(resource.data.requisitionId) == me()
+            && request.resource.data.status == resource.data.status
+            && request.resource.data.stage in ['applied', 'screen', 'interview', 'final', 'offer']
+            && (request.resource.data.stage != 'offer' || request.resource.data.decision.verdict == 'hire'))
+      );
+      allow delete: if false;
+    }
+
+    // ── interviews & scorecards ─────────────────────────────────────────────
+    match /interviews/{id} {
+      allow read: if recruitUser() && (canManage() || onTeam(resource.data) || me() in resource.data.interviewerIds);
+      allow create, update: if recruitUser()
+        && (canManage() || (can('talent.hire') && hiringManagerOf(request.resource.data.requisitionId) == me()));
+      allow delete: if false;
+    }
+
+    match /scorecards/{id} {
+      allow read: if recruitUser() && (canManage() || onTeam(resource.data) || resource.data.interviewerId == me());
+      // Only panel members submit, only for themselves.
+      allow create: if recruitUser()
+        && request.resource.data.interviewerId == me()
+        && me() in get(/databases/$(database)/documents/interviews/$(request.resource.data.interviewId)).data.interviewerIds;
+      // Feedback is immutable once submitted (recruiters may only refresh access fields).
+      allow update: if recruitUser() && canManage() && onlyChanges(['teamIds']);
+      allow delete: if false;
+    }
+
+    // ── offers ──────────────────────────────────────────────────────────────
+    match /offers/{id} {
+      allow read: if recruitUser() && (canManage() || canApproveOffers() || (can('talent.hire') && onTeam(resource.data)));
+      allow create: if recruitUser() && canManage() && request.resource.data.createdBy == me();
+      allow update: if recruitUser() && unchanged(['createdBy', 'applicationId', 'candidateId', 'requisitionId']) && (
+        // Recruiters run the lifecycle (draft → submit → send → response → rescind) …
+        (canManage() && (unchanged(['approvals']) || resource.data.status == 'draft' || request.resource.data.status == 'draft'))
+        // … approvals come only from approvers who did not draft the offer (four-eyes).
+        || ((canApproveOffers() || hiringManagerOf(resource.data.requisitionId) == me())
+            && resource.data.createdBy != me()
+            && resource.data.status == 'pending-approval'
+            && onlyChanges(['approvals', 'status', 'teamIds']))
+      );
+      allow delete: if false;
+
+      match /private/{docId} {
+        allow read: if recruitUser() && canComp();
+        allow write: if recruitUser() && canManage();
+      }
+    }
+
+    // ── outreach ────────────────────────────────────────────────────────────
+    match /outreach/{id} {
+      allow read: if recruitUser() && (canManage() || canSource() || (can('talent.hire') && onTeam(resource.data)));
+      allow create, update: if recruitUser() && (canManage() || canSource());
+      allow delete: if false;
+    }
+
+    // ── onboarding (HR Portal) ──────────────────────────────────────────────
+    match /onboarding/{id} {
+      function involved(d) {
+        return d.managerId == me() || d.get('buddyId', '') == me() || d.get('hubUserId', '') == me();
+      }
+      allow read: if hrUser() && (canOnboard() || involved(resource.data));
+      // Created by the Talent Hub hand-off when an offer is accepted.
+      allow create: if isMember() && (canOnboard() || canManage());
+      allow update: if isMember() && unchanged(['candidateId', 'applicationId', 'offerId', 'handedOffBy', 'handedOffAt']) && (
+        canOnboard()
+        || (hrUser() && resource.data.managerId == me() && onlyChanges(['tasks', 'status', 'buddyId']))
+        || (hrUser() && involved(resource.data) && onlyChanges(['tasks', 'status']))
+      );
+      allow delete: if false;
+    }
+
+    // ── activity (append-only audit of hiring actions) ──────────────────────
+    match /activity/{id} {
+      allow read: if recruitUser() && (canManage() || onTeam(resource.data));
+      allow create: if isMember() && request.resource.data.actorId == me();
+      allow update: if recruitUser() && canManage() && onlyChanges(['teamIds']);
+      allow delete: if false;
+    }
+
+    // ── private sub-documents (collection-group read used by the adapter) ──
+    match /{path=**}/private/{docId} {
+      allow read: if isMember() && canComp();
+    }
+  }
+}
