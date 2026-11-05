@@ -93,6 +93,7 @@ export function HRPage() {
   useEffect(() => {
     void initTalentBackend();
     initHr();
+    void import('@/academy/store').then((m) => m.initAcademy());
   }, []);
 
   const tabs = useMemo<HrTab[]>(() => {

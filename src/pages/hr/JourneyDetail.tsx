@@ -10,10 +10,12 @@ import { useCallback, useMemo, useState, type CSSProperties, type FormEvent } fr
 import { Link, useParams } from 'react-router';
 import {
   ArrowLeft,
+  BookOpen,
   BriefcaseBusiness,
   CalendarHeart,
   Check,
   CircleCheckBig,
+  GraduationCap,
   HeartHandshake,
   KeyRound,
   ListChecks,
@@ -359,6 +361,16 @@ function TaskRow({ journey: j, task: t, now, roles, viewer, onToggle }: { journe
               <span className={cx('hr-onb-due', `hr-onb-due--${due.state}`)}>{due.label}</span>
               {due.state !== 'later' && <span className="hr-jd-task__date">{fmtShortDate(due.at, { weekday: 'short', day: 'numeric', month: 'short' })}</span>}
             </>
+          )}
+          {t.courseId && (
+            <Link to={`/academy/course/${t.courseId}`} className="hr-jd-task__link hr-jd-task__link--course">
+              <GraduationCap aria-hidden="true" /> {t.done ? 'Review course' : 'Take course'}
+            </Link>
+          )}
+          {t.articleSlug && (
+            <Link to={`/wiki/doc/${t.articleSlug}`} className="hr-jd-task__link hr-jd-task__link--doc">
+              <BookOpen aria-hidden="true" /> Playbook
+            </Link>
           )}
         </div>
       </div>

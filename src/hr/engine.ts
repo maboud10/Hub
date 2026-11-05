@@ -144,15 +144,43 @@ export interface Payslip {
 
 const daysInMonth = (y: number, m0: number) => new Date(y, m0 + 1, 0).getDate();
 
+const COMP_FX_TO_AED: Record<string, number> = {
+  AED: 1,
+  USD: 3.6725,
+  GBP: 4.66,
+  EUR: 3.98,
+  SGD: 2.74,
+  INR: 0.0438,
+  CAD: 2.65,
+  TRY: 0.106,
+};
+
 /** Monthly payslips (newest first) since the start date, up to `count`. */
 export function payslipsFor(
   user: Pick<User, 'id' | 'startDate'>,
   comp: CompRecord | undefined,
-  opts: { claims?: BenefitClaim[]; election?: BenefitElection | null; now?: number; count?: number } = {},
+  opts: {
+    claims?: BenefitClaim[];
+    election?: BenefitElection | null;
+    reimbursements?: { userId: string; status: string; payrollPeriod?: string; reimbursableAed: number; reference?: string }[];
+    bonuses?: { userId: string; status: string; payrollPeriod: string; amountAed: number; title: string }[];
+    paidPeriods?: Set<string> | string[];
+    now?: number;
+    count?: number;
+  } = {},
 ): Payslip[] {
   if (!comp) return [];
   const now = opts.now ?? Date.now();
   const today = toISODate(now);
+  const paidSet =
+    opts.paidPeriods instanceof Set
+      ? opts.paidPeriods
+      : opts.paidPeriods
+        ? new Set(opts.paidPeriods)
+        : null;
+  const fx = COMP_FX_TO_AED[comp.currency] ?? 1;
+  const fromAed = (aed: number) => round2(aed / fx);
+
   const out: Payslip[] = [];
   const d = new Date(now);
   let y = d.getFullYear();
@@ -163,7 +191,7 @@ export function payslipsFor(
     const payDate = `${period}-${pad(Math.min(comp.payDay, dim))}`;
     const monthEnd = `${period}-${pad(dim)}`;
     if (monthEnd < user.startDate) break;
-    if (payDate <= today) {
+    if (payDate <= today || paidSet?.has(period)) {
       const startsThisMonth = user.startDate.startsWith(period);
       const fraction = startsThisMonth ? (dim - Number(user.startDate.slice(8, 10)) + 1) / dim : 1;
       const earnings: PayLine[] = [{ label: 'Basic salary', amount: round2(comp.baseMonthly * fraction) }];
@@ -172,13 +200,28 @@ export function payslipsFor(
       const reimbursed = (opts.claims ?? []).filter((c) => c.userId === user.id && c.status === 'paid' && c.payrollMonth === period);
       for (const a of ALLOWANCES) {
         const total = sum(reimbursed.filter((c) => c.allowance === a.id).map((c) => c.amount));
-        if (total) earnings.push({ label: `${a.label} reimbursement`, amount: total });
+        if (total) earnings.push({ label: `${a.label} reimbursement`, amount: fromAed(total) });
       }
+      const paidExpensesAed = sum(
+        (opts.reimbursements ?? [])
+          .filter((r) => r.userId === user.id && r.status === 'reimbursed' && r.payrollPeriod === period)
+          .map((r) => r.reimbursableAed),
+      );
+      if (paidExpensesAed > 0) {
+        earnings.push({ label: 'Travel & expense reimbursement', amount: fromAed(paidExpensesAed) });
+      }
+      const paidBonuses = (opts.bonuses ?? []).filter(
+        (b) => b.userId === user.id && b.status === 'paid' && b.payrollPeriod === period,
+      );
+      for (const b of paidBonuses) {
+        earnings.push({ label: `Bonus · ${b.title}`, amount: fromAed(b.amountAed) });
+      }
+
       const deductions: PayLine[] = [];
       if (comp.pensionRate) deductions.push({ label: 'Pension / social security', amount: round2(comp.baseMonthly * fraction * comp.pensionRate) });
       if (opts.election && opts.election.status === 'confirmed') {
         const c = electionCost(opts.election).employeeMonthly;
-        if (c) deductions.push({ label: 'Benefits contribution', amount: c });
+        if (c) deductions.push({ label: 'Benefits contribution', amount: fromAed(c) });
       }
       const gross = round2(sum(earnings.map((e) => e.amount)));
       const net = round2(gross - sum(deductions.map((x) => x.amount)));

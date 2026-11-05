@@ -7,7 +7,7 @@
  */
 import { useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
-import { ArrowRight, ChevronDown, ChevronUp, ClipboardCheck, HeartPulse, ListChecks, MessagesSquare, Plane, Rocket, ScrollText, Signature, Smile, Sparkles, TreePalm, type LucideIcon } from 'lucide-react';
+import { ArrowRight, ChevronDown, ChevronUp, ClipboardCheck, GraduationCap, HeartPulse, ListChecks, MessagesSquare, Plane, Rocket, ScrollText, Signature, Smile, Sparkles, TreePalm, type LucideIcon } from 'lucide-react';
 import { useMyHrTasks, type HrTask, type HrTaskKind } from '@/hr/selectors';
 import type { PulseMilestone } from '@/hr/types';
 import { cx } from '@/lib/cx';
@@ -22,6 +22,7 @@ const KIND_META: Record<HrTaskKind, { icon: LucideIcon; cta: string; hue: number
   case: { icon: MessagesSquare, cta: 'Read reply', hue: 160 },
   approvals: { icon: ClipboardCheck, cta: 'Review', hue: 280 },
   onboarding: { icon: Rocket, cta: 'Open plan', hue: 300 },
+  training: { icon: GraduationCap, cta: 'Start course', hue: 242 },
   leave: { icon: TreePalm, cta: 'View', hue: 150 },
 };
 /** Long lists show the first few steps, with a "Show N more" toggle. */
@@ -30,12 +31,14 @@ const COLLAPSE_AT = 5;
 type Urgency = { label: string; tone: 'now' | 'soon' | 'info' };
 
 function urgencyOf(t: HrTask): Urgency {
-  if (t.urgent) return { label: t.kind === 'enrol' ? 'Due soon' : t.kind === 'approvals' ? 'Waiting' : 'Action needed', tone: 'now' };
+  if (t.urgent) return { label: t.kind === 'enrol' || t.kind === 'training' ? 'Due soon' : t.kind === 'approvals' ? 'Waiting' : 'Action needed', tone: 'now' };
   switch (t.kind) {
     case 'pulse':
       return { label: 'Open now', tone: 'soon' };
     case 'policy':
       return { label: 'To read', tone: 'soon' };
+    case 'training':
+      return { label: 'Required', tone: 'soon' };
     case 'approvals':
       return { label: 'Waiting', tone: 'soon' };
     case 'case':

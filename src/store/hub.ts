@@ -28,7 +28,7 @@ import type {
 } from '@/types';
 import type { IconName } from '@/icons';
 import { createSeed, DATA_VERSION, defaultPrefs } from '@/data/seed';
-import { hrNotifications, talentNotifications } from '@/data/content';
+import { hrNotifications, learningNotifications, spendPayrollNotifications, talentNotifications } from '@/data/content';
 import { appPermissionId } from '@/data/permissions';
 import { SUPER_ADMIN_ROLE_ID } from '@/data/roles';
 import {
@@ -824,7 +824,9 @@ export const useHub = create<HubStore>()(
         if (version === DATA_VERSION) return persisted as HubData;
         let s = persisted as HubData;
         if (version === 1) s = migrateV1toV2(s);
-        if (version === 1 || version === 2) return migrateV2toV3(s);
+        if (version === 1 || version === 2) s = migrateV2toV3(s);
+        if (version === 1 || version === 2 || version === 3) s = migrateV3toV4(s);
+        if (version === 1 || version === 2 || version === 3 || version === 4) return migrateV4toV5(s);
         return createSeed();
       },
     },
@@ -880,5 +882,78 @@ export function migrateV2toV3(s: HubData): HubData {
   const known = new Set(s.notifications.map((n) => n.id));
   const notifications = [...hrNotifications().filter((n) => !known.has(n.id)), ...s.notifications].slice(0, 400);
   const prefs = Object.fromEntries(Object.entries(s.prefs).map(([id, p]) => [id, { ...p, notifyKinds: { ...p.notifyKinds, hr: p.notifyKinds?.hr ?? true } }]));
-  return { ...s, version: DATA_VERSION, roles, apps, notifications, prefs };
+  return { ...s, version: 3, roles, apps, notifications, prefs };
+}
+
+/**
+ * v3 → v4: Knowledge Base (/wiki) + Academy (/academy) in-app modules,
+ * `wiki.*` and `academy.*` capabilities, and the `learning` notification kind.
+ */
+export function migrateV3toV4(s: HubData): HubData {
+  const seed = createSeed();
+  const seedRole = new Map(seed.roles.map((r) => [r.id, r]));
+  const roles = s.roles.map((r) => {
+    const fresh = seedRole.get(r.id);
+    if (!fresh || !r.system || r.locked) return r;
+    const add = fresh.permissions.filter((p) => (p.startsWith('wiki.') || p.startsWith('academy.')) && !r.permissions.includes(p));
+    return add.length ? { ...r, permissions: [...r.permissions, ...add] } : r;
+  });
+  const seedApp = new Map(seed.apps.map((a) => [a.id, a]));
+  const apps = s.apps.map((a) => {
+    const fresh = seedApp.get(a.id);
+    if (!fresh || (a.id !== 'wiki' && a.id !== 'learning')) return a;
+    return {
+      ...a,
+      route: fresh.route,
+      tagline: fresh.tagline,
+      description: fresh.description,
+      keywords: fresh.keywords,
+      quickActions: fresh.quickActions,
+      badge: fresh.badge ?? a.badge,
+      notifications: fresh.notifications ?? a.notifications,
+    };
+  });
+  const known = new Set(s.notifications.map((n) => n.id));
+  const notifications = [...learningNotifications().filter((n) => !known.has(n.id)), ...s.notifications].slice(0, 400);
+  const prefs = Object.fromEntries(Object.entries(s.prefs).map(([id, p]) => [id, { ...p, notifyKinds: { ...p.notifyKinds, learning: p.notifyKinds?.learning ?? true } }]));
+  return { ...s, version: 4, roles, apps, notifications, prefs };
+}
+
+/**
+ * v4 → v5: Travel & Expenses (/expenses, /travel) + Payroll Console (/payroll),
+ * `expenses.*` and `payroll.*` permissions, operational Travel tile, and starter spend/payroll notifications.
+ */
+export function migrateV4toV5(s: HubData): HubData {
+  const seed = createSeed();
+  const seedRole = new Map(seed.roles.map((r) => [r.id, r]));
+  const roles = s.roles.map((r) => {
+    const fresh = seedRole.get(r.id);
+    if (!fresh || !r.system || r.locked) return r;
+    const add = fresh.permissions.filter(
+      (p) =>
+        (p.startsWith('expenses.') || p.startsWith('payroll.') || p === 'hub.people.view' || p === 'talent.comp.view') &&
+        !r.permissions.includes(p),
+    );
+    return add.length ? { ...r, permissions: [...r.permissions, ...add] } : r;
+  });
+  const seedApp = new Map(seed.apps.map((a) => [a.id, a]));
+  const apps = s.apps.map((a) => {
+    const fresh = seedApp.get(a.id);
+    if (!fresh || (a.id !== 'expenses' && a.id !== 'travel' && a.id !== 'payroll')) return a;
+    return {
+      ...a,
+      route: fresh.route,
+      status: fresh.status,
+      discoverable: fresh.discoverable,
+      tagline: fresh.tagline,
+      description: fresh.description,
+      keywords: fresh.keywords,
+      quickActions: fresh.quickActions,
+      badge: fresh.badge ?? a.badge,
+      notifications: fresh.notifications ?? a.notifications,
+    };
+  });
+  const known = new Set(s.notifications.map((n) => n.id));
+  const notifications = [...spendPayrollNotifications().filter((n) => !known.has(n.id)), ...s.notifications].slice(0, 400);
+  return { ...s, version: DATA_VERSION, roles, apps, notifications };
 }

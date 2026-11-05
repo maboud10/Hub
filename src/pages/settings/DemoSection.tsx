@@ -17,6 +17,8 @@ const RESET_SCOPE = [
   'Access requests and the audit trail',
   'Announcements, kudos and notifications',
   'Talent Hub pipeline, offers and HR Portal onboarding journeys',
+  'Knowledge Base playbooks, change proposals and Academy enrollments & certificates',
+  'Travel & Expense trips, receipts, reimbursements and Payroll Console runs & bonuses',
   'Everyone’s preferences — theme, pins and widgets',
 ];
 
@@ -33,8 +35,12 @@ export function DemoSection() {
     useHub.getState().resetDemo();
     void import('@/talent/store').then((m) => m.useTalent.getState().resetTalentDemo());
     void import('@/hr/store').then((m) => m.useHr.getState().resetHrDemo());
+    void import('@/wiki/store').then((m) => m.useWiki.getState().resetWikiDemo());
+    void import('@/academy/store').then((m) => m.useAcademy.getState().resetAcademyDemo());
+    void import('@/expenses/store').then((m) => m.useExpenses.getState().resetExpensesDemo());
+    void import('@/payroll/store').then((m) => m.usePayroll.getState().resetPayrollDemo());
     setConfirmOpen(false);
-    toast.success('Demo data restored', 'Personas, apps, requests, posts and hiring data are back to their starting state.');
+    toast.success('Demo data restored', 'All personas, apps, HR, Cortex, Academy, Travel & Expenses, and Payroll Console are back to starting state.');
   };
 
   return (

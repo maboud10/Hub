@@ -7,9 +7,13 @@ import { useMemo } from 'react';
 import type { User } from '@/types';
 import { useHub } from '@/store/hub';
 import { usePermissions, useSessionUser } from '@/store/selectors';
+import { hasPermission } from '@/lib/rbac';
 import { useNow } from '@/hooks/useNow';
 import { useTalent } from '@/talent/store';
 import type { OnboardingJourney } from '@/talent/types';
+import { useAcademy } from '@/academy/store';
+import { useExpenses } from '@/expenses/store';
+import { usePayroll } from '@/payroll/store';
 import { useHr } from './store';
 import * as access from './access';
 import { ALLOWANCE_BY_ID, LEAVE_TYPE_BY_ID, LETTER_BY_ID, POLICIES, holidaysFor, type PublicHoliday } from './constants';
@@ -196,7 +200,7 @@ export function useApprovals(): ApprovalItem[] {
 }
 
 // ───────────────────────── my next steps ─────────────────────────
-export type HrTaskKind = 'sign' | 'policy' | 'enrol' | 'pulse' | 'case' | 'approvals' | 'onboarding' | 'leave';
+export type HrTaskKind = 'sign' | 'policy' | 'enrol' | 'pulse' | 'case' | 'approvals' | 'onboarding' | 'training' | 'leave';
 
 export interface HrTask {
   id: string;
@@ -210,7 +214,15 @@ export interface HrTask {
 }
 
 /** Personal HR to-dos for the signed-in person (pure). */
-export function computeHrTasks(v: access.HrViewer | null, user: User | null, data: HrData, journeys: OnboardingJourney[], users: User[], now = Date.now()): HrTask[] {
+export function computeHrTasks(
+  v: access.HrViewer | null,
+  user: User | null,
+  data: HrData,
+  journeys: OnboardingJourney[],
+  users: User[],
+  now = Date.now(),
+  academy?: { courses: { id: string; title: string; durationMins: number }[]; enrollments: { userId: string; courseId: string; status: string; required: boolean; dueDate?: string }[] },
+): HrTask[] {
   if (!v || !user || !access.canUseHR(v)) return [];
   const tasks: HrTask[] = [];
   const today = todayISO(now);
@@ -235,6 +247,32 @@ export function computeHrTasks(v: access.HrViewer | null, user: User | null, dat
       link: '/hr/benefits?enrol=1',
       urgent: left !== null && left <= 7,
     });
+  }
+  if (academy && hasPermission(v.perms, 'app:learning')) {
+    const courseById = new Map(academy.courses.map((c) => [c.id, c]));
+    for (const enr of academy.enrollments) {
+      if (enr.userId !== user.id || !enr.required || enr.status === 'completed') continue;
+      const course = courseById.get(enr.courseId);
+      if (!course) continue;
+      const left = enr.dueDate ? daysBetween(today, enr.dueDate) : null;
+      if (left !== null && left > 14) continue;
+      tasks.push({
+        id: `training-${course.id}`,
+        kind: 'training',
+        title: `Complete training: ${course.title}`,
+        detail:
+          left === null
+            ? `${course.durationMins}-minute interactive Academy course`
+            : left < 0
+              ? `Overdue by ${Math.abs(left)} day${left === -1 ? '' : 's'} · ${course.durationMins}m in Helix Academy`
+              : left === 0
+                ? `Due today · ${course.durationMins}m in Helix Academy`
+                : `Due in ${left} day${left === 1 ? '' : 's'} · ${course.durationMins}m in Helix Academy`,
+        link: `/academy/course/${course.id}`,
+        urgent: left !== null && left <= 3,
+        ref: course.id,
+      });
+    }
   }
   if (isNewHire(user.startDate, now)) {
     const slot = pulseSchedule(user.startDate, data.pulses.filter((r) => r.userId === user.id), now).find((s) => s.state === 'open');
@@ -265,8 +303,13 @@ export function useMyHrTasks(): HrTask[] {
   const data = useHrData();
   const journeys = useTalent((s) => s.onboarding);
   const users = useHub((s) => s.users);
+  const courses = useAcademy((s) => s.courses);
+  const enrollments = useAcademy((s) => s.enrollments);
   const minute = useNow(60_000);
-  return useMemo(() => computeHrTasks(v, me, data, journeys, users, minute), [v, me, data, journeys, users, minute]);
+  return useMemo(
+    () => computeHrTasks(v, me, data, journeys, users, minute, { courses, enrollments }),
+    [v, me, data, journeys, users, minute, courses, enrollments],
+  );
 }
 
 // ───────────────────────── who's away ─────────────────────────
@@ -328,12 +371,23 @@ export function usePayslips(userId?: string, count = 6): Payslip[] {
   const comp = useHr((s) => s.comp);
   const claims = useHr((s) => s.claims);
   const elections = useHr((s) => s.elections);
+  const expenseReports = useExpenses((s) => s.reports);
+  const bonuses = usePayroll((s) => s.bonuses);
+  const runs = usePayroll((s) => s.runs);
   return useMemo(() => {
     const u = userId ? users.find((x) => x.id === userId) : me;
     if (!u || !v || !access.canSeePay(v, u.id)) return [];
     const year = new Date().getFullYear();
-    return payslipsFor(u, comp.find((c) => c.userId === u.id), { claims, election: elections.find((e) => e.userId === u.id && e.year === year) ?? null, count });
-  }, [userId, users, me, v, comp, claims, elections, count]);
+    const paidPeriods = new Set(runs.filter((r) => r.status === 'paid').map((r) => r.period));
+    return payslipsFor(u, comp.find((c) => c.userId === u.id), {
+      claims,
+      election: elections.find((e) => e.userId === u.id && e.year === year) ?? null,
+      reimbursements: expenseReports,
+      bonuses,
+      paidPeriods,
+      count,
+    });
+  }, [userId, users, me, v, comp, claims, elections, expenseReports, bonuses, runs, count]);
 }
 
 // ───────────────────────── People Ops ─────────────────────────

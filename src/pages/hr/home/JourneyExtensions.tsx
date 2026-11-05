@@ -10,11 +10,14 @@
  */
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { BellRing, Check, ClipboardCheck, Clock, EyeOff, HeartPulse, KeyRound, Lock, ScrollText, Signature, Smile, TriangleAlert, X } from 'lucide-react';
+import { Award, BellRing, BookOpen, Check, ClipboardCheck, Clock, EyeOff, GraduationCap, HeartPulse, KeyRound, Lock, ScrollText, Signature, Smile, TriangleAlert, X } from 'lucide-react';
 import type { OnboardingJourney } from '@/talent/types';
 import { canSeeJourney } from '@/talent/access';
 import { useTalent } from '@/talent/store';
 import { useTalentViewer } from '@/talent/selectors';
+import { useAcademy } from '@/academy/store';
+import { computeUserCourses } from '@/academy/selectors';
+import { useWiki } from '@/wiki/store';
 import { ELECTION_STATUS_META, HEALTH_PLAN_BY_ID, POLICIES } from '@/hr/constants';
 import { canManageHR } from '@/hr/access';
 import { pulseSchedule, pulseScore } from '@/hr/engine';
@@ -55,6 +58,7 @@ export function JourneyExtensions({ journeyId }: { journeyId: string }) {
       <div className="hr-home-jx__grid">
         <PulsePanel journey={journey} roles={roles} />
         <PaperworkPanel journey={journey} roles={roles} />
+        <TrainingPanel journey={journey} roles={roles} />
       </div>
     </div>
   );
@@ -326,3 +330,139 @@ function PaperworkPanel({ journey: j, roles }: { journey: OnboardingJourney; rol
     </section>
   );
 }
+
+// ───────────────────────── training & reading ─────────────────────────
+function TrainingPanel({ journey: j, roles }: { journey: OnboardingJourney; roles: Roles }) {
+  const navigate = useNavigate();
+  const courses = useAcademy((s) => s.courses);
+  const enrollments = useAcademy((s) => s.enrollments);
+  const certificates = useAcademy((s) => s.certificates);
+  const nudgeLearner = useAcademy((s) => s.nudgeLearner);
+  const collections = useWiki((s) => s.collections);
+  const userState = useWiki((s) => s.userState);
+  const now = useNow(60_000);
+  const uid = j.hubUserId;
+  const first = j.name.split(/\s+/)[0];
+
+  const summary = useMemo(() => {
+    const pack = collections.find((c) => c.id === 'col-new-hire');
+    if (!uid) return { items: [], certsCount: 0, packRead: 0, packTotal: pack?.articleSlugs.length ?? 5 };
+    const all = computeUserCourses(uid, courses, enrollments, todayISO(now));
+    const items = all.filter((x) => x.enrollment && (x.enrollment.source === 'onboarding' || x.enrollment.required));
+    const certsCount = certificates.filter((c) => c.userId === uid).length;
+    const readSet = new Set(userState[uid]?.readSlugs ?? []);
+    const packRead = pack ? pack.articleSlugs.filter((slug) => readSet.has(slug)).length : 0;
+    return { items, certsCount, packRead, packTotal: pack?.articleSlugs.length ?? 5 };
+  }, [uid, courses, enrollments, certificates, collections, userState, now]);
+
+  if (!uid) {
+    return (
+      <section className="hr-home-jx__card hr-home-jx__card--wide is-waiting" aria-labelledby={`hr-home-jx-acad-${j.id}`}>
+        <h2 id={`hr-home-jx-acad-${j.id}`} className="hr-home-jx__title">
+          <GraduationCap aria-hidden="true" /> Academy &amp; Reading Pack
+        </h2>
+        <div className="hr-home-jx__waiting">
+          <KeyRound aria-hidden="true" />
+          <p>
+            <b>Role-based Academy courses auto-assign when {first}’s NEXUS account is provisioned.</b> Passing a course quiz automatically ticks off the linked task in this journey.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  const doneCount = summary.items.filter((x) => x.enrollment?.status === 'completed').length;
+  const totalCount = summary.items.length;
+  const nextOpen = summary.items.find((x) => x.enrollment?.status !== 'completed');
+
+  return (
+    <section className="hr-home-jx__card hr-home-jx__card--wide" aria-labelledby={`hr-home-jx-acad-${j.id}`}>
+      <h2 id={`hr-home-jx-acad-${j.id}`} className="hr-home-jx__title">
+        <GraduationCap aria-hidden="true" /> Required Training &amp; Reading
+        <span className={cx('hr-home-jx__count', totalCount > 0 && doneCount === totalCount && 'is-done')}>
+          {doneCount}/{totalCount} certified
+        </span>
+      </h2>
+      {totalCount > 0 && (
+        <div className="progress hr-home-jx__bar" role="progressbar" aria-valuemin={0} aria-valuemax={totalCount} aria-valuenow={doneCount} aria-label="Onboarding training progress">
+          <span style={{ width: `${(doneCount / totalCount) * 100}%` }} />
+        </div>
+      )}
+
+      <div className="hr-home-jx__group">
+        <span className="hr-home-jx__label">
+          <Award aria-hidden="true" /> Helix Academy curriculum · {summary.certsCount} certificate{summary.certsCount === 1 ? '' : 's'} earned
+        </span>
+        <ul className="hr-home-jx__items">
+          {summary.items.map(({ course, enrollment, progressPct, daysUntilDue, overdue }) => {
+            const done = enrollment?.status === 'completed';
+            const stateLabel = done
+              ? `Certified${enrollment?.bestQuizScore ? ` · ${enrollment.bestQuizScore}%` : ''}`
+              : overdue
+                ? `Overdue by ${Math.abs(daysUntilDue ?? 0)}d · ${progressPct}%`
+                : daysUntilDue !== null
+                  ? `Due in ${daysUntilDue}d · ${progressPct}%`
+                  : `${progressPct}% complete`;
+            return (
+              <li key={course.id} className={cx('hr-home-jx__item', done ? 'is-done' : 'is-todo')}>
+                <span className="hr-home-jx__tick" aria-hidden="true">
+                  {done ? <Check /> : <Clock />}
+                </span>
+                <span className="hr-home-jx__name">{course.title}</span>
+                <span className="hr-home-jx__state">{stateLabel}</span>
+              </li>
+            );
+          })}
+          {!summary.items.length && <li className="hr-home-jx__item is-done">No required courses pending.</li>}
+        </ul>
+      </div>
+
+      <div className="hr-home-jx__group">
+        <span className="hr-home-jx__label">
+          <BookOpen aria-hidden="true" /> New-Hire Week-1 Reading Pack · {summary.packRead}/{summary.packTotal} read
+        </span>
+      </div>
+
+      <div className="hr-home-jx__actions">
+        {roles.hire ? (
+          <>
+            <button
+              type="button"
+              className="btn btn--primary btn--sm"
+              onClick={() => navigate(nextOpen ? `/academy/course/${nextOpen.course.id}` : '/academy')}
+            >
+              <GraduationCap /> {nextOpen ? 'Continue training' : 'Open Academy'}
+            </button>
+            <button type="button" className="btn btn--sm" onClick={() => navigate('/wiki/collections/col-new-hire')}>
+              <BookOpen /> Reading pack
+            </button>
+          </>
+        ) : (
+          <>
+            {(roles.ops || roles.manager) && nextOpen && (
+              <button
+                type="button"
+                className="btn btn--sm"
+                onClick={() => {
+                  const res = nudgeLearner(uid, nextOpen.course.id);
+                  toast.result(res);
+                }}
+              >
+                <BellRing /> Nudge {first}
+              </button>
+            )}
+            {(roles.ops || roles.manager) && (
+              <button type="button" className="btn btn--sm" onClick={() => navigate('/academy/manage')}>
+                <GraduationCap /> Team compliance
+              </button>
+            )}
+            <button type="button" className="btn btn--sm" onClick={() => navigate('/wiki/collections/col-new-hire')}>
+              <BookOpen /> Reading pack
+            </button>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+

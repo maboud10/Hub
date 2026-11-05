@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
 import { useApplyTheme } from '@/hooks/useApplyTheme';
 import { ADMIN_PERMISSIONS } from '@/data/permissions';
 import { RequireAuth, RequirePermission } from '@/components/auth/Can';
@@ -17,6 +17,15 @@ const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((m) => ({ de
 const AdminPage = lazy(() => import('@/pages/admin/AdminPage').then((m) => ({ default: m.AdminPage })));
 const TalentPage = lazy(() => import('@/pages/talent/TalentPage').then((m) => ({ default: m.TalentPage })));
 const HRPage = lazy(() => import('@/pages/hr/HRPage').then((m) => ({ default: m.HRPage })));
+const WikiPage = lazy(() => import('@/pages/wiki/WikiPage').then((m) => ({ default: m.WikiPage })));
+const AcademyPage = lazy(() => import('@/pages/academy/AcademyPage').then((m) => ({ default: m.AcademyPage })));
+const ExpensesPage = lazy(() => import('@/pages/expenses/ExpensesPage').then((m) => ({ default: m.ExpensesPage })));
+const PayrollPage = lazy(() => import('@/pages/payroll/PayrollPage').then((m) => ({ default: m.PayrollPage })));
+
+function TravelRedirect() {
+  const loc = useLocation();
+  return <Navigate to={`/expenses/travel${loc.search}`} replace />;
+}
 
 export default function App() {
   useApplyTheme();
@@ -64,6 +73,46 @@ export default function App() {
             element={
               <RequirePermission perm="app:hr" area="HR Portal">
                 <HRPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="wiki/*"
+            element={
+              <RequirePermission perm="app:wiki" area="Knowledge Base">
+                <WikiPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="academy/*"
+            element={
+              <RequirePermission perm="app:learning" area="Academy">
+                <AcademyPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="expenses/*"
+            element={
+              <RequirePermission perm={['app:expenses', 'app:travel']} area="Travel & Expenses">
+                <ExpensesPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="travel/*"
+            element={
+              <RequirePermission perm={['app:travel', 'app:expenses']} area="Travel Desk">
+                <TravelRedirect />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="payroll/*"
+            element={
+              <RequirePermission perm="app:payroll" area="Payroll Console">
+                <PayrollPage />
               </RequirePermission>
             }
           />

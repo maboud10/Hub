@@ -278,6 +278,8 @@ export const SEED_NOTIFICATIONS: HubNotification[] = [
   n('n-15', 'u-alex', 60, 'system', 'Welcome to NEXUS', 'You have contractor access. Request more from any locked tile.', '/apps'),
   ...talentNotifications(),
   ...hrNotifications(),
+  ...learningNotifications(),
+  ...spendPayrollNotifications(),
 ];
 
 /** Talent Hub / HR Portal to-dos (also merged into existing workspaces by the v2 migration). */
@@ -304,5 +306,26 @@ export function hrNotifications(): HubNotification[] {
     n('n-h5', 'u-sara', 9, 'hr', 'New confidential case', 'Open the HR Portal to view it. Details are hidden from notifications.', '/hr/approvals'),
     n('n-h6', 'u-layla', 12 * 60, 'hr', 'Omar Khalid requested time off', 'Annual leave · 4 days · Priya covering', '/hr/approvals'),
     n('n-h7', 'u-mei', 3 * 60, 'hr', 'Updated policy to acknowledge', 'Information Security v3: passkeys become mandatory on 15 November.', '/hr/documents'),
+  ];
+}
+
+/** Academy & Knowledge Base starter notifications (merged by the v4 migration). */
+export function learningNotifications(): HubNotification[] {
+  return [
+    n('n-l1', 'u-kwame', 90, 'learning', 'Onboarding training due in 4 days', 'Secure Engineering & Production Readiness · completes your 30-day milestone.', '/academy/course/c-eng-sec'),
+    n('n-l2', 'u-mei', 4 * 60, 'learning', 'Annual security recertification open', 'Security & Zero-Trust Essentials · 20 mins · includes passkeys scenario.', '/academy/course/c-sec-101'),
+    n('n-l3', 'u-sara', 3 * 60, 'learning', 'Change proposal awaiting review', 'Priya Nair proposed an update to the Incident Response & Phishing Runbook.', '/wiki/governance'),
+    n('n-l4', 'u-omar', 8 * 60, 'learning', 'Team training reminder', 'Kwame Mensah has 2 Day-30 onboarding courses in progress.', '/academy/manage'),
+  ];
+}
+
+/** Travel, Expenses & Payroll Console starter notifications (merged by the v5 migration). */
+export function spendPayrollNotifications(): HubNotification[] {
+  return [
+    n('n-sp1', 'u-omar', 55, 'request', 'Travel pre-approval: Mei Tanaka', 'Tokyo · APAC Design Research Sprint · AED 10,890 est.', '/expenses/approvals'),
+    n('n-sp2', 'u-omar', 110, 'request', 'Expense report submitted: Kwame Mensah', 'HX-EXP-2026-0103 · Berlin SRE Shadowing · AED 6,379 reimbursable.', '/expenses/approvals'),
+    n('n-sp3', 'u-daniel', 35, 'request', 'Finance audit ready: Aisha Rahman', 'HX-EXP-2026-0105 · Riyadh GCC Summit · AED 6,247 ready to queue for payroll.', '/expenses/approvals'),
+    n('n-sp4', 'u-sara', 75, 'hr', '2 bonus nominations awaiting sign-off', 'Mei Tanaka (Spot · AED 3,500) & Aisha Rahman (Performance · AED 9,000).', '/payroll/bonuses'),
+    n('n-sp5', 'u-priya', 180, 'request', 'Expense report queued for payday 💸', 'HX-EXP-2026-0098 (AED 4,890) verified by Finance and added to this month’s payroll run.', '/expenses/reimbursements'),
   ];
 }

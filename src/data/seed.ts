@@ -4,8 +4,8 @@ import { SEED_ROLES } from './roles';
 import { SEED_USERS } from './users';
 import { SEED_ANNOUNCEMENTS, SEED_AUDIT, SEED_KUDOS, SEED_NOTIFICATIONS, SEED_REQUESTS } from './content';
 
-/** v2: Talent Hub + HR Portal modules (permissions, in-app routes, talent notifications). */
-export const DATA_VERSION = 3;
+/** v5: Travel & Expenses (/expenses, /travel) + Payroll Console (/payroll) + live reimbursement & payslip sync. */
+export const DATA_VERSION = 5;
 
 export function defaultPrefs(pinned: string[] = ['mail', 'chat', 'calendar', 'projects']): UserPrefs {
   return {
@@ -28,7 +28,7 @@ export function defaultPrefs(pinned: string[] = ['mail', 'chat', 'calendar', 'pr
       status: true,
       celebrations: true,
     },
-    notifyKinds: { access: true, request: true, announcement: true, kudos: true, talent: true, hr: true, system: true },
+    notifyKinds: { access: true, request: true, announcement: true, kudos: true, talent: true, hr: true, learning: true, system: true },
   };
 }
 

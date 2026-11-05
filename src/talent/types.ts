@@ -349,6 +349,10 @@ export interface OnboardingTask {
   owner: TaskOwner;
   /** Due date relative to the start date (negative = before day one). */
   dueOffsetDays: number;
+  /** Linked Academy course — completing the course auto-completes this task. */
+  courseId?: string;
+  /** Linked Knowledge Base playbook or guide slug. */
+  articleSlug?: string;
   done: boolean;
   doneAt?: number;
   doneBy?: string;

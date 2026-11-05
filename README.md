@@ -71,6 +71,45 @@ Try it: **Sara** (recruiter lens: source from a JD, approve Rania's offer, recor
 
 Try it: **Kwame** (`?persona=u-kwame`, day ~26: sign the IP agreement, enrol in benefits, answer the 30-day pulse), **Omar** (approve Mei's trip), **Sara** (People Ops queue incl. a confidential case), **Mei** (salary certificate in one tap).
 
+## Knowledge Base (`/wiki`) + Helix Academy (`/academy`)
+
+Living company intelligence and interactive mastery — tightly wired to HR Portal onboarding from Day 1 to Day 90.
+
+### Knowledge Base (`/wiki`): Helix Cortex
+- **Permission-scoped Spaces**: 6 curated spaces (`Company Handbook`, `Onboarding & First 90 Days`, `Trust & Security`, `Product & Design`, `Engineering & SRE`, `People & Leadership`). Contractors (`u-alex`) automatically see open spaces only (`handbook`, `onboarding`, `security`).
+- **Ask Nova Docs (`?ask=1`)**: permission-first Q&A synthesizer that filters strictly through the viewer's cleared spaces *before* ranking or synthesis, returning grounded answers with `[1]`, `[2]` section citations, freshness warnings, and companion Academy course links.
+- **Interactive Runbooks & Playbooks**: multi-section docs with TL;DR executive cards, copyable CLI snippets, per-user persistent runbook checklists, version history viewer, helpful votes, and Q&A comment threads.
+- **Canonical Governance & Freshness**: owners and curators (`wiki.manage`) lock canonical policies, verify freshness cadences, triage stale flags, and review **Change Proposals** under a strict four-eyes separation-of-duties rule (authors cannot self-approve).
+- **Reading Packs**: curated sequences including the **New-Hire Week-1 Reading Pack** (`/wiki/collections/col-new-hire`) linked directly from HR Portal onboarding journeys.
+
+### Helix Academy (`/academy`): Interactive Courses, Scenarios & Onboarding Sync
+- **Bidirectional HR Onboarding Integration**:
+  - Provisioning a new hire's NEXUS account in HR Portal (`provisionHubAccount`) automatically triggers role- and phase-based Academy enrollments (`syncOnboarding()`).
+  - Passing an Academy course's certification quiz automatically mints a verifiable digital credential (`HX-...`), endorses mastered skills on the user's NEXUS profile, **and checks off the linked task in their HR Portal Onboarding Journey**.
+  - Onboarding checklist tasks in `/hr/onboarding/:id` deep-link directly to their Academy course (`Take course`) and Knowledge Base playbook (`Playbook`), alongside a live **Required Training & Reading** side card.
+- **Interactive Course Player**: concept modules with *"Check your intuition"* flashchecks, branching workplace **Scenario Simulators** (inspect realistic Slack/email/PR artifacts, choose a response, inspect impact & coaching), personal per-lesson study notes, and graded certification quizzes.
+- **Skill Radar, Paths & Verifiable Certificates**: 6-domain mastery radar, multi-course role Learning Paths, and holographic printable certificates.
+- **Team & L&D Compliance Studio (`/academy/manage`)**: direct-report vs company-wide compliance matrix, 1-click learner nudges, manager course assignments, live Onboarding Auto-Assignment Rules toggles, and an in-app **Course Authoring Studio**.
+
+## Travel & Expenses (`/expenses`, `/travel`) + Payroll Console (`/payroll`)
+
+An end-to-end financial & people-ops workflow connecting business travel, multi-currency receipt OCR, four-eyes spend governance, monthly WPS payroll disbursement, bonuses, compensation bands, and HR Portal payslips.
+
+### Travel & Expenses (`/expenses` & `/travel`): 7-Stage Process Flow
+1. **Stage 1 · Request Travel**: pick a destination preset (`London`, `Singapore`, `Berlin`, `Riyadh`, `Bengaluru`, `New York`, `Tokyo`) with automatic per-diem rates, benchmark flight/hotel budgets, flight hours, CO₂ footprint, quarterly department budget check, policy guardrails, and Visa/NOC letter link to `/hr/documents?tab=letters`.
+2. **Stage 2 · Pre-Approval & Scoped Virtual Card**: manager review enforcing separation of duties (no self-approval), automatic issuance of a trip-scoped **Virtual Corporate Card** (`•••• XXXX` with spend limit & active window), and flight/hotel PNR booking with duty-of-care check-in.
+3. **Stage 3 · Smart Receipt OCR Vault**: drag-and-drop or 1-click AI receipt scanner extracting merchant, category, currency (`AED`, `USD`, `GBP`, `EUR`, `SGD`, `SAR`, `JPY`), FX conversion to AED, recoverable VAT, GL code, duplicate/meal-cap policy flags, and a 1-click **Trip Per-Diem Generator**.
+4. **Stage 4 · Expense Report Submission**: bundle unsubmitted receipts + automatic trip per diem into a single report, cleanly separating corporate-card spend from out-of-pocket reimbursable AED.
+5. **Stage 5 · Four-Eyes Review**: Manager approval → Finance GL & VAT audit (`expenses.audit`).
+6. **Stage 6 · Queued in Payroll Console**: Finance queues approved reimbursements into a target `YYYY-MM` payroll period (`payroll_queued`), appearing live inside `/payroll`.
+7. **Stage 7 · Reimbursed & On HR Payslip**: disbursing the monthly Pay Run in `/payroll` (or sending an **Express Off-Cycle Wire**) flips queued claims to `reimbursed` with `WPS-HX-...` payment references and adds the tax-free reimbursement line directly onto the employee's **HR Portal Payslip** (`/hr/documents?tab=payslips`).
+
+### Payroll Console (`/payroll`): Payday, Bonuses & Compensation Intelligence
+- **Four-Eyes Monthly Pay Run Wizard**: live sync from HR (`comp` in 8 global currencies normalized to AED, first-month starter pro-rating, unpaid leave deductions, pension & confirmed benefit shares, approved HR allowance claims), Expenses (`payroll_queued` reports), and Bonuses (`approved_queued` awards) → Variance & flag inspection + one-off line adjustments → Four-eyes sign-off (`preparedBy !== approvedBy`) → **UAE Central Bank WPS `.SIF` (`EDR` + `SCR`) & `.CSV` export** → **Payday Disbursement** (settles Expenses, HR Claims, Bonuses, and publishes official payslips to HR Portal).
+- **Bonuses, Spot Awards & Variable Pay (`/payroll/bonuses`)**: nominate `Performance`, `Spot`, `Signing`, `Milestone`, and `Retention` awards with departmental variable-pay burn bars and separation-of-duties approval (`payroll.approve`, never on self or own nomination).
+- **Compensation Reports, Salary Bands & Statutory EOSB (`/payroll/compensation`)**: visual `IC2`–`M4` salary band architecture, Compa-Ratio & band-penetration equity matrix, Total Rewards waterfall by department, statutory **UAE End-of-Service Gratuity (EOSB)** liability calculator (`21d/yr` yrs 1–5, `30d/yr` >5 yrs, `<1yr` cliff), live base-salary calibration synced with HR, and CSV export.
+- **Reimbursements Settlement Bridge (`/payroll/reimbursements`)**: unified Finance queue linking `/expenses` and `/hr/benefits` to monthly payday or instant off-cycle wire.
+
 ## Architecture
 
 ```
@@ -89,6 +128,14 @@ src/
   pages/talent/         Talent Hub UI (command deck, pipeline, AI sourcing, requisitions, pool, interviews, offers)
   hr/                   HR Portal engine: types, store, access rules, calendar/working-days, seed & unit tests
   pages/hr/             HR Portal UI (My HR, time off, benefits, documents, onboarding journeys, approvals, People Ops)
+  wiki/                 Knowledge Base ("Cortex") engine: spaces, RBAC, permission-first Q&A, proposals, freshness & tests
+  pages/wiki/           Knowledge Base UI (Explore, Nova Docs Q&A, Reading Packs, Interactive Reader, Composer, Governance)
+  academy/              Helix Academy engine: courses, scenarios, quizzes, certificates, onboarding rules sync & tests
+  pages/academy/        Academy UI (My Learning + Skill Radar, Course Player & Simulator, Catalog & Paths, Certificates, Studio)
+  expenses/             Travel & Expenses engine: 7-stage flow, virtual cards, Smart OCR vault, policy/GL audit & E2E tests
+  pages/expenses/       Travel & Expenses UI (7-Stage Flow, Travel Desk, Receipt Vault, Reports, Reimbursement Tracker, Audit)
+  payroll/              Payroll Console engine: four-eyes pay runs, multi-currency FX, bonuses, bands, EOSB & WPS .SIF export
+  pages/payroll/        Payroll Console UI (Payday Wizard, Bonuses & Awards, Compensation & Bands, Reimbursements Bridge)
   firestore/            Production kit for the `talenthub` database (rules, indexes, runbook)
   data/                 Seed catalog, roles, users, content (demo)
   styles/               tokens → base → ui kit → feature stylesheets (plain CSS, themable via data-attributes)

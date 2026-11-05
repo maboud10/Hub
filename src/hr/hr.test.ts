@@ -273,7 +273,7 @@ describe('hub migration', () => {
       prefs: Object.fromEntries(Object.entries(s.prefs).map(([id, p]) => [id, { ...p, notifyKinds: { ...p.notifyKinds, hr: undefined as unknown as boolean } }])),
     };
     const v3 = mod.hub.migrateV2toV3(v2);
-    expect(v3.version).toBe(mod.seed.DATA_VERSION);
+    expect(v3.version).toBe(3);
     expect(v3.roles.find((r) => r.id === 'people-ops')!.permissions).toContain('hr.people.manage');
     expect(Object.values(v3.prefs).every((p) => p.notifyKinds.hr === true)).toBe(true);
     expect(v3.notifications.some((n) => n.id === 'n-h1')).toBe(true);

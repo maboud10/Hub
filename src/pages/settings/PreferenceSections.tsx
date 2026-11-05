@@ -7,6 +7,7 @@ import {
   CalendarDays,
   ClipboardList,
   Contact,
+  GraduationCap,
   KeyRound,
   LayoutDashboard,
   Megaphone,
@@ -47,6 +48,7 @@ export const NOTIFICATION_KINDS: ToggleMeta<NotificationKind>[] = [
   { id: 'kudos', label: 'Kudos', description: 'When someone recognises your work.', icon: Award },
   { id: 'talent', label: 'Hiring & onboarding', description: 'Scorecards due, offer approvals, hires and onboarding tasks.', icon: UserPlus },
   { id: 'hr', label: 'Time off, benefits & HR', description: 'Leave decisions, claims, letters, documents to sign and replies from People Ops.', icon: Contact },
+  { id: 'learning', label: 'Academy & Knowledge Base', description: 'Assigned trainings, certificate renewals, change proposals and doc reviews.', icon: GraduationCap },
   { id: 'system', label: 'System status', description: 'Outages and maintenance for apps you pinned.', icon: Activity },
 ];
 

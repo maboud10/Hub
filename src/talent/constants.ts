@@ -44,7 +44,7 @@ import type {
   WorkModel,
 } from './types';
 
-export const TALENT_DATA_VERSION = 1;
+export const TALENT_DATA_VERSION = 2;
 
 // ───────────────────────── pipeline ─────────────────────────
 export interface StageMeta {
@@ -251,31 +251,40 @@ export const OWNER_META: Record<TaskOwner, { label: string; hue: number }> = {
 };
 
 /** Default onboarding plan — cloned into every journey at hand-off. */
-export const ONBOARDING_TEMPLATE: { phase: OnboardingPhase; title: string; owner: TaskOwner; dueOffsetDays: number }[] = [
-  { phase: 'pre-boarding', title: 'Send welcome pack & first-day agenda', owner: 'people-ops', dueOffsetDays: -10 },
+export const ONBOARDING_TEMPLATE: {
+  phase: OnboardingPhase;
+  title: string;
+  owner: TaskOwner;
+  dueOffsetDays: number;
+  courseId?: string;
+  articleSlug?: string;
+}[] = [
+  { phase: 'pre-boarding', title: 'Send welcome pack & first-day agenda', owner: 'people-ops', dueOffsetDays: -10, articleSlug: 'first-week-at-helix' },
   { phase: 'pre-boarding', title: 'Collect signed contract & ID documents', owner: 'people-ops', dueOffsetDays: -9 },
   { phase: 'pre-boarding', title: 'Start work permit, medical & Emirates ID', owner: 'people-ops', dueOffsetDays: -8 },
   { phase: 'pre-boarding', title: 'Order laptop & peripherals', owner: 'it', dueOffsetDays: -7 },
-  { phase: 'pre-boarding', title: 'Provision NEXUS account, email & SSO', owner: 'it', dueOffsetDays: -3 },
-  { phase: 'pre-boarding', title: 'Assign an onboarding buddy', owner: 'manager', dueOffsetDays: -7 },
-  { phase: 'pre-boarding', title: 'Draft the 30/60/90 success plan', owner: 'manager', dueOffsetDays: -3 },
-  { phase: 'pre-boarding', title: 'Send a welcome message', owner: 'buddy', dueOffsetDays: -2 },
+  { phase: 'pre-boarding', title: 'Provision NEXUS account, email & SSO', owner: 'it', dueOffsetDays: -3, articleSlug: 'passkeys-and-zero-trust' },
+  { phase: 'pre-boarding', title: 'Assign an onboarding buddy', owner: 'manager', dueOffsetDays: -7, articleSlug: 'onboarding-buddy-playbook' },
+  { phase: 'pre-boarding', title: 'Draft the 30/60/90 success plan', owner: 'manager', dueOffsetDays: -3, articleSlug: 'manager-30-60-90-guide' },
+  { phase: 'pre-boarding', title: 'Send a welcome message', owner: 'buddy', dueOffsetDays: -2, articleSlug: 'onboarding-buddy-playbook' },
   { phase: 'pre-boarding', title: 'Complete personal details & bank info', owner: 'new-hire', dueOffsetDays: -5 },
   { phase: 'day-1', title: 'Welcome session & office tour', owner: 'people-ops', dueOffsetDays: 0 },
-  { phase: 'day-1', title: 'Laptop hand-over, passkey & MFA set-up', owner: 'it', dueOffsetDays: 0 },
+  { phase: 'day-1', title: 'Laptop hand-over, passkey & MFA set-up', owner: 'it', dueOffsetDays: 0, articleSlug: 'passkeys-and-zero-trust' },
   { phase: 'day-1', title: 'Kick-off 1:1 and team introductions', owner: 'manager', dueOffsetDays: 0 },
   { phase: 'day-1', title: 'Lunch with your buddy', owner: 'buddy', dueOffsetDays: 0 },
-  { phase: 'day-1', title: 'Complete security awareness training', owner: 'new-hire', dueOffsetDays: 0 },
-  { phase: 'week-1', title: 'Benefits & health insurance enrolment', owner: 'people-ops', dueOffsetDays: 3 },
+  { phase: 'day-1', title: 'Complete security awareness training', owner: 'new-hire', dueOffsetDays: 0, courseId: 'c-sec-101', articleSlug: 'passkeys-and-zero-trust' },
+  { phase: 'week-1', title: 'Benefits & health insurance enrolment', owner: 'people-ops', dueOffsetDays: 3, articleSlug: 'benefits-and-time-off-guide' },
   { phase: 'week-1', title: 'Share team OKRs and a first project', owner: 'manager', dueOffsetDays: 2 },
   { phase: 'week-1', title: 'Shadow a team ritual (stand-up, review, demo)', owner: 'buddy', dueOffsetDays: 4 },
-  { phase: 'week-1', title: 'Finish tool set-up and request app access', owner: 'new-hire', dueOffsetDays: 5 },
+  { phase: 'week-1', title: 'Complete AI safety & data privacy training', owner: 'new-hire', dueOffsetDays: 4, courseId: 'c-ai-privacy', articleSlug: 'ai-safety-and-prompt-playbook' },
+  { phase: 'week-1', title: 'Finish tool set-up and request app access', owner: 'new-hire', dueOffsetDays: 5, articleSlug: 'first-week-at-helix' },
   { phase: 'day-30', title: '30-day check-in', owner: 'manager', dueOffsetDays: 30 },
   { phase: 'day-30', title: '30-day onboarding pulse survey', owner: 'people-ops', dueOffsetDays: 30 },
+  { phase: 'day-30', title: 'Complete AI Fundamentals certification', owner: 'new-hire', dueOffsetDays: 28, courseId: 'c-ai-101', articleSlug: 'ai-safety-and-prompt-playbook' },
   { phase: 'day-30', title: 'Ship a first contribution', owner: 'new-hire', dueOffsetDays: 28 },
   { phase: 'day-60', title: '60-day feedback conversation', owner: 'manager', dueOffsetDays: 60 },
   { phase: 'day-60', title: 'Own a workstream end-to-end', owner: 'new-hire', dueOffsetDays: 60 },
-  { phase: 'day-90', title: 'Probation review & growth plan', owner: 'manager', dueOffsetDays: 90 },
+  { phase: 'day-90', title: 'Probation review & growth plan', owner: 'manager', dueOffsetDays: 90, articleSlug: 'manager-30-60-90-guide' },
   { phase: 'day-90', title: 'Confirm probation outcome', owner: 'people-ops', dueOffsetDays: 92 },
   { phase: 'day-90', title: 'Onboarding retrospective', owner: 'new-hire', dueOffsetDays: 90 },
 ];

@@ -3,13 +3,16 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import {
   ArrowRight,
+  Award,
   Bell,
+  BookOpen,
   Briefcase,
   CalendarClock,
   ClipboardCheck,
   ClipboardList,
   CornerDownLeft,
   FileText,
+  GraduationCap,
   HeartPulse,
   History,
   Keyboard,
@@ -19,6 +22,7 @@ import {
   MessageCircleQuestion,
   Moon,
   PartyPopper,
+  PenLine,
   Plane,
   Plus,
   Receipt,
@@ -29,15 +33,20 @@ import {
   Signature,
   Sparkles,
   Timer,
+  TrendingUp,
   UserCog,
   UserPlus,
   Users,
+  Wallet,
 } from 'lucide-react';
 import type { Presence } from '@/types';
 import { useHub } from '@/store/hub';
 import { useUI } from '@/store/ui';
 import { useFocus } from '@/store/focus';
 import { useAppAccess, usePermissions, usePrefs, useSessionUser } from '@/store/selectors';
+import { useWiki } from '@/wiki/store';
+import { readableSpaceIds } from '@/wiki/access';
+import { useAcademy } from '@/academy/store';
 import { hasAny, hasPermission } from '@/lib/rbac';
 import { fuzzyMatch, fuzzyScore } from '@/lib/fuzzy';
 import { useFocusTrap, usePresence } from '@/hooks/useOverlay';
@@ -51,9 +60,17 @@ import { getIcon } from '@/icons';
 import { BRAND } from '@/config/brand';
 import { cx } from '@/lib/cx';
 
-type Group = 'Recent' | 'Suggested' | 'Apps' | 'Actions' | 'People' | 'Pages';
-const GROUP_ORDER: Group[] = ['Recent', 'Suggested', 'Apps', 'Actions', 'People', 'Pages'];
-const GROUP_LIMIT: Record<Group, number> = { Recent: 4, Suggested: 5, Apps: 6, Actions: 6, People: 5, Pages: 5 };
+type Group = 'Recent' | 'Suggested' | 'Apps' | 'Actions' | 'Docs & Courses' | 'People' | 'Pages';
+const GROUP_ORDER: Group[] = ['Recent', 'Suggested', 'Apps', 'Actions', 'Docs & Courses', 'People', 'Pages'];
+const GROUP_LIMIT: Record<Group, number> = {
+  Recent: 4,
+  Suggested: 5,
+  Apps: 6,
+  Actions: 6,
+  'Docs & Courses': 6,
+  People: 5,
+  Pages: 5,
+};
 
 interface Item {
   id: string;
@@ -100,6 +117,9 @@ export function CommandPalette() {
   const prefs = usePrefs();
   const apps = useAppAccess();
   const users = useHub((s) => s.users);
+  const wikiSpaces = useWiki((s) => s.spaces);
+  const wikiArticles = useWiki((s) => s.articles);
+  const academyCourses = useAcademy((s) => s.courses);
   const { updatePrefs, setPresence, logout } = useHub.getState();
   const focusMode = useFocus((s) => s.mode);
   const theme = useResolvedTheme();
@@ -199,10 +219,74 @@ export function CommandPalette() {
       action('hr-ask', 'Ask People Ops', <MessageCircleQuestion />, go('/hr?ask=1'), ['help', 'hr question', 'support', 'confidential']);
       action('hr-onboarding', 'Onboarding journeys', <Rocket />, go('/hr/onboarding'), ['new hire', 'buddy', 'onboarding', '30 60 90', 'pre-boarding']);
     }
+    if (can('app:wiki')) {
+      action('wiki-ask', 'Ask Nova Docs (Knowledge Base Q&A)', <Sparkles />, go('/wiki?ask=1'), ['cortex', 'ai', 'docs', 'policy', 'wiki', 'runbook', 'how to']);
+      if (can('wiki.write'))
+        action('wiki-new', 'Write a Knowledge Base playbook', <PenLine />, go('/wiki/new'), ['create doc', 'rfc', 'runbook', 'wiki', 'guide']);
+      if (can('wiki.manage'))
+        action('wiki-gov', 'Knowledge Base governance & freshness', <ShieldHalf />, go('/wiki/governance'), ['proposals', 'stale', 'curate', 'wiki']);
+    }
+    if (can('app:learning')) {
+      action('academy-home', 'Open Helix Academy', <GraduationCap />, go('/academy'), ['learning', 'courses', 'training', 'compliance', 'lms']);
+      action('academy-certs', 'View my Academy certificates', <Award />, go('/academy/certificates'), ['credential', 'badge', 'certificate', 'skills']);
+    }
+    if (can('app:expenses') || can('app:travel')) {
+      action('exp-travel-new', 'Request business travel pre-approval', <Plane />, go('/expenses/travel?new=1'), ['trip', 'flight', 'hotel', 'per diem', 'virtual card', 'travel']);
+      action('exp-receipt', 'Upload smart receipt (OCR vault)', <Receipt />, go('/expenses/receipts'), ['receipt', 'scan', 'invoice', 'vat', 'expense']);
+      action('exp-track', 'Track my expense reimbursements', <History />, go('/expenses/reimbursements'), ['reimbursement', 'status', 'payout', 'claim', 'paid']);
+      if (can('expenses.approve') || can('expenses.audit'))
+        action('exp-approvals', 'Review travel & expense approvals', <ClipboardCheck />, go('/expenses/approvals'), ['approve expense', 'audit', 'finance queue', 'manager']);
+    }
+    if (can('app:payroll')) {
+      action('pay-run', 'Open Payroll Console & active pay run', <Wallet />, go('/payroll'), ['payroll', 'payday', 'wps', 'sif', 'disburse', 'salaries']);
+      action('pay-bonuses', 'Bonuses, spot awards & variable pay', <Award />, go('/payroll/bonuses'), ['bonus', 'spot award', 'signing', 'performance', 'nominate']);
+      action('pay-comp', 'Compensation reports, bands & EOSB liability', <TrendingUp />, go('/payroll/compensation'), ['salary bands', 'compa ratio', 'equity', 'gratuity', 'eosb', 'total rewards']);
+    }
     action('notifications', 'Open notifications', <Bell />, () => (close(), ui.setNotificationsOpen(true)), ['alerts', 'inbox']);
     action('persona', 'Switch persona (demo)', <UserCog />, () => ui.setPersonaSwitcherOpen(true), ['login', 'role', 'user', 'impersonate']);
     action('shortcuts', 'Keyboard shortcuts', <Keyboard />, () => (close(), ui.setShortcutsOpen(true)), ['help', 'keys', 'hotkeys']);
     action('logout', 'Sign out', <LogOut />, () => (close(), logout(), navigate('/login')), ['logout', 'exit']);
+
+    // Permission-scoped Knowledge Base articles + Academy courses
+    if (can('app:wiki')) {
+      const allowedSpaces = readableSpaceIds({ userId: user.id, roleIds: user.roleIds, perms }, wikiSpaces);
+      const spaceNameById = new Map(wikiSpaces.map((s) => [s.id, s.name]));
+      for (const a of wikiArticles) {
+        if (!allowedSpaces.has(a.spaceId)) continue;
+        items.push({
+          id: `doc-${a.slug}`,
+          group: 'Docs & Courses',
+          title: a.title,
+          subtitle: `Playbook · ${spaceNameById.get(a.spaceId) ?? a.spaceId} · ${a.readMins}m read`,
+          icon: (
+            <span className="palette__glyph">
+              <BookOpen />
+            </span>
+          ),
+          keywords: [...a.tags, a.tldr, a.subtitle],
+          hint: 'Read',
+          run: go(`/wiki/doc/${a.slug}`),
+        });
+      }
+    }
+    if (can('app:learning')) {
+      for (const c of academyCourses) {
+        items.push({
+          id: `course-${c.id}`,
+          group: 'Docs & Courses',
+          title: c.title,
+          subtitle: `Academy · ${c.durationMins}m · ${c.xp} XP`,
+          icon: (
+            <span className="palette__glyph">
+              <GraduationCap />
+            </span>
+          ),
+          keywords: [...c.skills, c.track, c.tagline],
+          hint: 'Start',
+          run: go(`/academy/course/${c.id}`),
+        });
+      }
+    }
 
     // People
     if (can('hub.people.view'))
@@ -226,7 +310,7 @@ export function CommandPalette() {
       items.push({ id: `page-${n.to}`, group: 'Pages', title: n.label, subtitle: 'Go to page', icon: <span className="palette__glyph"><Icon /></span>, hint: 'Go', run: go(n.to) });
     }
     return items;
-  }, [user, perms, apps, users, theme, focusMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, perms, apps, users, wikiSpaces, wikiArticles, academyCourses, theme, focusMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const results = useMemo(() => {
     const q = query.trim();

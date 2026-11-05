@@ -52,7 +52,7 @@ import type {
   TaskOwner,
   WorkModel,
 } from './types';
-import { APPROVAL_STEP_LABEL, CHANNEL_META, FOLLOW_UP_DAYS, REJECTION_LABEL, STAGE_BY_ID, TALENT_DATA_VERSION } from './constants';
+import { APPROVAL_STEP_LABEL, CHANNEL_META, FOLLOW_UP_DAYS, ONBOARDING_TEMPLATE, REJECTION_LABEL, STAGE_BY_ID, TALENT_DATA_VERSION } from './constants';
 import * as access from './access';
 import { gateFor, type GateContext } from './gates';
 import { buildJourneyTasks, deriveJourneyStatus, toISODate } from './onboarding';
@@ -163,6 +163,8 @@ export interface NewOnboardingTaskInput {
   owner: TaskOwner;
   phase: OnboardingPhase;
   dueOffsetDays: number;
+  courseId?: string;
+  articleSlug?: string;
 }
 
 export type IdResult = ActionResult & { id?: string };
@@ -205,6 +207,7 @@ export interface TalentActions {
   handOffToHR(applicationId: string): ActionResult & { journeyId?: string };
   toggleOnboardingTask(journeyId: string, taskId: string): ActionResult;
   addOnboardingTask(journeyId: string, task: NewOnboardingTaskInput): ActionResult;
+  completeOnboardingCourseTask(userId: string, courseId: string): { journeyId: string; taskTitle: string } | null;
   assignBuddy(journeyId: string, userId: string): ActionResult;
   updateJourney(journeyId: string, patch: Partial<Pick<OnboardingJourney, 'startDate' | 'welcomeNote' | 'location'>>): ActionResult;
   provisionHubAccount(journeyId: string): ActionResult;
@@ -1145,6 +1148,25 @@ export const useTalent = create<TalentStore>()(
           return ok('Task added');
         },
 
+        completeOnboardingCourseTask(userId, courseId) {
+          const j = get().onboarding.find((x) => x.hubUserId === userId);
+          if (!j) return null;
+          const match = j.tasks.find((t) => !t.done && t.courseId === courseId);
+          if (!match) return null;
+          const now = Date.now();
+          const next = patch('onboarding', j.id, (x) => {
+            const tasks = x.tasks.map((y) => (y.courseId === courseId && !y.done ? { ...y, done: true, doneAt: now, doneBy: userId } : y));
+            const updated = { ...x, tasks };
+            return { ...updated, status: deriveJourneyStatus(updated, now) };
+          });
+          audit({ action: 'onboarding.training.synced', target: `${j.name} · ${match.title}`, detail: `Auto-completed via Academy (${courseId})` });
+          if (next?.status === 'completed' && j.status !== 'completed') {
+            notify([j.managerId, j.buddyId, ...holders('hr.onboarding.manage').map((u) => u.id)], { title: `Onboarding complete: ${j.name} 🎓`, body: 'Every step of the 90-day journey is done.', link: `/hr/onboarding/${j.id}` });
+            audit({ action: 'onboarding.completed', target: j.name });
+          }
+          return { journeyId: j.id, taskTitle: match.title };
+        },
+
         assignBuddy(journeyId, userId) {
           const j = get().onboarding.find((x) => x.id === journeyId);
           const g = guard('onboarding.buddy', j?.name ?? journeyId, (v) => (j ? access.canManageOnboarding(v) || j.managerId === v.userId : false), 'hr');
@@ -1204,6 +1226,8 @@ export const useTalent = create<TalentStore>()(
             workEmail: res.email,
             tasks: x.tasks.map((t) => (t.owner === 'it' && t.title.startsWith('Provision NEXUS account') && !t.done ? { ...t, done: true, doneAt: now, doneBy: g.v.userId } : t)),
           }));
+          void import('@/hr/store').then((m) => m.useHr.getState().syncEmployees());
+          void import('@/academy/store').then((m) => m.useAcademy.getState().syncOnboarding());
           return ok(`NEXUS account ready: ${res.email}`);
         },
 
@@ -1228,7 +1252,25 @@ export const useTalent = create<TalentStore>()(
         onboarding: s.onboarding,
         activity: s.activity,
       }),
-      migrate: (persisted, version) => (version === TALENT_DATA_VERSION ? (persisted as TalentData) : createTalentSeed()),
+      migrate: (persisted, version) => {
+        if (version === TALENT_DATA_VERSION) return persisted as TalentData;
+        if (version === 1 && persisted) {
+          const s = persisted as TalentData;
+          const onboarding = (s.onboarding ?? []).map((j) => {
+            const byTitle = new Map(j.tasks.map((t) => [t.title, t]));
+            const merged = ONBOARDING_TEMPLATE.map((tpl, idx) => {
+              const existing = byTitle.get(tpl.title);
+              return existing
+                ? { ...existing, courseId: existing.courseId ?? tpl.courseId, articleSlug: existing.articleSlug ?? tpl.articleSlug }
+                : { id: `${j.id}-t-v2-${idx + 1}`, ...tpl, done: false };
+            });
+            const custom = j.tasks.filter((t) => !ONBOARDING_TEMPLATE.some((tpl) => tpl.title === t.title));
+            return { ...j, tasks: [...merged, ...custom] };
+          });
+          return { ...s, version: TALENT_DATA_VERSION, onboarding };
+        }
+        return createTalentSeed();
+      },
     },
   ),
 );
