@@ -28,7 +28,7 @@ import type {
 } from '@/types';
 import type { IconName } from '@/icons';
 import { createSeed, DATA_VERSION, defaultPrefs } from '@/data/seed';
-import { hrNotifications, learningNotifications, spendPayrollNotifications, talentNotifications } from '@/data/content';
+import { hrNotifications, learningNotifications, spendPayrollNotifications, talentNotifications, workNotifications } from '@/data/content';
 import { appPermissionId } from '@/data/permissions';
 import { SUPER_ADMIN_ROLE_ID } from '@/data/roles';
 import {
@@ -821,13 +821,43 @@ export const useHub = create<HubStore>()(
         pulse: s.pulse,
       }),
       migrate: (persisted, version) => {
-        if (version === DATA_VERSION) return persisted as HubData;
+        if (version === DATA_VERSION) {
+          const s = persisted as HubData;
+          if (
+            s?.apps &&
+            (!s.apps.find((a) => a.id === 'projects')?.route ||
+              !s.apps.find((a) => a.id === 'drive')?.route ||
+              !s.apps.find((a) => a.id === 'chat')?.route ||
+              !s.apps.find((a) => a.id === 'helpdesk')?.route)
+          ) {
+            return migrateV5toV6(s);
+          }
+          return s;
+        }
         let s = persisted as HubData;
         if (version === 1) s = migrateV1toV2(s);
         if (version === 1 || version === 2) s = migrateV2toV3(s);
         if (version === 1 || version === 2 || version === 3) s = migrateV3toV4(s);
-        if (version === 1 || version === 2 || version === 3 || version === 4) return migrateV4toV5(s);
+        if (version === 1 || version === 2 || version === 3 || version === 4) s = migrateV4toV5(s);
+        if (version >= 1 && version <= 5) return migrateV5toV6(s);
         return createSeed();
+      },
+      merge: (persisted, current) => {
+        const p = (persisted as Partial<HubData> | undefined) ?? {};
+        const seedById = new Map(current.apps.map((a) => [a.id, a]));
+        const apps = (p.apps ?? current.apps).map((a) => {
+          const fresh = seedById.get(a.id);
+          if (!fresh) return a;
+          return {
+            ...a,
+            route: fresh.route ?? a.route,
+            quickActions: fresh.quickActions ?? a.quickActions,
+            tagline: fresh.tagline ?? a.tagline,
+            description: fresh.description ?? a.description,
+            badge: fresh.badge ?? a.badge,
+          };
+        });
+        return { ...current, ...p, apps };
       },
     },
   ),
@@ -955,5 +985,30 @@ export function migrateV4toV5(s: HubData): HubData {
   });
   const known = new Set(s.notifications.map((n) => n.id));
   const notifications = [...spendPayrollNotifications().filter((n) => !known.has(n.id)), ...s.notifications].slice(0, 400);
-  return { ...s, version: DATA_VERSION, roles, apps, notifications };
+  return { ...s, version: 5, roles, apps, notifications };
+}
+
+/**
+ * v5 → v6: Projects (/projects), Drive (/drive), Pulse Chat (/chat) & IT Helpdesk (/helpdesk) in-app modules,
+ * `projects.manage`, `drive.manage`, `helpdesk.manage`, the `work` notification kind and starter notifications.
+ */
+export function migrateV5toV6(s: HubData): HubData {
+  const seed = createSeed();
+  const seedRole = new Map(seed.roles.map((r) => [r.id, r]));
+  const roles = s.roles.map((r) => {
+    const fresh = seedRole.get(r.id);
+    if (!fresh || !r.system || r.locked) return r;
+    const add = fresh.permissions.filter((p) => (p.startsWith('projects.') || p.startsWith('drive.') || p.startsWith('helpdesk.')) && !r.permissions.includes(p));
+    return add.length ? { ...r, permissions: [...r.permissions, ...add] } : r;
+  });
+  const seedApp = new Map(seed.apps.map((a) => [a.id, a]));
+  const apps = s.apps.map((a) => {
+    const fresh = seedApp.get(a.id);
+    if (!fresh || (a.id !== 'projects' && a.id !== 'drive' && a.id !== 'chat' && a.id !== 'helpdesk')) return a;
+    return { ...a, route: fresh.route, tagline: fresh.tagline, description: fresh.description, keywords: fresh.keywords, quickActions: fresh.quickActions, badge: fresh.badge ?? a.badge, notifications: fresh.notifications ?? a.notifications };
+  });
+  const existingIds = new Set(s.notifications.map((n) => n.id));
+  const notifications = [...workNotifications().filter((n) => !existingIds.has(n.id)), ...s.notifications].slice(0, 400);
+  const prefs = Object.fromEntries(Object.entries(s.prefs).map(([id, p]) => [id, { ...p, notifyKinds: { ...p.notifyKinds, work: p.notifyKinds?.work ?? true } }]));
+  return { ...s, version: DATA_VERSION, roles, apps, notifications, prefs };
 }

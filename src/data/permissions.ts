@@ -88,6 +88,25 @@ export const HUB_PERMISSIONS: PermissionDef[] = [
     category: 'Content',
   },
   {
+    id: 'projects.manage',
+    label: 'Manage projects, portfolios & goals',
+    description: 'Create projects for any team, administer non-private projects, curate portfolios and set company goals.',
+    category: 'Workspace',
+  },
+  {
+    id: 'drive.manage',
+    label: 'Govern Drive',
+    description: 'See every shared drive, override sharing, set legal holds and retention, restore anything, and review the governance dashboard.',
+    category: 'Governance',
+    sensitive: true,
+  },
+  {
+    id: 'helpdesk.manage',
+    label: 'Manage IT Helpdesk & device fleet',
+    description: 'Triage all IT tickets, manage hardware inventory and asset tags, assign devices to users and run remote MDM actions.',
+    category: 'Governance',
+  },
+  {
     id: 'expenses.approve',
     label: 'Approve team travel & expenses',
     description: 'Pre-approve trip requests, issue virtual travel cards and manager-review expense reports (never your own).',

@@ -11,6 +11,7 @@ import { formatTime, tzLabel } from '@/lib/format';
 import { BRAND } from '@/config/brand';
 import { BrandMark } from './Brand';
 import { FocusPill } from './Sidebar';
+import { ReturnPortal } from './ReturnPortal';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -37,6 +38,8 @@ export function TopBar() {
       <Link to="/" className="topbar__brand" aria-label="Home">
         <BrandMark sub="Hub" />
       </Link>
+
+      <ReturnPortal />
 
       <button className="search-trigger" onClick={() => setPaletteOpen(true)} aria-label="Open command palette">
         <Search size={18} />

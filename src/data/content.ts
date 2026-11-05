@@ -280,7 +280,22 @@ export const SEED_NOTIFICATIONS: HubNotification[] = [
   ...hrNotifications(),
   ...learningNotifications(),
   ...spendPayrollNotifications(),
+  ...workNotifications(),
 ];
+
+/** Projects & Drive starter notifications (merged by the v6 migration). */
+export function workNotifications(): HubNotification[] {
+  return [
+    n('n-w1', 'u-mei', 40, 'work', 'Alex requested access to Prism v4 Component Spec', 'Editor access · “Need to add engineering notes for the token migration.”', '/drive/file/df-prism-spec'),
+    n('n-w2', 'u-mei', 3 * 60, 'work', 'Omar mentioned you · PRISM-1', '“@Omar can you confirm the engineering alias naming before I lock this?”', '/projects/p/prj-prism?task=t-p1'),
+    n('n-w3', 'u-omar', 26 * 60, 'work', 'Token contrast audit is overdue · PRISM-3', 'Mei Tanaka · due 2 days ago · urgent', '/projects/p/prj-prism?task=t-p3'),
+    n('n-w4', 'u-omar', 6 * 60, 'work', 'Layla mentioned you · MFA-2', '“@Omar can Engineering nudge the remaining 11 in your org this week?”', '/projects/p/prj-mfa?task=t-m2'),
+    n('n-w5', 'u-layla', 50, 'work', 'Approval waiting · MFA-6', 'Ethan raised “Approve enforcement exception policy” · due in 5 days', '/projects/p/prj-mfa?task=t-m6'),
+    n('n-w6', 'u-daniel', 9 * 60, 'work', 'Approval waiting · GCC-5', 'Aisha needs Finance review of multi-year discount guardrails', '/projects/p/prj-gcc?task=t-g5'),
+    n('n-w7', 'u-kwame', 2 * 60, 'work', 'Due today · ONB-6', 'Sign IP agreement in HR Portal · urgent', '/projects/p/prj-onb-kwame?task=t-o6'),
+    n('n-w8', 'u-alex', 2 * 24 * 60, 'work', 'Omar shared “Prism frontend kit” with you', 'Editor access for 45 days · Engineering drive', '/drive/d/drv-eng/fo-prism-fe', true),
+  ];
+}
 
 /** Talent Hub / HR Portal to-dos (also merged into existing workspaces by the v2 migration). */
 export function talentNotifications(): HubNotification[] {

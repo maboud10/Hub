@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Activity, BellOff, CheckCheck, Contact, GraduationCap, Inbox, KeyRound, Megaphone, PartyPopper, UserPlus } from 'lucide-react';
+import { Activity, BellOff, CheckCheck, Contact, GraduationCap, Inbox, KeyRound, Megaphone, PartyPopper, SquareKanban, UserPlus } from 'lucide-react';
 import type { HubNotification, NotificationKind } from '@/types';
 import { useHub } from '@/store/hub';
 import { useUI } from '@/store/ui';
@@ -18,6 +18,7 @@ const KIND_META: Record<NotificationKind, { icon: typeof Inbox; rgb: string; lab
   talent: { icon: UserPlus, rgb: '245 158 11', label: 'Hiring' },
   hr: { icon: Contact, rgb: '192 132 252', label: 'People & HR' },
   learning: { icon: GraduationCap, rgb: '129 140 248', label: 'Academy & Docs' },
+  work: { icon: SquareKanban, rgb: '45 212 191', label: 'Projects & Drive' },
   system: { icon: Activity, rgb: 'var(--info-rgb)', label: 'System' },
 };
 

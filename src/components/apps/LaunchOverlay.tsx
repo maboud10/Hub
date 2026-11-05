@@ -4,7 +4,9 @@ import { useNavigate } from 'react-router';
 import { ArrowLeft, Check, ExternalLink, Fingerprint, Lock, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { useHub } from '@/store/hub';
 import { useUI } from '@/store/ui';
+import { useNavTrail } from '@/store/navigation';
 import { useClearance } from '@/store/selectors';
+import { SEED_APPS } from '@/data/apps';
 import { useFocusTrap } from '@/hooks/useOverlay';
 import { AppIcon } from '@/components/ui/primitives';
 import { getIcon } from '@/icons';
@@ -21,7 +23,9 @@ const STEP_MS = 420;
 export function LaunchOverlay() {
   const launch = useUI((s) => s.launch);
   const end = useUI((s) => s.endLaunch);
+  const appOrigin = useNavTrail((s) => s.appOrigin);
   const app = useHub((s) => (launch ? s.apps.find((a) => a.id === launch.appId) : undefined));
+  const seedApp = launch ? SEED_APPS.find((a) => a.id === launch.appId) : undefined;
   const clearance = useClearance();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -45,15 +49,14 @@ export function LaunchOverlay() {
   }, [launch, end]);
 
   // In-app modules: once the handshake completes, open the route inside NEXUS.
-  const inAppRoute = app?.route ? (launch?.action ? app.quickActions?.find((q) => q.label === launch.action)?.route : undefined) ?? app.route : null;
+  const baseRoute = app?.route ?? seedApp?.route;
+  const qActions = app?.quickActions?.some((q) => q.route) ? app.quickActions : seedApp?.quickActions;
+  const inAppRoute = baseRoute ? (launch?.action ? qActions?.find((q) => q.label === launch.action)?.route : undefined) ?? baseRoute : null;
   useEffect(() => {
-    if (!launch || !inAppRoute || step < 4) return;
-    const t = window.setTimeout(() => {
-      end();
-      navigate(inAppRoute);
-    }, 240);
-    return () => clearTimeout(t);
-  }, [launch, inAppRoute, step, end, navigate]);
+    if (!launch || !inAppRoute) return;
+    end();
+    navigate(inAppRoute);
+  }, [launch, inAppRoute, end, navigate]);
 
   if (!launch || !app) return null;
   const ready = step >= 4;
@@ -107,8 +110,15 @@ export function LaunchOverlay() {
                 SSO
               </span>
             </div>
-            <button className="btn btn--sm btn--ghost" onClick={end} data-autofocus>
-              <ArrowLeft /> Hub
+            <button
+              className="btn btn--sm btn--ghost"
+              onClick={() => {
+                end();
+                if (appOrigin?.path) navigate(appOrigin.path);
+              }}
+              data-autofocus
+            >
+              <ArrowLeft /> Back to {appOrigin?.label ?? 'Hub'}
             </button>
           </div>
           <div className="launch__body">

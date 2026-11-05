@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router';
+import { NavLink, useLocation } from 'react-router';
 import { PanelLeftClose, PanelLeftOpen, Timer } from 'lucide-react';
 import { useHub } from '@/store/hub';
 import { useAppAccessMap, usePermissions, usePrefs, useReviewableRequests } from '@/store/selectors';
@@ -38,13 +38,14 @@ function ActiveFocusPill() {
 }
 
 export function Sidebar() {
+  const location = useLocation();
   const allowed = useNavAllowed();
   const prefs = usePrefs();
   const updatePrefs = useHub((s) => s.updatePrefs);
   const reviewable = useReviewableRequests();
   const accessMap = useAppAccessMap();
   const launch = useLaunchApp();
-  const pins = prefs.pinned.filter((id) => accessMap.get(id)?.access === 'granted').slice(0, 5);
+  const pins = prefs.pinned.filter((id) => accessMap.get(id)?.access === 'granted').slice(0, 7);
 
   const renderItem = (item: NavItem) => {
     const Icon = item.icon;
@@ -88,11 +89,18 @@ export function Sidebar() {
 
       {pins.length > 0 && (
         <div className="sidebar__pins">
-          <div className="sidebar__label">Pinned</div>
+          <div className="sidebar__label">Pinned Apps</div>
           {pins.map((id) => {
             const a = accessMap.get(id)!;
+            const isActiveApp = Boolean(a.app.route && location.pathname.startsWith(a.app.route));
             return (
-              <button key={id} className="pin-link" onClick={() => launch(id)} data-tip={prefs.sidebarCollapsed ? a.app.name : undefined} data-tip-pos="right">
+              <button
+                key={id}
+                className={'pin-link' + (isActiveApp ? ' is-active' : '')}
+                onClick={() => launch(id)}
+                data-tip={prefs.sidebarCollapsed ? a.app.name : undefined}
+                data-tip-pos="right"
+              >
                 <AppIcon app={a.app} size={26} />
                 <span className="pin-link__name truncate">{a.app.name}</span>
               </button>

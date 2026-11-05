@@ -13,6 +13,7 @@ import {
   Megaphone,
   Newspaper,
   Signal,
+  SquareKanban,
   Timer,
   UserPlus,
   type LucideIcon,
@@ -49,6 +50,7 @@ export const NOTIFICATION_KINDS: ToggleMeta<NotificationKind>[] = [
   { id: 'talent', label: 'Hiring & onboarding', description: 'Scorecards due, offer approvals, hires and onboarding tasks.', icon: UserPlus },
   { id: 'hr', label: 'Time off, benefits & HR', description: 'Leave decisions, claims, letters, documents to sign and replies from People Ops.', icon: Contact },
   { id: 'learning', label: 'Academy & Knowledge Base', description: 'Assigned trainings, certificate renewals, change proposals and doc reviews.', icon: GraduationCap },
+  { id: 'work', label: 'Projects & Drive', description: 'Task assignments, mentions, approvals, status updates, file shares and access requests.', icon: SquareKanban },
   { id: 'system', label: 'System status', description: 'Outages and maintenance for apps you pinned.', icon: Activity },
 ];
 

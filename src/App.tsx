@@ -21,6 +21,10 @@ const WikiPage = lazy(() => import('@/pages/wiki/WikiPage').then((m) => ({ defau
 const AcademyPage = lazy(() => import('@/pages/academy/AcademyPage').then((m) => ({ default: m.AcademyPage })));
 const ExpensesPage = lazy(() => import('@/pages/expenses/ExpensesPage').then((m) => ({ default: m.ExpensesPage })));
 const PayrollPage = lazy(() => import('@/pages/payroll/PayrollPage').then((m) => ({ default: m.PayrollPage })));
+const ProjectsPage = lazy(() => import('@/pages/projects/ProjectsPage').then((m) => ({ default: m.ProjectsPage })));
+const DrivePage = lazy(() => import('@/pages/drive/DrivePage').then((m) => ({ default: m.DrivePage })));
+const ChatPage = lazy(() => import('@/pages/chat/ChatPage').then((m) => ({ default: m.ChatPage })));
+const HelpdeskPage = lazy(() => import('@/pages/helpdesk/HelpdeskPage').then((m) => ({ default: m.HelpdeskPage })));
 
 function TravelRedirect() {
   const loc = useLocation();
@@ -113,6 +117,38 @@ export default function App() {
             element={
               <RequirePermission perm="app:payroll" area="Payroll Console">
                 <PayrollPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="projects/*"
+            element={
+              <RequirePermission perm="app:projects" area="Projects">
+                <ProjectsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="drive/*"
+            element={
+              <RequirePermission perm="app:drive" area="Drive">
+                <DrivePage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="chat/*"
+            element={
+              <RequirePermission perm="app:chat" area="Pulse Chat">
+                <ChatPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="helpdesk/*"
+            element={
+              <RequirePermission perm="app:helpdesk" area="IT Helpdesk">
+                <HelpdeskPage />
               </RequirePermission>
             }
           />

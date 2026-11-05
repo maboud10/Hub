@@ -39,8 +39,12 @@ export function DemoSection() {
     void import('@/academy/store').then((m) => m.useAcademy.getState().resetAcademyDemo());
     void import('@/expenses/store').then((m) => m.useExpenses.getState().resetExpensesDemo());
     void import('@/payroll/store').then((m) => m.usePayroll.getState().resetPayrollDemo());
+    void import('@/projects/store').then((m) => m.useProjects.getState().resetProjectsDemo());
+    void import('@/drive/store').then((m) => m.useDrive.getState().resetDriveDemo());
+    void import('@/chat/store').then((m) => m.useChatStore.getState().resetChat());
+    void import('@/helpdesk/store').then((m) => m.useHelpdesk.getState().resetHelpdeskDemo());
     setConfirmOpen(false);
-    toast.success('Demo data restored', 'All personas, apps, HR, Cortex, Academy, Travel & Expenses, and Payroll Console are back to starting state.');
+    toast.success('Demo data restored', 'Personas, apps, HR, Cortex, Academy, Spend, Payroll, Projects, Drive, Pulse Chat and IT Helpdesk are back to their starting state.');
   };
 
   return (

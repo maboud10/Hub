@@ -110,6 +110,28 @@ An end-to-end financial & people-ops workflow connecting business travel, multi-
 - **Compensation Reports, Salary Bands & Statutory EOSB (`/payroll/compensation`)**: visual `IC2`–`M4` salary band architecture, Compa-Ratio & band-penetration equity matrix, Total Rewards waterfall by department, statutory **UAE End-of-Service Gratuity (EOSB)** liability calculator (`21d/yr` yrs 1–5, `30d/yr` >5 yrs, `<1yr` cliff), live base-salary calibration synced with HR, and CSV export.
 - **Reimbursements Settlement Bridge (`/payroll/reimbursements`)**: unified Finance queue linking `/expenses` and `/hr/benefits` to monthly payday or instant off-cycle wire.
 
+## Projects (`/projects`) + Drive (`/drive`)
+
+### Projects: Mission Control
+Asana/Linear-style work management that stays easy: one place for *my work*, every project view you need, and automations instead of process.
+
+- **My Tasks** with Today / Upcoming / Later triage, a **Nova “Plan my day”** focus list (overdue → due today → unblocks others → priority), approvals waiting on you, recently completed and a quick-add box. Keyboard: `c` new task, `/` search, `Esc` close.
+- **Projects** with privacy (`public` · `team` · `private`), numbered tasks (`PRISM-42`), sections with **WIP limits**, custom fields, members with roles (admin / editor / commenter / viewer). Contractors only see projects they are invited to; `projects.manage` (Managers, People Ops) adds governance read on everything.
+- **Seven views**: Overview (health, Nova-drafted **status updates**, goals, milestones, intake forms), List, **Board** (drag-and-drop Kanban), **Timeline** (Gantt with dependency lines), Calendar, **Workload** (capacity per person) and **Sprints** (burndown, velocity, rollover).
+- **Tasks**: subtasks, dependencies with cycle detection and blocked state, milestones, **approvals with separation of duties** (the requester can never approve), recurring tasks, time logging, tags, @mention comments with reactions, likes/follows, attachments from **Drive** and the **Knowledge Base**.
+- **Portfolios** (health roll-ups), **Goals/OKRs** (company → team tree with metric progress), **Templates** (launch, sprint board, 30/60/90 onboarding, event, month-end close, design sprint), **Intake forms** that create triaged tasks, and **no-code Rules** (*when moved to Done → complete*, *when overdue → tag*, *urgent → notify owner*, …) with run counters.
+- Cross-module: onboarding projects link to HR Portal journeys, tasks attach Drive files, and all assignments/mentions/approvals land in the hub inbox (`work` notifications).
+
+### Drive: organised, role-based and DLP-aware
+- **Spaces**: *My Drive* per person, the company **Helix Library**, and **team shared drives** (Engineering, Design, People Ops, Finance, Sales & Success, IT & Security) with managers, quotas and default sensitivity.
+- **Role-based access that inherits**: shares target a *person*, a *hub role* (`finance`), a *department*, a *permission* (`app:payroll` unlocks the Payroll exports folder) or *everyone at Helix*; folders inherit from parents and the drive, and inheritance can be switched off (existing access is snapshotted). Effective role = manager / editor / commenter / viewer, always explained in the UI.
+- **Sensitivity labels + DLP**: Public · Internal · Confidential · Restricted. Confidential excludes contractors and external links and watermarks downloads; Restricted needs a named share and clearance L3+, no links, viewers cannot download. Raising a label strips broader shares automatically.
+- **Sharing UX**: time-boxed shares, link settings limited by label, **access requests** routed to owners/managers with one-click (optionally time-boxed) approval, locked files, retention (1y / 7y / legal hold), 30-day trash with restore.
+- **Files**: folders, docs/sheets/slides from templates with in-app editing & versions, uploads with quota checks and name dedupe, previews, comments, activity, starred, recents, **Suggested for you**, powerful search with filters — all permission-scoped (you can’t find what you can’t open).
+- **Governance dashboard** (`drive.manage`): sensitivity map, public links, overshared confidential files, contractor and expiring shares, stale files, legal holds and drive capacity, with quick fixes.
+
+Try it: **Mei** (Prism board, Nova status draft, approve Alex’s access request), **Daniel** (Finance drive incl. Payroll exports via `app:payroll`; the restricted exec-comp sheet stays hidden), **Alex** (contractor: invited project only, explicit shares only), **Layla** (Drive governance).
+
 ## Architecture
 
 ```
@@ -136,6 +158,10 @@ src/
   pages/expenses/       Travel & Expenses UI (7-Stage Flow, Travel Desk, Receipt Vault, Reports, Reimbursement Tracker, Audit)
   payroll/              Payroll Console engine: four-eyes pay runs, multi-currency FX, bonuses, bands, EOSB & WPS .SIF export
   pages/payroll/        Payroll Console UI (Payday Wizard, Bonuses & Awards, Compensation & Bands, Reimbursements Bridge)
+  projects/             Projects engine: privacy-aware roles, tasks/dependencies/approvals, rules, sprints, goals, forms & tests
+  pages/projects/       Projects UI (My Tasks + Nova focus, List/Board/Timeline/Calendar/Workload/Sprints, Portfolios, Goals, Templates)
+  drive/                Drive engine: shared drives, inherited role-based access, sensitivity/DLP, requests, retention & tests
+  pages/drive/          Drive UI (Home, folders, file preview/editing, share dialog, requests, trash, governance)
   firestore/            Production kit for the `talenthub` database (rules, indexes, runbook)
   data/                 Seed catalog, roles, users, content (demo)
   styles/               tokens → base → ui kit → feature stylesheets (plain CSS, themable via data-attributes)

@@ -117,7 +117,9 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
     ) : (
       <span className="tile__status">
         <span className={cx('dot', `dot--${app.status}`, app.status !== 'operational' && 'dot--pulse')} />
-        <span className="tile-row__status-label">{STATUS_LABEL[app.status]}</span>
+        <span className="tile-row__status-label">
+          {app.status === 'operational' && app.route ? 'Workspace App' : STATUS_LABEL[app.status]}
+        </span>
       </span>
     );
 

@@ -185,7 +185,7 @@ export interface Announcement {
   reactions: Record<string, string[]>;
 }
 
-export type NotificationKind = 'access' | 'request' | 'announcement' | 'kudos' | 'talent' | 'hr' | 'learning' | 'system';
+export type NotificationKind = 'access' | 'request' | 'announcement' | 'kudos' | 'talent' | 'hr' | 'learning' | 'work' | 'system';
 
 export interface HubNotification {
   id: string;

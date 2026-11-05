@@ -4,8 +4,8 @@ import { SEED_ROLES } from './roles';
 import { SEED_USERS } from './users';
 import { SEED_ANNOUNCEMENTS, SEED_AUDIT, SEED_KUDOS, SEED_NOTIFICATIONS, SEED_REQUESTS } from './content';
 
-/** v5: Travel & Expenses (/expenses, /travel) + Payroll Console (/payroll) + live reimbursement & payslip sync. */
-export const DATA_VERSION = 5;
+/** v6: Projects (/projects) + Drive (/drive) modules, `projects.manage` / `drive.manage` and the `work` notification kind. */
+export const DATA_VERSION = 6;
 
 export function defaultPrefs(pinned: string[] = ['mail', 'chat', 'calendar', 'projects']): UserPrefs {
   return {
@@ -28,7 +28,7 @@ export function defaultPrefs(pinned: string[] = ['mail', 'chat', 'calendar', 'pr
       status: true,
       celebrations: true,
     },
-    notifyKinds: { access: true, request: true, announcement: true, kudos: true, talent: true, hr: true, learning: true, system: true },
+    notifyKinds: { access: true, request: true, announcement: true, kudos: true, talent: true, hr: true, learning: true, work: true, system: true },
   };
 }
 
