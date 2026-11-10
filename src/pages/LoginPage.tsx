@@ -8,6 +8,7 @@ import { clearanceOf, primaryRole } from '@/lib/rbac';
 import { AmbientBackground, BrandMark } from '@/components/shell/Brand';
 import { AppIcon, Avatar, ClearanceBadge, RoleChip } from '@/components/ui/primitives';
 import { Orb, tintVars } from '@/components/neo';
+import { LanguageOrbButton } from '@/lib/i18n';
 import { BRAND } from '@/config/brand';
 import { cx } from '@/lib/cx';
 
@@ -68,9 +69,12 @@ export function LoginPage() {
         <section className="login__hero">
           <div className="login__brand-row">
             <BrandMark />
-            <span className="neo-chip" data-tone="emerald">
-              <Orb tone="emerald" pulse size={7} /> Zero-trust SSO ready
-            </span>
+            <div className="row" style={{ gap: 8 }}>
+              <LanguageOrbButton />
+              <span className="neo-chip" data-tone="emerald">
+                <Orb tone="emerald" pulse size={7} /> Zero-trust SSO ready
+              </span>
+            </div>
           </div>
           <div className="neo-hud neo-hud--tint login__eyebrow">NEXUS WORKSPACE OS · CLEARANCE GATE</div>
           <h1 className="login__title">

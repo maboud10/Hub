@@ -16,7 +16,6 @@ import {
   Lock,
   MessageSquare,
   MoreHorizontal,
-  Orbit,
   Plus,
   ShieldCheck,
   Trash2,
@@ -38,6 +37,7 @@ import { dailyDone, projectMetrics, taskKey } from '@/projects/metrics';
 import { useProjects } from '@/projects/store';
 import type { Project, Task } from '@/projects/types';
 import { pushUndo, useActor, useProjectMap, useProjectsUI, useUsersMap, useVisibleProjects, useVisibleTasks } from './ctx';
+import { IconMyWork } from './icons';
 import { BlockedBadge, DatePicker, DueChip, KindGlyph, PriorityGlyph, ProjectGlyph, StatusPill, TaskCheck, UserAvatar, priorityEntries } from './ui';
 import { QuickCapture } from './QuickCapture';
 import { FocusRunway } from './FocusRunway';
@@ -417,7 +417,7 @@ export function MyWork() {
     <>
       <NeoHead
         onToggleSide={ui.toggleSide}
-        icon={<Orbit />}
+        icon={<IconMyWork />}
         eyebrow={
           <>
             My work · {WEEKDAYS[d.getDay()]} {d.getDate()} {MONTHS[d.getMonth()]}

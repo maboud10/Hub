@@ -17,6 +17,7 @@ import './styles/pages.css';
 // plus the bridge that restyles legacy UI-kit classes inside NEO workspaces.
 import './styles/neo.css';
 import './styles/neo-bridge.css';
+import './styles/rtl.css';
 import App from './App';
 import { devBootstrap } from './devBootstrap';
 

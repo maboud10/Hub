@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/primitives';
 import { useNow } from '@/hooks/useNow';
 import { useResolvedTheme } from '@/hooks/useApplyTheme';
 import { formatTime, tzLabel } from '@/lib/format';
+import { LanguageOrbButton } from '@/lib/i18n';
 import { BRAND } from '@/config/brand';
 import { BrandMark } from './Brand';
 import { FocusPill } from './Sidebar';
@@ -43,7 +44,7 @@ export function TopBar() {
 
       <button className="search-trigger" onClick={() => setPaletteOpen(true)} aria-label="Open command palette">
         <Search size={18} />
-        <span className="search-trigger__text">Ask {BRAND.assistant} or search apps, people, actions…</span>
+        <span className="search-trigger__text">{`Ask ${BRAND.assistant} or search apps, people, actions…`}</span>
         <span className="kbd">{isMac ? '⌘' : 'Ctrl'}</span>
         <span className="kbd">K</span>
       </button>
@@ -57,6 +58,7 @@ export function TopBar() {
             {formatTime(now)} {tzLabel()}
           </span>
         )}
+        <LanguageOrbButton />
         <button
           className="icon-btn topbar__desktop-only"
           onClick={() => updatePrefs({ theme: isDark ? 'light' : 'dark' })}

@@ -19,6 +19,8 @@ export function defaultPrefs(pinned: string[] = ['mail', 'chat', 'calendar', 'pr
     ambient: true,
     tileView: 'grid',
     sidebarCollapsed: false,
+    locale: 'en',
+    numerals: 'latn',
     widgets: {
       agenda: true,
       focus: true,

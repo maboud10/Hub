@@ -212,6 +212,8 @@ export interface Kudos {
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 export type AccentId = 'cyan' | 'violet' | 'magenta' | 'lime' | 'amber';
+export type LocaleId = 'en' | 'ar';
+export type NumeralSystem = 'latn' | 'arab';
 export type WidgetId = 'agenda' | 'focus' | 'news' | 'pulse' | 'kudos' | 'status' | 'celebrations';
 
 export interface UserPrefs {
@@ -225,6 +227,8 @@ export interface UserPrefs {
   ambient: boolean;
   tileView: 'grid' | 'list';
   sidebarCollapsed: boolean;
+  locale?: LocaleId;
+  numerals?: NumeralSystem;
   widgets: Record<WidgetId, boolean>;
   notifyKinds: Record<NotificationKind, boolean>;
 }

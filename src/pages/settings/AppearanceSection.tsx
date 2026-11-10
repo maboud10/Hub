@@ -1,11 +1,12 @@
 import { useState, type CSSProperties } from 'react';
-import { AlignJustify, Check, LayoutGrid, LayoutList, Monitor, Moon, Orbit, Palette, Rows3, Sun, Waves } from 'lucide-react';
-import type { AccentId, ThemeMode, User, UserPrefs } from '@/types';
+import { AlignJustify, Check, Globe, Hash, LayoutGrid, LayoutList, Monitor, Moon, Orbit, Palette, Rows3, Sun, Waves } from 'lucide-react';
+import type { AccentId, LocaleId, NumeralSystem, ThemeMode, User, UserPrefs } from '@/types';
 import { useHub } from '@/store/hub';
 import { usePrefs } from '@/store/selectors';
 import { Segmented, Switch } from '@/components/ui/primitives';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { firstName, greeting } from '@/lib/format';
+import { ArabicSigil, useI18n } from '@/lib/i18n';
 import { cx } from '@/lib/cx';
 import { SettingRow, SettingsSection, SubHead } from './SettingsSection';
 
@@ -23,6 +24,10 @@ const THEME_LABEL: Record<ThemeMode, string> = { dark: 'Dark', light: 'Light', s
 export function AppearanceSection({ me }: { me: User }) {
   const prefs = usePrefs();
   const updatePrefs = useHub((s) => s.updatePrefs);
+  const locale = useI18n((s) => s.locale);
+  const numerals = useI18n((s) => s.numerals);
+  const setLocale = useI18n((s) => s.setLocale);
+  const setNumerals = useI18n((s) => s.setNumerals);
   const systemDark = useMediaQuery('(prefers-color-scheme: dark)');
   const systemReduced = useMediaQuery('(prefers-reduced-motion: reduce)');
   /** Hover/focus a swatch to preview it before committing. */
@@ -37,6 +42,40 @@ export function AppearanceSection({ me }: { me: User }) {
     <SettingsSection id="appearance" icon={<Palette />} title="Appearance" description="Make NEXUS yours. Changes apply instantly and are saved to your profile.">
       <div className="set-appearance">
         <div className="set-appearance__controls">
+          <SettingRow
+            className="set-row--wide"
+            icon={<ArabicSigil size={18} />}
+            title="Language & script direction"
+            description="Switch between English (LTR) and Arabic (العربية · RTL) across every workspace."
+          >
+            <Segmented<LocaleId>
+              label="Language"
+              value={locale}
+              onChange={(next) => setLocale(next)}
+              options={[
+                { value: 'en', label: 'English · LTR', icon: <Globe /> },
+                { value: 'ar', label: 'العربية · RTL', icon: <ArabicSigil size={15} /> },
+              ]}
+            />
+          </SettingRow>
+
+          <SettingRow
+            className="set-row--wide"
+            icon={<Hash />}
+            title="Numeral system"
+            description="Choose Western (1,234) or Eastern Arabic-Indic (١٬٢٣٤) numerals when in Arabic."
+          >
+            <Segmented<NumeralSystem>
+              label="Numeral system"
+              value={numerals}
+              onChange={(next) => setNumerals(next)}
+              options={[
+                { value: 'latn', label: 'Western (123)' },
+                { value: 'arab', label: 'Arabic-Indic (١٢٣)' },
+              ]}
+            />
+          </SettingRow>
+
           <SettingRow
             className="set-row--wide"
             icon={resolvedTheme === 'dark' ? <Moon /> : <Sun />}

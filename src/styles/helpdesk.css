@@ -1044,6 +1044,7 @@
   color: var(--text-3);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1807,6 +1808,7 @@
   white-space: normal;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 .hd-thead .neo-head__text {
@@ -4304,6 +4306,7 @@
   line-height: 1.45;
   color: var(--text-2);
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 .hd-item__foot {

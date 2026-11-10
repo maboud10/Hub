@@ -1297,6 +1297,7 @@ button.pj-okr__item:hover {
 .pj-file__name {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   font-size: 13.5px;
@@ -2012,6 +2013,7 @@ button.pj-okr__item:hover {
   .pj-inbox__body {
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     white-space: normal;
   }
@@ -2126,6 +2128,7 @@ button.pj-okr__item:hover {
 .pj-pcard__name {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin: 2px 0 0;
@@ -2137,6 +2140,7 @@ button.pj-okr__item:hover {
 .pj-pcard__brief {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: 3em;
@@ -2695,6 +2699,7 @@ button.pj-okr__item:hover {
 .pj-pfcard__desc {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   min-height: 3em;

@@ -6,7 +6,7 @@
  */
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { ArrowUpDown, Check, ChartScatter, Layers, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ArrowUpDown, Check, ChartScatter, MoreHorizontal, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { Avatars, CountUp, NeoEmpty, NeoHead, NeoMenu, NeoSearch, type MenuEntry } from '@/components/neo';
 import { Modal } from '@/components/ui/Modal';
 import { useNow } from '@/hooks/useNow';
@@ -19,6 +19,7 @@ import { PRIORITY_NAME } from '@/projects/nlp';
 import { useProjects } from '@/projects/store';
 import type { Portfolio, Project, ProjectStatus } from '@/projects/types';
 import { pushUndo, useActor, useProjectsUI, useUsersMap, useVisibleProjects } from './ctx';
+import { IconPortfolios as Layers } from './icons';
 import { COLORS } from './ProjectModals';
 import { ConfirmModal, PriorityGlyph, ProjectGlyph, StatusPill } from './ui';
 

@@ -38,6 +38,7 @@ export const SHORTCUTS: { group: string; items: { keys: string[]; label: string 
     items: [
       { keys: ['1–9'], label: 'Launch pinned app' },
       { keys: ['T'], label: 'Toggle theme' },
+      { keys: ['L'], label: 'Toggle Arabic / English' },
       { keys: ['F'], label: 'Start / stop focus' },
       { keys: ['N'], label: 'Notifications' },
     ],

@@ -5,7 +5,7 @@
  * Nova suggest a rebalance that keeps everyone at or under capacity.
  */
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
-import { ArrowRight, Check, ChevronDown, Gauge, GripVertical, Info, Plus, Sparkles, UserRoundCog, X } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, GripVertical, Info, Plus, Sparkles, UserRoundCog, X } from 'lucide-react';
 import { NeoEmpty, NeoHead, NeoMenu, NeoSearch, NovaChip, PeoplePicker, Typing, useTypewriter } from '@/components/neo';
 import { useNow } from '@/hooks/useNow';
 import { cx } from '@/lib/cx';
@@ -20,6 +20,7 @@ import { useProjects } from '@/projects/store';
 import type { Project, Task } from '@/projects/types';
 import { CAPACITY, WEEKS, distribute, loadLevel, suggestRebalance, weekStarts, workloadMatrix, type LoadTask, type Suggestion } from '@/projects/workload';
 import { pushUndo, useActor, useProjectMap, useProjectsUI, useUsersMap, useVisibleProjects } from './ctx';
+import { IconWorkload as Gauge } from './icons';
 import { PriorityGlyph, ProjectGlyph, UserAvatar } from './ui';
 
 type Scope = 'everyone' | 'reports' | 'department';

@@ -2992,6 +2992,7 @@ button.tl-pipe-card__name:hover {
   margin-top: 3px;
   overflow: hidden;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   font-size: 13.5px;
   color: var(--text-2);
@@ -4255,6 +4256,7 @@ button.tl-pipe-card__name:hover {
   min-height: 2.9em;
   overflow: hidden;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   font-size: 12.5px;
   color: var(--text-3);

@@ -2529,6 +2529,7 @@ button.pc-msg__name:not(:disabled):hover {
   font-size: 13px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -3286,6 +3287,7 @@ button.pc-msg__name:not(:disabled):hover {
   color: var(--text-3);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -3379,6 +3381,7 @@ button.pc-msg__name:not(:disabled):hover {
   font-size: 13.5px;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

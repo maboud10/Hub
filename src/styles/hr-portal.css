@@ -208,6 +208,7 @@ body[data-neo-app='hr'] :is(.modal, .sheet, .neo-portal) {
     white-space: normal;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
   }
   .neo[data-app='hr'] .neo-suggest {

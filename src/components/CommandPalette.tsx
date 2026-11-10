@@ -58,6 +58,7 @@ import { NAV_ITEMS } from '@/components/shell/nav';
 import { NovaOrb } from '@/components/shell/Brand';
 import { startFocusSession, stopFocusSession } from '@/components/FocusEngine';
 import { getIcon } from '@/icons';
+import { ArabicSigil, useI18n } from '@/lib/i18n';
 import { BRAND } from '@/config/brand';
 import { cx } from '@/lib/cx';
 
@@ -209,6 +210,14 @@ export function CommandPalette() {
       items.push({ id, group: 'Actions', title, icon: <span className="palette__glyph">{icon}</span>, run, keywords, subtitle, hint: 'Run' });
 
     action('theme', `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`, <Moon />, () => updatePrefs({ theme: theme === 'dark' ? 'light' : 'dark' }), ['theme', 'appearance', 'dark', 'light']);
+    action(
+      'locale',
+      useI18n.getState().locale === 'ar' ? 'Switch language to English (LTR)' : 'Switch language to Arabic · التبديل إلى العربية (RTL)',
+      <ArabicSigil size={16} />,
+      () => useI18n.getState().toggleLocale(),
+      ['language', 'arabic', 'english', 'rtl', 'ltr', 'عربي', 'العربية', 'لغة'],
+      'Shortcut: L',
+    );
     for (const p of PRESENCES)
       if (p !== user.presence)
         action(`presence-${p}`, `Set status: ${PRESENCE_LABEL[p]}`, <span className={`dot dot--${p}`} />, () => setPresence(p), ['status', 'presence', 'available', 'busy', 'dnd']);

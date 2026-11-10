@@ -1802,6 +1802,7 @@ a.adm-legend__row:hover {
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   font-size: 12px;
   font-weight: 600;
   line-height: 1.25;

@@ -6,6 +6,7 @@ import { useFocus } from '@/store/focus';
 import { useAppAccessMap, usePrefs } from '@/store/selectors';
 import { useHotkeys } from '@/hooks/useHotkeys';
 import { useResolvedTheme } from '@/hooks/useApplyTheme';
+import { useI18n } from '@/lib/i18n';
 import { useLaunchApp } from '@/components/apps/useLaunchApp';
 import { AppDetailsSheet } from '@/components/apps/AppDetailsSheet';
 import { LaunchOverlay } from '@/components/apps/LaunchOverlay';
@@ -59,6 +60,7 @@ function GlobalHotkeys() {
     'g s': () => navigate('/settings'),
     'g x': () => navigate('/admin'),
     t: () => !anyOverlay && useHub.getState().updatePrefs({ theme: theme === 'dark' ? 'light' : 'dark' }),
+    l: () => !anyOverlay && useI18n.getState().toggleLocale(),
     f: () => {
       if (anyOverlay) return;
       if (useFocus.getState().mode === 'idle') startFocusSession(25);

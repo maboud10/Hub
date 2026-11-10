@@ -1,0 +1,188 @@
+/* ==========================================================================
+   NEXUS Arabesque — Arabic Typography, Bilingual Orb & RTL Spatial Mirroring
+   ========================================================================== */
+
+/* ---------- Holographic Bilingual Language Switcher Pill ---------- */
+.lang-orb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 11px 0 8px;
+  border-radius: 999px;
+  background:
+    radial-gradient(80px 40px at 18% 20%, rgb(var(--accent-rgb, 34 211 238) / 0.2), transparent 70%),
+    rgb(255 255 255 / 0.045);
+  border: 1px solid rgb(var(--accent-rgb, 34 211 238) / 0.34);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    transform 150ms var(--ease-out),
+    border-color 150ms var(--ease-out),
+    background 150ms var(--ease-out),
+    box-shadow 150ms var(--ease-out);
+}
+
+.lang-orb-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgb(var(--accent-rgb, 34 211 238) / 0.62);
+  box-shadow: 0 8px 22px -10px rgb(var(--accent-rgb, 34 211 238) / 0.55);
+}
+
+[data-theme='light'] .lang-orb-btn {
+  background:
+    radial-gradient(80px 40px at 18% 20%, rgb(var(--accent-rgb, 34 211 238) / 0.16), transparent 70%),
+    rgb(15 23 42 / 0.04);
+  border-color: rgb(var(--accent-rgb, 34 211 238) / 0.35);
+}
+
+.lang-orb-btn__glyph {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, rgb(var(--accent-rgb, 34 211 238) / 0.28), rgb(var(--accent-2-rgb, 139 92 246) / 0.24));
+  color: var(--accent, #22d3ee);
+  flex: none;
+}
+
+.lang-orb-btn__label {
+  font-family: 'IBM Plex Sans Arabic', var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0 !important;
+  line-height: 1;
+}
+
+.lang-orb-btn__dir {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  color: var(--text-3);
+}
+
+[data-theme='light'] .lang-orb-btn__dir {
+  background: rgb(15 23 42 / 0.06);
+}
+
+/* ---------- Arabic Font Stack & Cursive Shaping Safeguards ---------- */
+html[lang='ar'] {
+  --font-sans: 'IBM Plex Sans Arabic', 'Inter Variable', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Readex Pro', 'IBM Plex Sans Arabic', 'Space Grotesk Variable', sans-serif;
+}
+
+/* Positive letter-spacing breaks cursive Arabic ligatures in browsers; reset it in Arabic mode */
+html[lang='ar'],
+html[lang='ar'] *,
+html[lang='ar'] *::before,
+html[lang='ar'] *::after {
+  letter-spacing: 0 !important;
+}
+
+html[lang='ar'] .neo-hud,
+html[lang='ar'] .eyebrow,
+html[lang='ar'] .sidebar__label,
+html[lang='ar'] .neo-rail__label,
+html[lang='ar'] .neo-side__group-label,
+html[lang='ar'] .neo-kpi__label,
+html[lang='ar'] .neo-head__eyebrow,
+html[lang='ar'] .neo-panel__hud,
+html[lang='ar'] .neo-table th,
+html[lang='ar'] .py-table th,
+html[lang='ar'] .table th,
+html[lang='ar'] .badge,
+html[lang='ar'] .tag,
+html[lang='ar'] .neo-chip,
+html[lang='ar'] .return-portal__hint,
+html[lang='ar'] .rp-stop__eyebrow,
+html[lang='ar'] .py-step__idx,
+html[lang='ar'] .py-stage__hud,
+html[lang='ar'] .py-status-tile__label {
+  text-transform: none;
+}
+
+html[lang='ar'] .neo-rail__label {
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+html[lang='ar'] .neo-head__title,
+html[lang='ar'] .neo-panel__title,
+html[lang='ar'] .neo-nova__title {
+  line-height: 1.32;
+}
+
+/* ---------- RTL Shell & Workspace Spatial Mirroring ---------- */
+html[dir='rtl'] .sidebar {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+
+html[dir='rtl'] .nav-item.is-active::before,
+html[dir='rtl'] .pin-link.is-active::before {
+  left: auto;
+  right: 0;
+}
+
+html[dir='rtl'] .neo-rail__item.is-active::before {
+  left: auto;
+  right: -6px;
+}
+
+html[dir='rtl'] .neo-rail__badge {
+  right: auto;
+  left: 4px;
+}
+
+html[dir='rtl'] .neo-side {
+  border-right: none;
+  border-left: 1px solid var(--plane-edge);
+}
+
+@media (max-width: 1100px) {
+  html[dir='rtl'] .neo[data-side='true'] > .neo-side {
+    left: auto;
+    right: 68px;
+    transform: translateX(14px);
+    box-shadow: -28px 0 60px -20px rgb(0 0 0 / 0.7);
+  }
+  html[dir='rtl'] .neo[data-side='true'] > .neo-side.is-open {
+    transform: translateX(0);
+  }
+}
+
+html[dir='rtl'] .neo-table th,
+html[dir='rtl'] .py-table th,
+html[dir='rtl'] .table th {
+  text-align: right;
+}
+
+html[dir='rtl'] .neo-table th.is-right,
+html[dir='rtl'] .neo-table td.is-right,
+html[dir='rtl'] .py-table th.is-right,
+html[dir='rtl'] .py-table td.is-right,
+html[dir='rtl'] .table th.is-right,
+html[dir='rtl'] .table td.is-right {
+  text-align: left;
+}
+
+/* Flip directional chevrons in RTL so navigation arrows point naturally */
+html[dir='rtl'] .return-portal__chev svg,
+html[dir='rtl'] .neo-banner__go,
+html[dir='rtl'] .py-tile__go,
+html[dir='rtl'] .neo-kpi__go {
+  transform: scaleX(-1);
+}
+
+html[dir='rtl'] .py-quote,
+html[dir='rtl'] .py-bonus-card__quote {
+  border-left: none;
+  border-right: 2.5px solid var(--app);
+}

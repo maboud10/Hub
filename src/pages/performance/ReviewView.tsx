@@ -625,6 +625,11 @@ export function ReviewView() {
             <div className="pf-rv-ribbon__text">
               <div className="pf-row pf-row--wrap">
                 <b>{subject?.name ?? 'Unknown'}</b>
+                {roleBadge && (
+                  <Chip size="sm" tone={roleBadge.tone}>
+                    {roleBadge.label}
+                  </Chip>
+                )}
                 {lv && (
                   <Chip size="sm" tone="violet">
                     {lv.level.id} · {lv.level.title}

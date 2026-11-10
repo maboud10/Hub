@@ -15,7 +15,6 @@ import {
   Check,
   CheckCheck,
   CircleCheckBig,
-  Inbox as InboxIcon,
   KeyRound,
   Mail,
   MailOpen,
@@ -40,6 +39,7 @@ import { taskKey } from '@/projects/metrics';
 import { useProjects } from '@/projects/store';
 import type { InboxItem, InboxKind } from '@/projects/types';
 import { pushUndo, useActor, useProjectMap, useProjectsUI, useUsersMap } from './ctx';
+import { IconInbox as InboxIcon } from './icons';
 import { ProjectGlyph, UserAvatar } from './ui';
 
 type Tab = 'all' | 'mentions' | 'assigned' | 'approvals' | 'archived';

@@ -41,6 +41,7 @@ const GROUPS: { title: string; items: Shortcut[] }[] = [
     title: 'Actions',
     items: [
       { steps: [['T']], label: 'Toggle light / dark theme' },
+      { steps: [['L']], label: 'Toggle Arabic (RTL) / English (LTR)' },
       { steps: [['F']], label: 'Start / stop focus timer' },
       { steps: [['N']], label: 'Open notifications' },
       { steps: [['1'], ['9']], label: 'Launch pinned app 1–9', range: true },

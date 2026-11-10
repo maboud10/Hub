@@ -71,7 +71,7 @@ export const normalize = (s: string) =>
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[’']/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/[^a-z0-9\u0600-\u06ff]+/g, ' ')
     .trim();
 
 export function tokens(s: string): string[] {
@@ -138,26 +138,26 @@ interface Verb {
 
 /** Curated hub verbs — the things people most often come to the Launchpad for. */
 const VERBS: Verb[] = [
-  { id: 'timeoff', title: 'Request time off', icon: 'Plane', apps: ['hr'], to: '/hr/time-off?new=1', aliases: ['time off', 'leave', 'vacation', 'holiday', 'pto', 'annual leave', 'sick leave', 'sick day', 'day off', 'days off', 'off work', 'wfa', 'work from anywhere'] },
-  { id: 'travel', title: 'Book business travel', icon: 'Plane', apps: ['travel', 'expenses'], to: '/expenses/travel?new=1', aliases: ['book travel', 'travel', 'trip', 'business trip', 'flight', 'flights', 'hotel', 'per diem', 'travel approval'] },
-  { id: 'payslip', title: 'Open my payslips', icon: 'Receipt', apps: ['hr'], to: '/hr/documents?tab=payslips', aliases: ['payslip', 'my payslip', 'pay slip', 'salary slip', 'pay stub', 'my pay', 'salary'] },
-  { id: 'letter', title: 'Get a salary certificate or letter', icon: 'FileText', apps: ['hr'], to: '/hr/documents?tab=letters', aliases: ['letter', 'salary certificate', 'employment letter', 'bank letter', 'embassy letter', 'noc'] },
-  { id: 'passkey', title: 'Reset my passkey', icon: 'KeyRound', apps: ['helpdesk'], to: '/helpdesk/guides/passkey-setup', aliases: ['reset my passkey', 'passkey', 'reset passkey', 'password', 'reset password', 'mfa', '2fa', 'locked out', 'cant sign in', 'security key'] },
-  { id: 'ticket', title: 'Raise an IT ticket', icon: 'Ticket', apps: ['helpdesk'], to: '/helpdesk/tickets?new=1', aliases: ['ticket', 'it ticket', 'it support', 'helpdesk', 'broken', 'laptop', 'vpn', 'wifi', 'printer', 'monitor'] },
-  { id: 'diag', title: 'Run a device health check', icon: 'Activity', apps: ['helpdesk'], to: '/helpdesk?diag=1', aliases: ['health check', 'diagnostics', 'slow laptop', 'device check'] },
-  { id: 'expense', title: 'Submit an expense', icon: 'Receipt', apps: ['expenses'], to: '/expenses/reports', aliases: ['expense', 'expenses', 'receipt', 'reimburse', 'reimbursement', 'claim', 'expense report'] },
-  { id: 'benefits', title: 'Benefits & allowances', icon: 'HeartPulse', apps: ['hr'], to: '/hr/benefits', aliases: ['benefits', 'insurance', 'medical', 'allowance', 'dependents', 'wellness budget'] },
-  { id: 'askhr', title: 'Ask People Ops', icon: 'Users', apps: ['hr'], to: '/hr?ask=1', aliases: ['ask hr', 'hr question', 'people ops', 'human resources'] },
-  { id: 'docs', title: 'Ask Nova Docs', icon: 'Sparkles', apps: ['wiki'], to: '/wiki?ask=1', aliases: ['policy', 'handbook', 'docs', 'wiki', 'runbook', 'knowledge base', 'how do i'] },
-  { id: 'okrs', title: 'Check in on my OKRs', icon: 'Target', apps: ['performance'], to: '/performance/okrs?checkin=1', aliases: ['okr', 'okrs', 'goals', 'objectives', 'key results'] },
-  { id: 'feedback', title: 'Give feedback', icon: 'Send', apps: ['performance'], to: '/performance/feedback?give=1', aliases: ['feedback', 'give feedback', 'peer review'] },
-  { id: 'learn', title: 'Continue learning', icon: 'GraduationCap', apps: ['learning'], to: '/academy', aliases: ['course', 'courses', 'learning', 'training', 'academy', 'compliance training'] },
-  { id: 'upload', title: 'Upload files to Drive', icon: 'Upload', apps: ['drive'], to: '/drive?upload=1', aliases: ['upload', 'upload file', 'share a file', 'files'] },
-  { id: 'huddle', title: 'Start a huddle', icon: 'Headphones', apps: ['chat'], to: '/chat?huddle=1', aliases: ['huddle', 'call', 'quick call', 'voice'] },
-  { id: 'kudos', title: 'Give kudos', icon: 'PartyPopper', perm: 'hub.kudos.give', run: 'kudos', aliases: ['kudos', 'thank', 'thanks', 'thank you', 'shoutout', 'recognise', 'recognize', 'appreciate'] },
-  { id: 'focus', title: 'Start a 25-minute focus session', icon: 'Timer', run: 'focus', aliases: ['focus', 'focus mode', 'pomodoro', 'deep work', 'do not disturb', 'dnd'] },
-  { id: 'review', title: 'Review access requests', icon: 'ClipboardList', perm: 'hub.requests.review', to: '/admin/requests', aliases: ['access requests', 'approve access', 'review requests', 'approvals'] },
-  { id: 'people', title: 'Find a colleague', icon: 'Users', perm: 'hub.people.view', to: '/people', aliases: ['directory', 'colleague', 'people', 'org chart', 'who is'] },
+  { id: 'timeoff', title: 'Request time off', icon: 'Plane', apps: ['hr'], to: '/hr/time-off?new=1', aliases: ['time off', 'leave', 'vacation', 'holiday', 'pto', 'annual leave', 'sick leave', 'sick day', 'day off', 'days off', 'off work', 'wfa', 'work from anywhere', 'اجازة', 'إجازة', 'طلب اجازة', 'طلب إجازة'] },
+  { id: 'travel', title: 'Book business travel', icon: 'Plane', apps: ['travel', 'expenses'], to: '/expenses/travel?new=1', aliases: ['book travel', 'travel', 'trip', 'business trip', 'flight', 'flights', 'hotel', 'per diem', 'travel approval', 'سفر', 'حجز سفر', 'رحلة عمل', 'طيران'] },
+  { id: 'payslip', title: 'Open my payslips', icon: 'Receipt', apps: ['hr'], to: '/hr/documents?tab=payslips', aliases: ['payslip', 'my payslip', 'pay slip', 'salary slip', 'pay stub', 'my pay', 'salary', 'راتب', 'قسيمة الراتب', 'رواتب'] },
+  { id: 'letter', title: 'Get a salary certificate or letter', icon: 'FileText', apps: ['hr'], to: '/hr/documents?tab=letters', aliases: ['letter', 'salary certificate', 'employment letter', 'bank letter', 'embassy letter', 'noc', 'شهادة راتب', 'خطاب تعريف'] },
+  { id: 'passkey', title: 'Reset my passkey', icon: 'KeyRound', apps: ['helpdesk'], to: '/helpdesk/guides/passkey-setup', aliases: ['reset my passkey', 'passkey', 'reset passkey', 'password', 'reset password', 'mfa', '2fa', 'locked out', 'cant sign in', 'security key', 'مفتاح المرور', 'كلمة المرور'] },
+  { id: 'ticket', title: 'Raise an IT ticket', icon: 'Ticket', apps: ['helpdesk'], to: '/helpdesk/tickets?new=1', aliases: ['ticket', 'it ticket', 'it support', 'helpdesk', 'broken', 'laptop', 'vpn', 'wifi', 'printer', 'monitor', 'تذكرة', 'تذكرة دعم', 'دعم تقني'] },
+  { id: 'diag', title: 'Run a device health check', icon: 'Activity', apps: ['helpdesk'], to: '/helpdesk?diag=1', aliases: ['health check', 'diagnostics', 'slow laptop', 'device check', 'فحص الجهاز'] },
+  { id: 'expense', title: 'Submit an expense', icon: 'Receipt', apps: ['expenses'], to: '/expenses/reports', aliases: ['expense', 'expenses', 'receipt', 'reimburse', 'reimbursement', 'claim', 'expense report', 'مصروفات', 'ايصال', 'إيصال', 'تعويض'] },
+  { id: 'benefits', title: 'Benefits & allowances', icon: 'HeartPulse', apps: ['hr'], to: '/hr/benefits', aliases: ['benefits', 'insurance', 'medical', 'allowance', 'dependents', 'wellness budget', 'مزايا', 'تأمين طبي', 'بدلات'] },
+  { id: 'askhr', title: 'Ask People Ops', icon: 'Users', apps: ['hr'], to: '/hr?ask=1', aliases: ['ask hr', 'hr question', 'people ops', 'human resources', 'موارد بشرية', 'عمليات الأفراد'] },
+  { id: 'docs', title: 'Ask Nova Docs', icon: 'Sparkles', apps: ['wiki'], to: '/wiki?ask=1', aliases: ['policy', 'handbook', 'docs', 'wiki', 'runbook', 'knowledge base', 'how do i', 'قاعدة المعرفة', 'سياسات'] },
+  { id: 'okrs', title: 'Check in on my OKRs', icon: 'Target', apps: ['performance'], to: '/performance/okrs?checkin=1', aliases: ['okr', 'okrs', 'goals', 'objectives', 'key results', 'اهداف', 'أهداف', 'تقييم'] },
+  { id: 'feedback', title: 'Give feedback', icon: 'Send', apps: ['performance'], to: '/performance/feedback?give=1', aliases: ['feedback', 'give feedback', 'peer review', 'تغذية راجعة', 'ملاحظات'] },
+  { id: 'learn', title: 'Continue learning', icon: 'GraduationCap', apps: ['learning'], to: '/academy', aliases: ['course', 'courses', 'learning', 'training', 'academy', 'compliance training', 'تعلم', 'دورات', 'تدريب', 'أكاديمية'] },
+  { id: 'upload', title: 'Upload files to Drive', icon: 'Upload', apps: ['drive'], to: '/drive?upload=1', aliases: ['upload', 'upload file', 'share a file', 'files', 'ملفات', 'رفع ملف'] },
+  { id: 'huddle', title: 'Start a huddle', icon: 'Headphones', apps: ['chat'], to: '/chat?huddle=1', aliases: ['huddle', 'call', 'quick call', 'voice', 'محادثة', 'اتصال'] },
+  { id: 'kudos', title: 'Give kudos', icon: 'PartyPopper', perm: 'hub.kudos.give', run: 'kudos', aliases: ['kudos', 'thank', 'thanks', 'thank you', 'shoutout', 'recognise', 'recognize', 'appreciate', 'تقدير', 'شكر'] },
+  { id: 'focus', title: 'Start a 25-minute focus session', icon: 'Timer', run: 'focus', aliases: ['focus', 'focus mode', 'pomodoro', 'deep work', 'do not disturb', 'dnd', 'تركيز', 'جلسة تركيز'] },
+  { id: 'review', title: 'Review access requests', icon: 'ClipboardList', perm: 'hub.requests.review', to: '/admin/requests', aliases: ['access requests', 'approve access', 'review requests', 'approvals', 'طلبات الصلاحيات'] },
+  { id: 'people', title: 'Find a colleague', icon: 'Users', perm: 'hub.people.view', to: '/people', aliases: ['directory', 'colleague', 'people', 'org chart', 'who is', 'دليل الموظفين', 'زميل'] },
 ];
 
 const KIND_BIAS: Record<IntentKind, number> = { action: 0.18, app: 0.12, person: 0.05, page: -0.1 };
