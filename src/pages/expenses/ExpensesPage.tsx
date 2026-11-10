@@ -1,21 +1,29 @@
+/**
+ * Travel & Expenses — "Spend deck".
+ * NEO workspace: rail (Flow · Travel · Receipts · Reports · Payday, plus
+ * Approvals and the Payroll bridge in the footer) + glass stage. The header
+ * follows the active section; the Flow home adds attention banners, a HUD
+ * ribbon and the Nova smart-receipt prompt (see OverviewView).
+ */
 import '@/styles/expenses.css';
-import { useEffect, useMemo } from 'react';
-import { Link, Navigate, NavLink, Route, Routes, useNavigate } from 'react-router';
+import { useEffect, useMemo, type ReactNode } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import {
-  Banknote,
-  Compass,
+  ExternalLink,
   FileSpreadsheet,
+  Landmark,
   Plane,
+  Plus,
   Receipt,
+  Route as RouteIcon,
   ScanLine,
   ShieldCheck,
+  Upload,
   Wallet,
-  type LucideIcon,
 } from 'lucide-react';
-import { cx } from '@/lib/cx';
+import { NeoAppFrame, isNavActive, type NeoNavItem } from '@/components/neo';
 import { firstName, greeting } from '@/lib/format';
 import { hasPermission } from '@/lib/rbac';
-import { formatDay } from '@/hr/calendar';
 import {
   useExpensesCaps,
   useMySpendSummary,
@@ -23,7 +31,7 @@ import {
 } from '@/expenses/selectors';
 import { initPayroll } from '@/payroll/store';
 import { usePermissions, useSessionUser } from '@/store/selectors';
-import { formatAed, useActivePaydayInfo } from './shared';
+import { RECEIPT_FILE_INPUT_ID } from './shared';
 import { OverviewView } from './OverviewView';
 import { TravelDeskView } from './TravelDeskView';
 import { ReceiptVaultView } from './ReceiptVaultView';
@@ -31,24 +39,35 @@ import { ReportsView } from './ReportsView';
 import { ReimbursementsView } from './ReimbursementsView';
 import { ApprovalsView } from './ApprovalsView';
 
-interface ExpensesTab {
+const TINT = { c1: '#2dd4bf', c2: '#0891b2' };
+
+interface Section {
   to: string;
-  label: string;
-  icon: LucideIcon;
   end?: boolean;
-  count?: number;
-  tone?: 'alert' | 'teal';
+  icon: ReactNode;
+  eyebrow: string;
+  title: string;
+  sub: string;
 }
+
+const SECTIONS: Section[] = [
+  { to: '/expenses', end: true, icon: <RouteIcon />, eyebrow: 'Spend deck', title: 'Trip-to-paycheck flow', sub: 'Describe a spend or a trip — Nova files it, policy-checks it and tracks it to payday.' },
+  { to: '/expenses/travel', icon: <Plane />, eyebrow: 'Travel & Expenses · Travel desk', title: 'Travel desk', sub: 'Benchmark a trip, get pre-approval and a scoped virtual card in one flow.' },
+  { to: '/expenses/receipts', icon: <ScanLine />, eyebrow: 'Travel & Expenses · Smart receipts', title: 'Receipt vault', sub: 'Drop a receipt — merchant, FX to AED, GL code and VAT are extracted for you.' },
+  { to: '/expenses/reports', icon: <FileSpreadsheet />, eyebrow: 'Travel & Expenses · Claims', title: 'Expense reports', sub: 'Bundle receipts and per diem, split card vs out-of-pocket, submit for sign-off.' },
+  { to: '/expenses/reimbursements', icon: <Wallet />, eyebrow: 'Travel & Expenses · Payday', title: 'Where’s my money?', sub: 'Every claim from manager sign-off to the WPS payout and your payslip.' },
+  { to: '/expenses/approvals', icon: <ShieldCheck />, eyebrow: 'Travel & Expenses · Control', title: 'Approvals & audit', sub: 'Four-eyes review of trips and claims, then queue them into payroll.' },
+];
 
 export function ExpensesPage() {
   const me = useSessionUser();
   const perms = usePermissions();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   const caps = useExpensesCaps();
   const summary = useMySpendSummary();
   const approvals = useSpendApprovals();
-  const payday = useActivePaydayInfo();
 
   useEffect(() => {
     initPayroll();
@@ -73,189 +92,148 @@ export function ExpensesPage() {
     [summary.myTrips],
   );
 
-  const tabs = useMemo<ExpensesTab[]>(() => {
-    const items: ExpensesTab[] = [
-      {
-        to: '/expenses',
-        label: 'Flow & Overview',
-        icon: Compass,
-        end: true,
-      },
-      {
-        to: '/expenses/travel',
-        label: 'Travel Desk',
-        icon: Plane,
-        count: activeTripsCount > 0 ? activeTripsCount : undefined,
-      },
-      {
-        to: '/expenses/receipts',
-        label: 'Smart Receipt Vault',
-        icon: Receipt,
-        count: summary.unbundledReceipts.length > 0 ? summary.unbundledReceipts.length : undefined,
-        tone: 'teal',
-      },
-      {
-        to: '/expenses/reports',
-        label: 'Expense Reports',
-        icon: FileSpreadsheet,
-        count: draftOrRevisionReportsCount > 0 ? draftOrRevisionReportsCount : undefined,
-        tone: draftOrRevisionReportsCount > 0 ? 'alert' : undefined,
-      },
-      {
-        to: '/expenses/reimbursements',
-        label: 'Payroll & Status',
-        icon: Wallet,
-        count: summary.queuedPayrollAed > 0 ? 1 : undefined,
-        tone: 'teal',
-      },
-    ];
+  const queuedReportsCount = useMemo(
+    () => summary.myReports.filter((r) => r.status === 'payroll_queued').length,
+    [summary.myReports],
+  );
 
-    if (showApprovalsTab) {
-      items.push({
-        to: '/expenses/approvals',
-        label: 'Approvals & Audit',
-        icon: ShieldCheck,
-        count: approvals.totalCount > 0 ? approvals.totalCount : undefined,
-        tone: approvals.totalCount > 0 ? 'alert' : undefined,
-      });
-    }
+  const items: NeoNavItem[] = [
+    { to: '/expenses', label: 'Flow', icon: <RouteIcon />, end: true, title: 'Trip-to-paycheck flow' },
+    {
+      to: '/expenses/travel',
+      label: 'Travel',
+      icon: <Plane />,
+      badge: activeTripsCount || null,
+      title: activeTripsCount ? `Travel desk · ${activeTripsCount} active trip${activeTripsCount === 1 ? '' : 's'}` : 'Travel desk',
+    },
+    {
+      to: '/expenses/receipts',
+      label: 'Receipts',
+      icon: <Receipt />,
+      badge: summary.unbundledReceipts.length || null,
+      title: summary.unbundledReceipts.length ? `Receipt vault · ${summary.unbundledReceipts.length} not on a report yet` : 'Receipt vault',
+    },
+    {
+      to: '/expenses/reports',
+      label: 'Reports',
+      icon: <FileSpreadsheet />,
+      badge: draftOrRevisionReportsCount || null,
+      badgeTone: 'danger',
+      title: draftOrRevisionReportsCount ? `Expense reports · ${draftOrRevisionReportsCount} draft or needing changes` : 'Expense reports',
+    },
+    {
+      to: '/expenses/reimbursements',
+      label: 'Payday',
+      icon: <Wallet />,
+      badge: queuedReportsCount || null,
+      title: queuedReportsCount ? `Payday · ${queuedReportsCount} claim${queuedReportsCount === 1 ? '' : 's'} queued for payroll` : 'Reimbursements & payday',
+    },
+  ];
 
-    return items;
-  }, [
-    activeTripsCount,
-    summary.unbundledReceipts.length,
-    draftOrRevisionReportsCount,
-    summary.queuedPayrollAed,
-    showApprovalsTab,
-    approvals.totalCount,
-  ]);
+  const footer: NeoNavItem[] = [];
+  if (showApprovalsTab) {
+    footer.push({
+      to: '/expenses/approvals',
+      label: 'Approvals',
+      icon: <ShieldCheck />,
+      badge: approvals.totalCount || null,
+      badgeTone: 'danger',
+      title: approvals.totalCount ? `Approvals & audit · ${approvals.totalCount} awaiting you` : 'Approvals & audit',
+    });
+  }
+  if (canOpenPayroll) {
+    footer.push({ to: '/payroll/reimbursements', label: 'Payroll', icon: <Landmark />, title: 'Payroll reimbursements bridge (opens Payroll Console)' });
+  }
+
+  const section = SECTIONS.find((s) => isNavActive(s, pathname)) ?? SECTIONS[0];
+  const isHome = section.to === '/expenses';
+
+  /** Opens the vault's file picker in the same click (keeps the user gesture), or routes there. */
+  const scanReceipt = () => {
+    const input = document.getElementById(RECEIPT_FILE_INPUT_ID) as HTMLInputElement | null;
+    if (input) input.click();
+    else navigate('/expenses/receipts?scan=1');
+  };
+
+  const scanButton = (
+    <button type="button" className="neo-btn neo-btn--soft" onClick={scanReceipt} data-qa="ex-scan-receipt">
+      <ScanLine /> <span className="neo-btn__label">Scan receipt</span>
+    </button>
+  );
+  const travelButton = (
+    <button type="button" className="neo-btn neo-btn--plasma" onClick={() => navigate('/expenses/travel?new=1')} data-qa="ex-request-travel">
+      <Plane /> <span className="neo-btn__label">Request travel</span>
+    </button>
+  );
+
+  let actions: ReactNode;
+  switch (section.to) {
+    case '/expenses/receipts':
+      actions = (
+        <>
+          <button type="button" className="neo-btn neo-btn--soft" onClick={() => navigate('/expenses/reports?new=1')}>
+            <FileSpreadsheet /> <span className="neo-btn__label">Bundle report</span>
+          </button>
+          <button type="button" className="neo-btn neo-btn--plasma" onClick={scanReceipt} data-qa="ex-upload-receipt">
+            <Upload /> <span className="neo-btn__label">Upload receipt</span>
+          </button>
+        </>
+      );
+      break;
+    case '/expenses/reports':
+      actions = (
+        <>
+          {scanButton}
+          <button type="button" className="neo-btn neo-btn--plasma" onClick={() => navigate('/expenses/reports?new=1')} data-qa="ex-new-report">
+            <Plus /> <span className="neo-btn__label">New report</span>
+          </button>
+        </>
+      );
+      break;
+    case '/expenses/reimbursements':
+      actions = (
+        <>
+          <button type="button" className="neo-btn neo-btn--soft" onClick={() => navigate('/hr/documents?tab=payslips')}>
+            <ExternalLink /> <span className="neo-btn__label">My payslips</span>
+          </button>
+          <button type="button" className="neo-btn neo-btn--plasma" onClick={() => navigate('/expenses/reports?new=1')}>
+            <FileSpreadsheet /> <span className="neo-btn__label">Submit a report</span>
+          </button>
+        </>
+      );
+      break;
+    case '/expenses/approvals':
+      actions = canOpenPayroll ? (
+        <button type="button" className="neo-btn neo-btn--soft" onClick={() => navigate('/payroll/reimbursements')}>
+          <Landmark /> <span className="neo-btn__label">Settle in payroll</span>
+        </button>
+      ) : undefined;
+      break;
+    default:
+      actions = (
+        <>
+          {scanButton}
+          {travelButton}
+        </>
+      );
+  }
 
   return (
-    <div className="page ex-page">
-      {/* Atmospheric Ocean-Teal / Cyan Module Hero */}
-      <header className="ex-hero hud">
-        <div className="ex-hero__glow" aria-hidden="true" />
-        <div className="ex-hero__main">
-          <div className="eyebrow ex-hero__eyebrow">
-            Spend &amp; Mobility · Travel, Smart Receipts &amp; Reimbursements
-          </div>
-          <h1 className="page-title">
-            {greeting()}
-            {me ? `, ${firstName(me.name)}` : ''}.{' '}
-            <span className="ex-hero__accent">From trip pre-approval to payday</span>
-          </h1>
-          <p className="page-sub">
-            Benchmark international itineraries, spend with scoped Virtual Corporate Cards, scan multi-currency receipts via AI OCR, and track tax-free WPS payroll reimbursements live.
-          </p>
-
-          <div className="ex-hero__pills">
-            {/* Pending Reimbursement KPI Pill */}
-            <button
-              type="button"
-              className="ex-kpi-pill ex-kpi-pill--teal"
-              onClick={() => navigate('/expenses/reimbursements')}
-              title="Total out-of-pocket claims in review or queued for payday"
-            >
-              <Wallet />
-              <span>Pending reimbursement</span>
-              <b>{formatAed(summary.pendingReimbursementAed, true)}</b>
-            </button>
-
-            {/* Queued for Payday KPI Pill */}
-            <button
-              type="button"
-              className={cx('ex-kpi-pill', summary.queuedPayrollAed > 0 && 'ex-kpi-pill--ok')}
-              onClick={() => navigate('/expenses/reimbursements')}
-              title={`Next Payday: ${payday.payDate} (${payday.statusLabel})`}
-            >
-              <Banknote />
-              <span>Queued for payday ({formatDay(payday.payDate, { day: 'numeric', month: 'short' })})</span>
-              <b>{formatAed(summary.queuedPayrollAed, true)}</b>
-            </button>
-
-            {/* Unsubmitted Vault Items KPI Pill */}
-            <button
-              type="button"
-              className="ex-kpi-pill"
-              onClick={() => navigate('/expenses/receipts')}
-            >
-              <Receipt />
-              <span>Unsubmitted vault items</span>
-              <b>{summary.unbundledReceipts.length}</b>
-            </button>
-
-            {/* Manager / Finance Approvals Inbox Badge */}
-            {showApprovalsTab && (
-              <button
-                type="button"
-                className={cx(
-                  'ex-kpi-pill',
-                  approvals.totalCount > 0 ? 'ex-kpi-pill--warn' : 'ex-kpi-pill--ok',
-                )}
-                onClick={() => navigate('/expenses/approvals')}
-              >
-                <ShieldCheck />
-                <span>Approvals inbox</span>
-                <b>{approvals.totalCount}</b>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Primary CTAs & Payroll Console Bridge */}
-        <div className="ex-hero__cta">
-          <button
-            type="button"
-            className="btn ex-btn-teal"
-            onClick={() => navigate('/expenses/travel?new=1')}
-          >
-            <Plane /> Request travel
-          </button>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => navigate('/expenses/receipts')}
-          >
-            <ScanLine /> Scan receipt
-          </button>
-          {canOpenPayroll && (
-            <Link to="/payroll/reimbursements" className="ex-bridge-chip">
-              Open Payroll Console →
-            </Link>
-          )}
-        </div>
-      </header>
-
-      {/* Counter-Badged Navigation Tabs */}
-      <nav className="tabs ex-tabs" aria-label="Travel & Expenses sections">
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          return (
-            <NavLink
-              key={t.to}
-              to={t.to}
-              end={t.end}
-              className={({ isActive }) => cx('tab', isActive && 'is-active')}
-            >
-              <Icon aria-hidden="true" />
-              {t.label}
-              {t.count !== undefined && t.count > 0 && (
-                <span
-                  className={cx(
-                    'ex-tab-count',
-                    t.tone === 'alert' && 'ex-tab-count--alert',
-                    t.tone === 'teal' && 'ex-tab-count--teal',
-                  )}
-                >
-                  {t.count}
-                </span>
-              )}
-            </NavLink>
-          );
-        })}
-      </nav>
-
-      {/* Nested Workspace Routes */}
+    <NeoAppFrame
+      app="expenses"
+      tint={TINT}
+      className="ex-page"
+      brand={{ icon: <Receipt />, label: 'Travel & Expenses', to: '/expenses' }}
+      items={items}
+      footer={footer}
+      head={{
+        icon: section.icon,
+        eyebrow: section.eyebrow,
+        title: isHome ? `${greeting()}${me ? `, ${firstName(me.name)}` : ''}` : section.title,
+        sub: section.sub,
+        actions,
+      }}
+    >
       <Routes>
         <Route index element={<OverviewView />} />
         <Route path="travel" element={<TravelDeskView />} />
@@ -265,6 +243,6 @@ export function ExpensesPage() {
         <Route path="approvals" element={<ApprovalsView />} />
         <Route path="*" element={<Navigate to="/expenses" replace />} />
       </Routes>
-    </div>
+    </NeoAppFrame>
   );
 }

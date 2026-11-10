@@ -11,13 +11,13 @@ import {
   Plus,
   RefreshCw,
   Rocket,
-  Search,
   Send,
   ShieldCheck,
   Sparkles,
   UserPlus,
   Users,
 } from 'lucide-react';
+import { NeoEmpty, NeoKpi, NeoKpis, NeoPanel, NeoSearch, NeoTabs } from '@/components/neo';
 import { FORMAT_LABEL, LEVEL_META, TRACK_META, TRACK_ORDER } from '@/academy/constants';
 import { useAcademyCaps, useTeamCompliance } from '@/academy/selectors';
 import { useAcademy } from '@/academy/store';
@@ -27,7 +27,7 @@ import { useHub } from '@/store/hub';
 import { toast } from '@/store/toast';
 import { AccessDenied } from '@/components/auth/AccessDenied';
 import { Modal } from '@/components/ui/Modal';
-import { Avatar, EmptyState, Segmented, Switch } from '@/components/ui/primitives';
+import { Avatar, Switch } from '@/components/ui/primitives';
 import { addDaysISO, todayISO } from '@/hr/calendar';
 import { cx } from '@/lib/cx';
 import { DuePill, SourceBadge, TrackBadge } from './shared';
@@ -40,6 +40,8 @@ const PHASE_BADGE: Record<string, string> = {
   'day-60': 'Day 60',
   'day-90': 'Day 90',
 };
+
+type StatusFilter = 'all' | 'overdue' | 'incomplete' | 'compliant';
 
 export function ComplianceStudio() {
   const caps = useAcademyCaps();
@@ -67,7 +69,7 @@ export function ComplianceStudio() {
 
   // Filters & expansion state
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'overdue' | 'incomplete' | 'compliant'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   // Assign Course Modal state
@@ -107,6 +109,15 @@ export function ComplianceStudio() {
     const activeLearners = rows.filter((r) => r.inProgressCount > 0).length;
     const certs = rows.reduce((s, r) => s + r.certificatesCount, 0);
     return { rate, overdue, activeLearners, certs, reqDone, reqTotal };
+  }, [rows]);
+
+  const statusCounts = useMemo(() => {
+    return {
+      all: rows.length,
+      overdue: rows.filter((r) => r.overdueCount > 0).length,
+      incomplete: rows.filter((r) => r.requiredDone < r.requiredTotal).length,
+      compliant: rows.filter((r) => r.overdueCount === 0 && r.requiredDone >= r.requiredTotal).length,
+    };
   }, [rows]);
 
   const filteredRows = useMemo(() => {
@@ -193,124 +204,103 @@ export function ComplianceStudio() {
   };
 
   return (
-    <div className="stack stack--lg">
+    <div className="neo-stack">
       {/* Studio Action Bar & Scope Switcher */}
       <div className="row row--between row--wrap" style={{ gap: 12 }}>
         <div className="row row--wrap" style={{ gap: 10 }}>
           {caps.manage && caps.manager ? (
-            <Segmented
+            <NeoTabs<'team' | 'company'>
               label="Compliance scope"
               value={scope}
               onChange={setScope}
-              options={[
-                { value: 'team', label: `My Direct Reports (${caps.reportIds.length})`, icon: <Users size={15} /> },
-                { value: 'company', label: 'All Company', icon: <Building2 size={15} /> },
+              items={[
+                { value: 'team', label: 'My direct reports', count: caps.reportIds.length },
+                { value: 'company', label: 'All company' },
               ]}
             />
           ) : (
-            <span className="badge badge--info" style={{ height: 32, padding: '0 12px', fontSize: 12.5 }}>
+            <span className="neo-chip" data-tone="app">
               {scope === 'company' ? <Building2 /> : <Users />}
-              {scope === 'company' ? `Company-wide L&D Scope (${rows.length} staff)` : `My Direct Reports (${rows.length})`}
+              {scope === 'company' ? `Company-wide L&D scope (${rows.length} staff)` : `My direct reports (${rows.length})`}
             </span>
           )}
         </div>
 
         <div className="row row--wrap" style={{ gap: 8 }}>
-          <button type="button" className="btn ac-btn-indigo btn--sm" onClick={() => openAssignModal([])}>
-            <UserPlus /> Assign Course
-          </button>
           {caps.manage && (
-            <button type="button" className="btn btn--sm" onClick={() => setAuthorOpen(true)}>
-              <Plus /> Author New Course
+            <button type="button" className="neo-btn neo-btn--soft neo-btn--sm" onClick={() => setAuthorOpen(true)}>
+              <Plus /> Author new course
             </button>
           )}
+          <button type="button" className="neo-btn neo-btn--plasma neo-btn--sm" onClick={() => openAssignModal([])}>
+            <UserPlus /> Assign course
+          </button>
         </div>
       </div>
 
       {/* KPI Strip */}
-      <div className="ac-kpi-grid" style={{ marginBottom: 0 }}>
-        <div className="ac-kpi-card">
-          <span className="text-xs muted mono">COMPLIANCE RATE</span>
-          <div className="ac-kpi-val" style={{ color: kpis.rate >= 90 ? 'var(--success)' : 'var(--warning)' }}>
-            {kpis.rate}%
-          </div>
-          <span className="text-xs faint">
-            {kpis.reqDone}/{kpis.reqTotal} required trainings complete
-          </span>
-        </div>
-
-        <div className="ac-kpi-card">
-          <span className="text-xs muted mono">OVERDUE TRAININGS</span>
-          <div className="ac-kpi-val" style={{ color: kpis.overdue > 0 ? 'var(--danger)' : 'var(--success)' }}>
-            {kpis.overdue}
-          </div>
-          <span className="text-xs faint">
-            {kpis.overdue > 0 ? 'Needs friendly manager nudge' : 'Zero overdue items'}
-          </span>
-        </div>
-
-        <div className="ac-kpi-card">
-          <span className="text-xs muted mono">ACTIVE LEARNERS</span>
-          <div className="ac-kpi-val">{kpis.activeLearners}</div>
-          <span className="text-xs faint">Currently progressing in courses</span>
-        </div>
-
-        <div className="ac-kpi-card">
-          <span className="text-xs muted mono">CERTIFICATES ISSUED</span>
-          <div className="ac-kpi-val" style={{ color: '#818cf8' }}>
-            {kpis.certs}
-          </div>
-          <span className="text-xs faint">Verified digital credentials</span>
-        </div>
-      </div>
+      <NeoKpis label="Team compliance metrics">
+        <NeoKpi
+          icon={<ShieldCheck />}
+          label="Compliance rate"
+          value={`${kpis.rate}%`}
+          sub={`${kpis.reqDone}/${kpis.reqTotal} required trainings complete`}
+          tone={kpis.rate >= 90 ? 'emerald' : 'warning'}
+        />
+        <NeoKpi
+          icon={<AlertTriangle />}
+          label="Overdue trainings"
+          value={kpis.overdue}
+          sub={kpis.overdue > 0 ? 'Needs friendly manager nudge' : 'Zero overdue items'}
+          tone={kpis.overdue > 0 ? 'danger' : 'emerald'}
+        />
+        <NeoKpi
+          icon={<Users />}
+          label="Active learners"
+          value={kpis.activeLearners}
+          sub="Currently progressing in courses"
+        />
+        <NeoKpi
+          icon={<Award />}
+          label="Certificates issued"
+          value={kpis.certs}
+          sub="Verified digital credentials"
+        />
+      </NeoKpis>
 
       {/* Learner Compliance Roster */}
-      <section className="stack">
-        <div className="row row--between row--wrap" style={{ gap: 10 }}>
-          <h2 className="section-title">
-            <ShieldCheck size={19} style={{ color: '#818cf8' }} /> Learner Compliance & Progress
-            <span className="count">{filteredRows.length}</span>
-          </h2>
-
+      <NeoPanel
+        icon={<ShieldCheck />}
+        hud="Compliance roster"
+        title={`Learner compliance & progress (${filteredRows.length})`}
+        actions={
           <div className="row row--wrap" style={{ gap: 8 }}>
-            <div className="input-wrap" style={{ width: 230 }}>
-              <Search />
-              <input
-                type="search"
-                className="input"
-                style={{ height: 34, fontSize: 13 }}
-                placeholder="Filter employees…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="chips">
-              {(
-                [
-                  ['all', 'All'],
-                  ['overdue', 'Overdue'],
-                  ['incomplete', 'Action Needed'],
-                  ['compliant', '100% Compliant'],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={cx('chip', statusFilter === id && 'is-active')}
-                  style={{ height: 32, fontSize: 12 }}
-                  onClick={() => setStatusFilter(id)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <NeoTabs<StatusFilter>
+              label="Learner status filter"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              items={[
+                { value: 'all', label: 'All', count: statusCounts.all },
+                { value: 'overdue', label: 'Overdue', count: statusCounts.overdue },
+                { value: 'incomplete', label: 'Action needed', count: statusCounts.incomplete },
+                { value: 'compliant', label: 'Compliant', count: statusCounts.compliant },
+              ]}
+            />
+            <NeoSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Filter employees…"
+              size="sm"
+              className="ac-toolbar__search"
+              label="Filter employees"
+            />
           </div>
-        </div>
-
+        }
+      >
         {filteredRows.length === 0 ? (
-          <EmptyState icon={<Users />} title="No learners match this filter">
+          <NeoEmpty icon={<Users />} title="No learners match this filter">
             Try clearing the status filter or search query.
-          </EmptyState>
+          </NeoEmpty>
         ) : (
           <div className="ac-learner-list">
             {filteredRows.map((row) => {
@@ -330,19 +320,21 @@ export function ComplianceStudio() {
                     {/* Employee Identity */}
                     <div className="row" style={{ gap: 11, minWidth: 0 }}>
                       <Avatar user={row.user} size={38} presence />
-                      <div className="grow">
+                      <div className="grow" style={{ minWidth: 0 }}>
                         <div className="row row--wrap" style={{ gap: 6 }}>
                           <strong style={{ fontSize: 14.5 }}>{row.user.name}</strong>
                           {row.overdueCount > 0 ? (
-                            <span className="badge badge--danger">
+                            <span className="neo-chip" data-tone="danger">
                               <AlertTriangle /> {row.overdueCount} overdue
                             </span>
                           ) : pct === 100 ? (
-                            <span className="badge badge--success">
+                            <span className="neo-chip" data-tone="emerald">
                               <Check /> Compliant
                             </span>
                           ) : (
-                            <span className="badge badge--warning">In progress</span>
+                            <span className="neo-chip" data-tone="warning">
+                              In progress
+                            </span>
                           )}
                         </div>
                         <div className="text-xs muted truncate">
@@ -355,17 +347,23 @@ export function ComplianceStudio() {
                     <div className="ac-learner-row__prog stack stack--sm" style={{ minWidth: 0 }}>
                       <div className="row row--between text-xs">
                         <span className="muted">
-                          Required: <strong style={{ color: 'var(--text)' }}>{row.requiredDone}/{row.requiredTotal}</strong>
+                          Required:{' '}
+                          <strong style={{ color: 'var(--text)' }}>
+                            {row.requiredDone}/{row.requiredTotal}
+                          </strong>
                         </span>
-                        <span className="mono muted">{pct}%</span>
+                        <span className="neo-mono muted">{pct}%</span>
                       </div>
-                      <div className="ac-bar" style={{ '--th': pct === 100 ? 152 : row.overdueCount > 0 ? 350 : 245 } as CSSProperties}>
+                      <div
+                        className="ac-bar"
+                        style={{ '--th': pct === 100 ? 152 : row.overdueCount > 0 ? 350 : 245 } as CSSProperties}
+                      >
                         <i style={{ width: `${pct}%` }} />
                       </div>
                     </div>
 
                     {/* Certs Badge */}
-                    <span className="badge badge--muted mono" title="Earned certificates">
+                    <span className="neo-chip neo-mono" data-tone="slate" title="Earned certificates">
                       <Award /> {row.certificatesCount} certs
                     </span>
 
@@ -374,7 +372,7 @@ export function ComplianceStudio() {
                       {urgentOpen && (
                         <button
                           type="button"
-                          className="btn btn--sm"
+                          className="neo-btn neo-btn--soft neo-btn--xs"
                           title={`Nudge on ${urgentOpen.course.title}`}
                           onClick={() => toast.result(nudgeLearner(row.user.id, urgentOpen.course.id))}
                         >
@@ -383,14 +381,14 @@ export function ComplianceStudio() {
                       )}
                       <button
                         type="button"
-                        className="btn btn--sm"
+                        className="neo-btn neo-btn--soft neo-btn--xs"
                         onClick={() => openAssignModal([row.user.id])}
                       >
                         <UserPlus /> Assign
                       </button>
                       <button
                         type="button"
-                        className="btn btn--ghost btn--sm"
+                        className="neo-btn neo-btn--ghost neo-btn--xs"
                         onClick={() => setExpandedUserId(isExpanded ? null : row.user.id)}
                         aria-expanded={isExpanded}
                       >
@@ -411,7 +409,7 @@ export function ComplianceStudio() {
                             <div className="row row--between row--wrap" style={{ gap: 6 }}>
                               <TrackBadge track={item.course.track} short />
                               {done ? (
-                                <span className="badge badge--success">
+                                <span className="neo-chip" data-tone="emerald">
                                   <Check /> {enr.bestQuizScore ?? 100}%
                                 </span>
                               ) : (
@@ -437,13 +435,13 @@ export function ComplianceStudio() {
                               {!done ? (
                                 <button
                                   type="button"
-                                  className="btn btn--ghost btn--sm"
+                                  className="neo-btn neo-btn--ghost neo-btn--xs"
                                   onClick={() => toast.result(nudgeLearner(row.user.id, item.course.id))}
                                 >
                                   <BellRing /> Nudge ({item.progressPct}%)
                                 </button>
                               ) : (
-                                <span className="mono text-xs faint">Completed</span>
+                                <span className="neo-mono text-xs faint">Completed</span>
                               )}
                             </div>
                           </div>
@@ -456,25 +454,24 @@ export function ComplianceStudio() {
             })}
           </div>
         )}
-      </section>
+      </NeoPanel>
 
       {/* Onboarding Auto-Assignment Rules Engine (People Ops / L&D Admin) */}
       {caps.manage && (
-        <section className="stack" style={{ marginTop: 8 }}>
-          <div className="row row--between row--wrap" style={{ gap: 10 }}>
-            <div>
-              <h2 className="section-title">
-                <Rocket size={18} style={{ color: '#818cf8' }} /> Onboarding Auto-Assignment Rules Engine
-                <span className="count">{rules.filter((r) => r.enabled).length}/{rules.length} active</span>
-              </h2>
-              <p className="text-xs muted" style={{ marginTop: 3 }}>
-                Declarative rules connecting Talent Hub / HR Portal onboarding phases (`day-1`, `week-1`, `day-30`) to automatic Academy enrollments.
-              </p>
-            </div>
-            <button type="button" className="btn btn--sm" onClick={handleSyncOnboarding}>
-              <RefreshCw /> Sync Onboarding Now
+        <NeoPanel
+          icon={<Rocket />}
+          hud="HR portal bridge"
+          title={`Onboarding auto-assignment rules (${rules.filter((r) => r.enabled).length}/${rules.length} active)`}
+          actions={
+            <button type="button" className="neo-btn neo-btn--soft neo-btn--sm" onClick={handleSyncOnboarding}>
+              <RefreshCw /> Sync onboarding now
             </button>
-          </div>
+          }
+        >
+          <p className="ac-panel-lead" style={{ marginBottom: 12 }}>
+            Declarative rules connecting Talent Hub / HR Portal onboarding phases (<code>day-1</code>,{' '}
+            <code>week-1</code>, <code>day-30</code>) to automatic Academy enrollments.
+          </p>
 
           <div className="ac-rules-grid">
             {rules.map((rule) => {
@@ -484,8 +481,12 @@ export function ComplianceStudio() {
                 <div key={rule.id} className={cx('ac-rule-card', !rule.enabled && 'is-paused')}>
                   <div className="row row--between" style={{ gap: 8 }}>
                     <div className="row row--wrap" style={{ gap: 6 }}>
-                      <span className="badge badge--info">{PHASE_BADGE[rule.phase] ?? rule.phase}</span>
-                      <span className="tag">Due +{rule.dueOffsetDays}d</span>
+                      <span className="neo-chip" data-tone="violet">
+                        {PHASE_BADGE[rule.phase] ?? rule.phase}
+                      </span>
+                      <span className="neo-chip" data-tone="slate">
+                        Due +{rule.dueOffsetDays}d
+                      </span>
                     </div>
                     <Switch
                       checked={rule.enabled}
@@ -503,16 +504,16 @@ export function ComplianceStudio() {
 
                   <div className="row row--wrap" style={{ gap: 5, marginTop: 'auto', paddingTop: 4 }}>
                     {rule.departments.length === 0 && rule.roleIds.length === 0 ? (
-                      <span className="tag">All New Hires</span>
+                      <span className="ac-skill">All New Hires</span>
                     ) : (
                       <>
                         {rule.departments.map((d) => (
-                          <span key={d} className="tag">
+                          <span key={d} className="ac-skill">
                             Dept: {d}
                           </span>
                         ))}
                         {roleNames.map((rn) => (
-                          <span key={rn} className="tag">
+                          <span key={rn} className="ac-skill">
                             Role: {rn}
                           </span>
                         ))}
@@ -523,7 +524,7 @@ export function ComplianceStudio() {
               );
             })}
           </div>
-        </section>
+        </NeoPanel>
       )}
 
       {/* Modal 1: Assign Course Modal */}
@@ -536,17 +537,17 @@ export function ComplianceStudio() {
         footer={
           <div className="row row--between" style={{ width: '100%' }}>
             <span className="text-xs muted">{assignUserIds.length} selected</span>
-            <div className="row">
-              <button type="button" className="btn btn--ghost" onClick={() => setAssignOpen(false)}>
+            <div className="row" style={{ gap: 8 }}>
+              <button type="button" className="neo-btn neo-btn--ghost" onClick={() => setAssignOpen(false)}>
                 Cancel
               </button>
               <button
                 type="button"
-                className="btn ac-btn-indigo"
+                className="neo-btn neo-btn--plasma"
                 disabled={assignUserIds.length === 0 || !assignCourseId}
                 onClick={handleConfirmAssign}
               >
-                <Send /> Assign Training
+                <Send /> Assign training
               </button>
             </div>
           </div>
@@ -559,7 +560,7 @@ export function ComplianceStudio() {
             </label>
             <select
               id="ac-assign-course"
-              className="select"
+              className="neo-select"
               value={assignCourseId}
               onChange={(e) => setAssignCourseId(e.target.value)}
             >
@@ -577,20 +578,23 @@ export function ComplianceStudio() {
               <div className="row" style={{ gap: 6 }}>
                 <button
                   type="button"
-                  className="btn btn--ghost btn--sm"
+                  className="neo-btn neo-btn--ghost neo-btn--xs"
                   onClick={() => setAssignUserIds(eligiblePickerUsers.map((u) => u.id))}
                 >
                   Select all
                 </button>
-                <button type="button" className="btn btn--ghost btn--sm" onClick={() => setAssignUserIds([])}>
+                <button
+                  type="button"
+                  className="neo-btn neo-btn--ghost neo-btn--xs"
+                  onClick={() => setAssignUserIds([])}
+                >
                   Clear
                 </button>
               </div>
             </div>
             <input
               type="search"
-              className="input"
-              style={{ height: 36, fontSize: 13 }}
+              className="neo-input"
               placeholder="Search team members…"
               value={assignSearch}
               onChange={(e) => setAssignSearch(e.target.value)}
@@ -627,7 +631,7 @@ export function ComplianceStudio() {
               <input
                 id="ac-assign-due"
                 type="date"
-                className="input"
+                className="neo-input"
                 value={assignDueDate}
                 onChange={(e) => setAssignDueDate(e.target.value)}
               />
@@ -636,8 +640,7 @@ export function ComplianceStudio() {
                   <button
                     key={d}
                     type="button"
-                    className="btn btn--ghost btn--sm"
-                    style={{ height: 26, padding: '0 8px', fontSize: 11.5 }}
+                    className="neo-btn neo-btn--ghost neo-btn--xs"
                     onClick={() => setAssignDueDate(addDaysISO(todayISO(), d))}
                   >
                     +{d}d
@@ -661,11 +664,11 @@ export function ComplianceStudio() {
 
           <div className="field">
             <label className="field-label" htmlFor="ac-assign-note">
-              Personal Manager / L&D Note (optional)
+              Personal Manager / L&amp;D Note (optional)
             </label>
             <textarea
               id="ac-assign-note"
-              className="textarea"
+              className="neo-textarea"
               rows={2}
               placeholder="e.g., Great prep before taking primary on-call next sprint!"
               value={assignNote}
@@ -684,13 +687,15 @@ export function ComplianceStudio() {
         subtitle="Author a new micro-learning module + graded certification quiz live to Helix Academy"
         footer={
           <div className="row row--between" style={{ width: '100%' }}>
-            <span className="text-xs muted">Awards +{Math.max(100, Math.round((newDuration || 20) * 10))} XP upon certification</span>
-            <div className="row">
-              <button type="button" className="btn btn--ghost" onClick={() => setAuthorOpen(false)}>
+            <span className="text-xs muted">
+              Awards +{Math.max(100, Math.round((newDuration || 20) * 10))} XP upon certification
+            </span>
+            <div className="row" style={{ gap: 8 }}>
+              <button type="button" className="neo-btn neo-btn--ghost" onClick={() => setAuthorOpen(false)}>
                 Cancel
               </button>
-              <button type="button" className="btn ac-btn-indigo" onClick={handleCreateCourse}>
-                <Sparkles /> Publish Course
+              <button type="button" className="neo-btn neo-btn--plasma" onClick={handleCreateCourse}>
+                <Sparkles /> Publish course
               </button>
             </div>
           </div>
@@ -704,7 +709,7 @@ export function ComplianceStudio() {
               </label>
               <input
                 id="ac-new-title"
-                className="input"
+                className="neo-input"
                 placeholder="e.g., Agentic Incident Triage with Gemini"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
@@ -716,7 +721,7 @@ export function ComplianceStudio() {
               </label>
               <input
                 id="ac-new-tagline"
-                className="input"
+                className="neo-input"
                 placeholder="One-line value proposition for learners"
                 value={newTagline}
                 onChange={(e) => setNewTagline(e.target.value)}
@@ -730,7 +735,7 @@ export function ComplianceStudio() {
             </label>
             <textarea
               id="ac-new-desc"
-              className="textarea"
+              className="neo-textarea"
               rows={2}
               placeholder="What skills and real-world decisions will learners master?"
               value={newDesc}
@@ -745,7 +750,7 @@ export function ComplianceStudio() {
               </label>
               <select
                 id="ac-new-track"
-                className="select"
+                className="neo-select"
                 value={newTrack}
                 onChange={(e) => setNewTrack(e.target.value as AcademyTrack)}
               >
@@ -763,7 +768,7 @@ export function ComplianceStudio() {
               </label>
               <select
                 id="ac-new-level"
-                className="select"
+                className="neo-select"
                 value={newLevel}
                 onChange={(e) => setNewLevel(e.target.value as CourseLevel)}
               >
@@ -781,7 +786,7 @@ export function ComplianceStudio() {
               </label>
               <select
                 id="ac-new-format"
-                className="select"
+                className="neo-select"
                 value={newFormat}
                 onChange={(e) => setNewFormat(e.target.value as CourseFormat)}
               >
@@ -804,7 +809,7 @@ export function ComplianceStudio() {
                 type="number"
                 min={5}
                 max={180}
-                className="input"
+                className="neo-input"
                 value={newDuration}
                 onChange={(e) => setNewDuration(Number(e.target.value) || 15)}
               />
@@ -816,7 +821,7 @@ export function ComplianceStudio() {
               </label>
               <input
                 id="ac-new-skills"
-                className="input"
+                className="neo-input"
                 value={newSkills}
                 onChange={(e) => setNewSkills(e.target.value)}
               />
@@ -856,7 +861,7 @@ export function ComplianceStudio() {
             </div>
           )}
 
-          <hr className="divider" style={{ margin: '4px 0' }} />
+          <hr className="neo-divider" style={{ margin: '4px 0' }} />
 
           <div className="ac-form-grid-2">
             <div className="field">
@@ -865,7 +870,7 @@ export function ComplianceStudio() {
               </label>
               <input
                 id="ac-lesson-title"
-                className="input"
+                className="neo-input"
                 value={newLessonTitle}
                 onChange={(e) => setNewLessonTitle(e.target.value)}
               />
@@ -876,7 +881,7 @@ export function ComplianceStudio() {
               </label>
               <input
                 id="ac-lesson-sum"
-                className="input"
+                className="neo-input"
                 placeholder="Key outcome of this lesson"
                 value={newLessonSummary}
                 onChange={(e) => setNewLessonSummary(e.target.value)}
@@ -890,7 +895,7 @@ export function ComplianceStudio() {
             </label>
             <textarea
               id="ac-lesson-body"
-              className="textarea"
+              className="neo-textarea"
               rows={3}
               placeholder="Write clear, actionable Helix guidance (at least 20 characters)…"
               value={newLessonBody}
@@ -898,7 +903,7 @@ export function ComplianceStudio() {
             />
           </div>
 
-          <hr className="divider" style={{ margin: '4px 0' }} />
+          <hr className="neo-divider" style={{ margin: '4px 0' }} />
 
           <div className="field">
             <label className="field-label" htmlFor="ac-quiz-prompt">
@@ -906,7 +911,7 @@ export function ComplianceStudio() {
             </label>
             <input
               id="ac-quiz-prompt"
-              className="input"
+              className="neo-input"
               placeholder="Ask a scenario-based verification question…"
               value={newQuizPrompt}
               onChange={(e) => setNewQuizPrompt(e.target.value)}
@@ -925,8 +930,7 @@ export function ComplianceStudio() {
                   aria-label={`Mark option ${idx + 1} as correct`}
                 />
                 <input
-                  className="input"
-                  style={{ height: 36 }}
+                  className="neo-input"
                   placeholder={`Option ${String.fromCharCode(65 + idx)}`}
                   value={opt}
                   onChange={(e) =>
@@ -943,7 +947,7 @@ export function ComplianceStudio() {
             </label>
             <input
               id="ac-quiz-exp"
-              className="input"
+              className="neo-input"
               placeholder="Explain why the correct answer protects or empowers the team"
               value={newQuizExplanation}
               onChange={(e) => setNewQuizExplanation(e.target.value)}
@@ -954,3 +958,4 @@ export function ComplianceStudio() {
     </div>
   );
 }
+

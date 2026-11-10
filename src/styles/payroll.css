@@ -1304,3 +1304,1117 @@ button.py-status-tile:hover {
     flex: 1 1 auto;
   }
 }
+
+/* ==========================================================================
+   NEO Payday Deck, Variable Pay Studio & Modals (PayRunView / BonusesView)
+   ========================================================================== */
+
+.py-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.py-panel-sub {
+  margin: -4px 0 12px;
+  font-size: 12.5px;
+  color: var(--neo-dim);
+  line-height: 1.45;
+}
+
+.py-register .py-panel-sub,
+.py-register .py-toolbar,
+.py-view .neo-panel--flush > .py-panel-sub,
+.py-view .neo-panel--flush > .py-toolbar {
+  padding-inline: 18px;
+}
+
+.py-view .neo-panel--flush > .py-panel-sub {
+  padding-top: 12px;
+  margin-top: 0;
+}
+
+.py-panel-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  border-top: 1px solid var(--neo-line);
+  font-size: 12px;
+  color: var(--neo-dim);
+  background: rgb(255 255 255 / 0.015);
+}
+
+.py-panel-foot svg {
+  width: 14px;
+  height: 14px;
+  color: var(--app);
+  flex: none;
+}
+
+/* ---------- 4-Step Payday Stepper (`ol.py-steps`) ---------- */
+.py-steps {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.py-steps .py-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px 13px;
+  border-radius: 12px;
+  background: var(--neo-Well, rgb(255 255 255 / 0.025));
+  border: 1px solid var(--neo-line);
+  min-width: 0;
+  transition: border-color 160ms var(--ease-out), background 160ms var(--ease-out);
+}
+
+.py-steps .py-step[data-state='done'] {
+  background: rgb(var(--app-rgb) / 0.07);
+  border-color: rgb(var(--app-rgb) / 0.26);
+}
+
+.py-steps .py-step[data-state='active'] {
+  background: linear-gradient(145deg, rgb(var(--app-rgb) / 0.16), rgb(var(--app-2-rgb) / 0.05));
+  border-color: rgb(var(--app-rgb) / 0.48);
+  box-shadow: 0 10px 26px -16px rgb(var(--app-rgb) / 0.55);
+}
+
+.py-step__rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+}
+
+.py-step__dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: rgb(255 255 255 / 0.05);
+  border: 1px solid var(--neo-line-2);
+  color: var(--neo-dim);
+}
+
+.py-step__dot svg {
+  width: 14px;
+  height: 14px;
+}
+
+.py-step[data-state='done'] .py-step__dot {
+  background: rgb(var(--app-rgb) / 0.2);
+  border-color: rgb(var(--app-rgb) / 0.45);
+  color: var(--app-hi);
+}
+
+.py-step[data-state='active'] .py-step__dot {
+  background: var(--app);
+  border-color: transparent;
+  color: #04130a;
+  box-shadow: 0 0 16px rgb(var(--app-rgb) / 0.5);
+}
+
+.py-step__line {
+  display: none;
+}
+
+.py-step__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.py-step__idx {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--neo-mute);
+}
+
+.py-step[data-state='active'] .py-step__idx,
+.py-step[data-state='done'] .py-step__idx {
+  color: var(--app-hi);
+}
+
+/* ---------- Active Stage Banner (`StageCard`) ---------- */
+.py-stage {
+  --tone: var(--app-rgb);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 15px 16px;
+  border-radius: 13px;
+  background:
+    radial-gradient(420px 160px at 0% 0%, rgb(var(--tone) / 0.14), transparent 70%),
+    rgb(255 255 255 / 0.025);
+  border: 1px solid rgb(var(--tone) / 0.32);
+  min-width: 0;
+}
+
+.py-stage[data-tone='warning'] { --tone: 251 191 36; }
+.py-stage[data-tone='cyan'] { --tone: 34 211 238; }
+.py-stage[data-tone='success'] { --tone: 52 211 153; }
+
+.py-stage__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: rgb(var(--tone) / 0.16);
+  border: 1px solid rgb(var(--tone) / 0.36);
+  color: rgb(var(--tone));
+  flex: none;
+}
+
+.py-stage__icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.py-stage__body {
+  flex: 1 1 340px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.py-stage__hud {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgb(var(--tone));
+}
+
+.py-stage__title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--neo-ink);
+}
+
+.py-stage__text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--neo-dim);
+}
+
+.py-stage__text b {
+  color: var(--neo-ink);
+  font-weight: 600;
+}
+
+.py-stage__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.py-stage__input {
+  margin-top: 4px;
+  max-width: 520px;
+}
+
+.py-stage__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-self: center;
+}
+
+.py-note {
+  --tone: 251 191 36;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgb(var(--tone) / 0.1);
+  border: 1px solid rgb(var(--tone) / 0.3);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--neo-ink);
+}
+
+.py-note svg {
+  width: 15px;
+  height: 15px;
+  color: rgb(var(--tone));
+  flex: none;
+  margin-top: 1px;
+}
+
+.py-quote {
+  margin: 4px 0 0;
+  padding: 8px 11px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.03);
+  border-left: 2.5px solid var(--app);
+  font-size: 12px;
+  color: var(--neo-dim);
+  line-height: 1.45;
+}
+
+.py-mono-chip {
+  font-family: var(--font-mono);
+}
+
+/* ---------- Gross -> Net Flow & Component Tiles ---------- */
+.py-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.py-flow__row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.py-flow__val {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--neo-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.py-seg {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  overflow: hidden;
+  gap: 2px;
+}
+
+.py-seg--lg {
+  height: 10px;
+}
+
+.py-seg > i {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: 999px;
+  background: var(--app);
+}
+
+.py-seg > i[data-tone='app'] { background: var(--app); }
+.py-seg > i[data-tone='amber'] { background: #fbbf24; }
+.py-seg > i[data-tone='cyan'] { background: #22d3ee; }
+.py-seg > i[data-tone='violet'] { background: #a78bfa; }
+
+.py-seg > i.py-seg__cut {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgb(248 113 113 / 0.55),
+    rgb(248 113 113 / 0.55) 4px,
+    rgb(248 113 113 / 0.2) 4px,
+    rgb(248 113 113 / 0.2) 8px
+  );
+}
+
+.py-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  gap: 10px;
+}
+
+.py-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 13px;
+  border-radius: 11px;
+  background: rgb(255 255 255 / 0.025);
+  border: 1px solid var(--neo-line);
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+
+.py-tile--link:hover {
+  border-color: rgb(var(--app-rgb) / 0.42);
+  transform: translateY(-1px);
+}
+
+.py-tile__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 550;
+  color: var(--neo-dim);
+}
+
+.py-tile__go {
+  width: 12px;
+  height: 12px;
+  margin-left: auto;
+  color: var(--neo-mute);
+}
+
+.py-tile__val {
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--neo-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.py-tile__val--minus {
+  color: #f87171;
+}
+
+.py-tile__sub {
+  font-size: 11px;
+  color: var(--neo-mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.py-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgb(var(--tone, var(--app-rgb)));
+  display: inline-block;
+  flex: none;
+}
+
+.py-dot[data-tone='app'] { background: var(--app); }
+.py-dot[data-tone='amber'] { background: #fbbf24; }
+.py-dot[data-tone='cyan'] { background: #22d3ee; }
+.py-dot[data-tone='violet'] { background: #a78bfa; }
+.py-dot--cut { background: #f87171; }
+
+/* ---------- Four-Eyes Trail & WPS Bank File Side Panels ---------- */
+.py-trail {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.py-trail__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.py-trail__dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: rgb(255 255 255 / 0.04);
+  border: 1px solid var(--neo-line-2);
+  color: var(--neo-mute);
+  flex: none;
+}
+
+.py-trail__dot svg {
+  width: 13px;
+  height: 13px;
+}
+
+.py-trail__item[data-state='done'] .py-trail__dot {
+  background: rgb(var(--app-rgb) / 0.18);
+  border-color: rgb(var(--app-rgb) / 0.42);
+  color: var(--app-hi);
+}
+
+.py-trail__item[data-state='active'] .py-trail__dot {
+  background: rgb(251 191 36 / 0.18);
+  border-color: rgb(251 191 36 / 0.45);
+  color: #fbbf24;
+}
+
+.py-trail__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.py-trail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--neo-ink);
+}
+
+.py-trail__time {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--neo-mute);
+}
+
+.py-trail__who {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: var(--neo-dim);
+  min-width: 0;
+}
+
+.py-trail__wait {
+  font-size: 11.5px;
+  color: var(--neo-mute);
+  line-height: 1.4;
+}
+
+.py-minis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.py-minis--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.py-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.025);
+  border: 1px solid var(--neo-line);
+  min-width: 0;
+}
+
+.py-mini__val {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--neo-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.py-mini__val--mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.py-mini__ok {
+  width: 13px;
+  height: 13px;
+  color: var(--app-hi);
+  flex: none;
+}
+
+.py-sect {
+  margin: 12px 0 6px;
+}
+
+.py-banks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.py-banks li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.py-bank__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--neo-ink);
+}
+
+.py-bank__head span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--neo-dim);
+  white-space: nowrap;
+}
+
+.py-bank__more {
+  font-size: 11px;
+  color: var(--neo-mute);
+}
+
+.py-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.py-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.py-actions--end {
+  justify-content: flex-end;
+}
+
+/* ---------- Register & Ledger Tables ---------- */
+.py-toolbar__search {
+  flex: 1 1 240px;
+  max-width: 360px;
+}
+
+.py-toolbar--chips {
+  justify-content: flex-start;
+  gap: 6px;
+  margin-top: -4px;
+}
+
+.py-row {
+  cursor: pointer;
+}
+
+.py-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 180px;
+}
+
+.py-person__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.py-person__text b {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neo-ink);
+  white-space: nowrap;
+}
+
+.py-person__text span {
+  font-size: 11px;
+  color: var(--neo-dim);
+  white-space: nowrap;
+}
+
+.py-ccy {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--neo-ink);
+}
+
+.py-sub {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--neo-mute);
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
+.py-sub[data-tone='warning'] { color: #fbbf24; }
+.py-sub[data-tone='danger'] { color: #f87171; }
+
+.py-amt {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--neo-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.py-amt--plus { color: var(--app-hi); }
+.py-amt--claim { color: #38bdf8; }
+.py-amt--minus { color: var(--neo-dim); }
+.py-amt--net {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--neo-ink);
+}
+
+.py-nil {
+  color: var(--neo-mute);
+  font-family: var(--font-mono);
+}
+
+.py-bankcell {
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--neo-ink);
+  white-space: nowrap;
+}
+
+.py-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-width: 260px;
+}
+
+.py-mono {
+  font-family: var(--font-mono);
+}
+
+.py-cell-wide {
+  max-width: 320px;
+}
+
+.py-cell-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--neo-ink);
+}
+
+.py-cell-sub {
+  font-size: 11.5px;
+  color: var(--neo-dim);
+  line-height: 1.4;
+}
+
+/* ---------- Bonuses: Approval Queue, Pool Burn & Award Mix ---------- */
+.py-awards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.py-award {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.025);
+  border: 1px solid var(--neo-line-2);
+  min-width: 0;
+}
+
+.py-award__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+}
+
+.py-award__who {
+  flex: 1;
+  min-width: 0;
+}
+
+.py-award__name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  font-size: 13.5px;
+  color: var(--neo-ink);
+}
+
+.py-award__meta {
+  font-size: 11.5px;
+  color: var(--neo-dim);
+  margin-top: 2px;
+}
+
+.py-award__amt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex: none;
+}
+
+.py-award__amt b {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--app-hi);
+  font-variant-numeric: tabular-nums;
+}
+
+.py-award__amt span {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--neo-mute);
+}
+
+.py-award__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--neo-ink);
+}
+
+.py-award__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--neo-line);
+}
+
+.py-award__decide {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1 1 280px;
+}
+
+.py-award__decide .neo-input {
+  flex: 1 1 160px;
+}
+
+.py-award__btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.py-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 11.5px;
+  color: var(--neo-dim);
+}
+
+.py-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.py-burn {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.py-burn__row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.py-burn__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--neo-ink);
+}
+
+.py-burn__fig {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--neo-dim);
+}
+
+.py-burn__fig em {
+  font-style: normal;
+  font-weight: 650;
+  color: var(--neo-ink);
+}
+
+.py-burn__fig[data-over] em {
+  color: #fbbf24;
+}
+
+.py-mix {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.py-mix__row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.py-mix__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.py-mix__count {
+  font-size: 11.5px;
+  color: var(--neo-mute);
+}
+
+.py-mix__amt {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--neo-ink);
+}
+
+/* ---------- Payslip, WPS .SIF & Nominate Modals ---------- */
+.py-modal__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  background: rgb(var(--app-rgb) / 0.16);
+  border: 1px solid rgb(var(--app-rgb) / 0.36);
+  color: var(--app-hi);
+}
+
+.py-modal__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.py-modal__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.py-modal__hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--neo-dim);
+}
+
+.py-net {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgb(var(--app-rgb) / 0.16), rgb(var(--app-2-rgb) / 0.05));
+  border: 1px solid rgb(var(--app-rgb) / 0.38);
+}
+
+.py-net__val {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--neo-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.py-net__sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--neo-dim);
+}
+
+.py-net__bank {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  text-align: right;
+}
+
+.py-slip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.py-box {
+  padding: 13px 14px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.025);
+  border: 1px solid var(--neo-line);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.py-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 12.5px;
+  color: var(--neo-dim);
+  border-bottom: 1px dashed var(--neo-line);
+}
+
+.py-line span:last-child {
+  font-family: var(--font-mono);
+  color: var(--neo-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.py-line[data-tone='success'] span:last-child { color: var(--app-hi); }
+.py-line[data-tone='info'] span:last-child { color: #38bdf8; }
+.py-line[data-tone='danger'] span:last-child { color: #f87171; }
+
+.py-line--total {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--neo-line-2);
+  border-bottom: none;
+  font-weight: 650;
+  color: var(--neo-ink);
+}
+
+.py-refs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.py-ref {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.py-ref__l {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-width: 0;
+}
+
+.py-ref__tag {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.05);
+  border: 1px solid var(--neo-line);
+  color: var(--neo-dim);
+}
+
+.py-ref__dim {
+  font-size: 11px;
+  color: var(--neo-mute);
+}
+
+.py-adjust__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.py-sif {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: rgb(5 8 15 / 0.72);
+  border: 1px solid var(--neo-line-2);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--neo-ink);
+  overflow-x: auto;
+  max-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.py-sif__line {
+  white-space: pre;
+}
+
+.py-sif__tag {
+  font-weight: 700;
+  color: var(--app-hi);
+}
+
+.py-sif__line[data-kind='SCR'] .py-sif__tag {
+  color: #fbbf24;
+}
+
+.py-sif__sep {
+  color: var(--neo-mute);
+}
+
+.py-kindpick,
+.py-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+@media (max-width: 960px) {
+  .py-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .py-slip,
+  .py-minis--4 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+

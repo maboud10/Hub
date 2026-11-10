@@ -1,198 +1,449 @@
-export type DeviceCategory = 'laptop' | 'monitor' | 'phone' | 'security_key' | 'peripheral';
+/**
+ * IT Helpdesk domain model — "Support Deck & Fleet Command".
+ *
+ * Tickets, devices, catalog requests, service status, guides and the
+ * self-service (Nova) playbook runs all live in one persisted store
+ * (`src/helpdesk/store.ts`). Pure logic lives in sibling modules:
+ * `sla.ts`, `triage.ts`, `playbooks.ts`, `eligibility.ts`, `fleet.ts`, `qr.ts`.
+ */
+import type { BridgeSource } from '@/lib/appBridge';
+import type { Department } from '@/types';
 
-export type DeviceStatus = 'assigned' | 'in_stock' | 'in_repair' | 'pending_return' | 'retired';
+/* ---------------------------------------------------------------- Tickets */
 
-export type DeviceLocation =
-  | 'Dubai HQ'
-  | 'Singapore Hub'
-  | 'London Hub'
-  | 'Berlin'
-  | 'New York'
-  | 'Remote';
+export type Priority = 'P1' | 'P2' | 'P3' | 'P4';
+export type Impact = 'me' | 'team' | 'company';
+export type Urgency = 'low' | 'normal' | 'high';
+export type TicketCategory = 'hardware' | 'software' | 'access' | 'network' | 'email' | 'security' | 'other';
+/** Kanban lanes: New → Triaged → In progress → Waiting on user → Resolved. */
+export type TicketStatus = 'new' | 'triaged' | 'in_progress' | 'waiting' | 'resolved';
+export type ResolutionCode = 'fixed' | 'self_service' | 'replaced' | 'workaround' | 'duplicate' | 'no_fault' | 'escalated';
 
-export type CompliancePosture = 'compliant' | 'patch_required' | 'non_compliant';
+export interface Attachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  /** Small data-URL preview for images (downscaled before storing). */
+  preview?: string;
+}
 
-export type CustodyActionType =
-  | 'assigned'
-  | 'unassigned'
-  | 'reassigned'
-  | 'repair'
-  | 'mdm_action'
-  | 'tag_updated';
+export type TicketEventKind =
+  | 'created'
+  | 'reply'
+  | 'note'
+  | 'status'
+  | 'assign'
+  | 'priority'
+  | 'category'
+  | 'device'
+  | 'automation'
+  | 'csat'
+  | 'escalation';
 
-export interface CustodyLogEntry {
+export interface TicketEvent {
   id: string;
   at: number;
-  action: CustodyActionType;
-  userId?: string;
-  actorId: string;
-  note: string;
+  kind: TicketEventKind;
+  /** Hub user id; undefined for automation (Nova / MDM / system). */
+  actorId?: string;
+  body?: string;
+  from?: string;
+  to?: string;
+  attachments?: Attachment[];
+  macroId?: string;
 }
 
-export interface DeviceSpecs {
-  cpu?: string;
-  ram?: string;
-  storage?: string;
-  osVersion?: string;
-  batteryHealthPct?: number;
-  cycleCount?: number;
+export interface Csat {
+  score: 1 | 2 | 3 | 4 | 5;
+  comment?: string;
+  at: number;
 }
 
-export interface HardwareDevice {
+export interface Ticket {
+  /** Human key, also the route id, e.g. `HX-1042`. */
   id: string;
-  assetTag: string;
-  serialNumber: string;
-  name: string;
-  model: string;
-  category: DeviceCategory;
-  specs: DeviceSpecs;
-  status: DeviceStatus;
-  assignedToUserId?: string;
-  assignedAt?: string;
-  location: DeviceLocation;
-  tags: string[];
-  compliance: CompliancePosture;
-  encrypted: boolean;
-  edrActive: boolean;
-  firewallOn: boolean;
-  mdmEnrolled: boolean;
-  lastCheckInAt: number;
-  recoveryKeyEscrowed: string;
-  purchaseDate: string;
-  warrantyUntil: string;
-  costUsd: number;
-  custodyLog: CustodyLogEntry[];
-}
-
-export type TicketCategory =
-  | 'hardware'
-  | 'access_sso'
-  | 'software'
-  | 'network_vpn'
-  | 'security'
-  | 'onboarding_kit';
-
-export type TicketPriority = 'p1' | 'p2' | 'p3' | 'p4';
-
-export type TicketSlaStatus = 'on_track' | 'at_risk' | 'breached' | 'met';
-
-export type TicketStatus =
-  | 'open'
-  | 'triaged'
-  | 'in_progress'
-  | 'waiting_on_user'
-  | 'resolved'
-  | 'closed';
-
-export interface TicketComment {
-  id: string;
-  authorId: string;
-  body: string;
-  internal?: boolean;
-  createdAt: number;
-}
-
-export interface HelpdeskTicket {
-  id: string;
-  number: string;
-  requesterId: string;
-  assigneeId?: string;
-  title: string;
+  subject: string;
   description: string;
   category: TicketCategory;
-  priority: TicketPriority;
-  slaTargetHours: 1 | 4 | 8 | 24;
-  slaStatus: TicketSlaStatus;
+  priority: Priority;
+  impact: Impact;
+  urgency: Urgency;
   status: TicketStatus;
-  deviceId?: string;
-  requestedCatalogItemId?: string;
-  includeTelemetry: boolean;
+  requesterId: string;
+  assigneeId?: string;
+  deviceTag?: string;
   createdAt: number;
   updatedAt: number;
+  firstResponseAt?: number;
   resolvedAt?: number;
-  comments: TicketComment[];
-  csatRating?: number;
+  /** Set while the ticket waits on the requester (resolution SLA clock paused). */
+  pausedAt?: number;
+  /** Accumulated paused time (ms). */
+  pausedMs: number;
+  resolution?: { code: ResolutionCode; note?: string };
+  csat?: Csat;
+  events: TicketEvent[];
+  source?: BridgeSource;
+  escalated?: boolean;
+  selfService?: { playbookId: PlaybookId; outcome: FixOutcome };
+  requestId?: string;
+  incidentId?: string;
+  /** A simulated service-desk agent will pick this up shortly. */
+  sim?: 'pickup';
 }
 
-export type CatalogItemCategory =
-  | 'laptop'
-  | 'monitor'
-  | 'peripheral'
-  | 'security_key'
-  | 'ergonomics'
-  | 'software_license'
-  | 'network_access';
+export interface Macro {
+  id: string;
+  name: string;
+  /** Supports `{{first}}` (requester first name) and `{{agent}}`. */
+  body: string;
+  status?: TicketStatus;
+}
+
+/* ---------------------------------------------------------------- Devices */
+
+export type DeviceKind = 'laptop' | 'desktop' | 'monitor' | 'phone' | 'tablet' | 'security-key' | 'headset' | 'dock' | 'keyboard';
+export type DeviceStatus = 'in_use' | 'in_stock' | 'loaner' | 'in_repair' | 'retired' | 'lost';
+export type Office = 'Dubai' | 'London' | 'Singapore' | 'Berlin' | 'New York' | 'Toronto' | 'Remote';
+
+export interface Compliance {
+  encrypted: boolean;
+  firewall: boolean;
+  osCurrent: boolean;
+}
+
+export interface Posture {
+  vpnClient: 'current' | 'outdated';
+  /** Device-trust / SSO certificate expiry. */
+  ssoExpiresAt: number;
+  /** 802.1X Wi-Fi certificate expiry. */
+  wifiCertExpiresAt: number;
+}
+
+export interface Telemetry {
+  /** Battery health % — weekly samples, oldest first. */
+  battery: number[];
+  /** Storage used % — weekly samples, oldest first. */
+  storage: number[];
+  /** CPU temperature °C — hourly samples (last 24h), oldest first. */
+  cpuTemp: number[];
+  batteryCycles?: number;
+  storageGb: number;
+}
+
+export type CustodyKind =
+  | 'purchased'
+  | 'registered'
+  | 'assigned'
+  | 'unassigned'
+  | 'loaned'
+  | 'returned'
+  | 'repair'
+  | 'repaired'
+  | 'retired'
+  | 'lost'
+  | 'found'
+  | 'return_scheduled'
+  | 'fulfilled';
+
+export interface CustodyEvent {
+  id: string;
+  at: number;
+  kind: CustodyKind;
+  userId?: string;
+  actorId?: string;
+  note?: string;
+}
+
+export type MdmAction = 'sync' | 'lock' | 'unlock' | 'wipe' | 'rotate_key' | 'push_update';
+export type MdmState = 'queued' | 'sent' | 'acknowledged' | 'completed' | 'failed';
+
+export interface MdmCommand {
+  id: string;
+  action: MdmAction;
+  state: MdmState;
+  actorId: string;
+  createdAt: number;
+  updatedAt: number;
+  log: { at: number; line: string }[];
+}
+
+export interface Device {
+  /** Primary key, e.g. `HX-MBP-0142`. */
+  assetTag: string;
+  kind: DeviceKind;
+  manufacturer: string;
+  model: string;
+  serial: string;
+  status: DeviceStatus;
+  assigneeId?: string;
+  office: Office;
+  /** Tag ids (see `DeviceTag`). */
+  tags: string[];
+  purchasedAt: number;
+  warrantyEnd: number;
+  cost: number;
+  os?: string;
+  osTarget?: string;
+  specs?: string;
+  /** Managed (MDM-enrolled) devices only. */
+  compliance?: Compliance;
+  posture?: Posture;
+  telemetry?: Telemetry;
+  /** Peripherals: firmware up to date. */
+  firmwareCurrent?: boolean;
+  lastCheckIn?: number;
+  loan?: { dueAt: number; since: number; note?: string };
+  repair?: { vendor: string; since: number; eta?: number; note?: string };
+  returnAt?: number;
+  recoveryKey?: string;
+  locked?: boolean;
+  mdm: MdmCommand[];
+  custody: CustodyEvent[];
+  notes?: string;
+}
+
+export interface DeviceTag {
+  id: string;
+  /** Without the leading `#`, e.g. `eng-heavy`. */
+  name: string;
+  color: string;
+  description: string;
+  createdAt: number;
+}
+
+export interface FleetFilter {
+  q?: string;
+  status?: DeviceStatus[];
+  kind?: DeviceKind[];
+  office?: Office[];
+  tag?: string[];
+  compliance?: 'compliant' | 'noncompliant';
+  warranty?: 'expiring' | 'expired';
+}
+
+export interface SavedView {
+  id: string;
+  name: string;
+  filter: FleetFilter;
+  builtin?: boolean;
+}
+
+/* ---------------------------------------------------------------- Catalog */
+
+export type CatalogKind = 'hardware' | 'software' | 'access';
+
+export interface CatalogOption {
+  id: string;
+  label: string;
+  choices: string[];
+}
 
 export interface CatalogItem {
   id: string;
+  kind: CatalogKind;
   name: string;
   vendor: string;
-  category: CatalogItemCategory;
-  summary: string;
-  specsOrTier: string;
-  costUsd: number;
-  billingModel: 'one_time' | 'monthly_seat' | 'annual_seat';
-  requiresManagerApproval: boolean;
-  inStockCount: number;
-  deliverySla: string;
-  recommendedTags: string[];
+  blurb: string;
+  description: string;
+  /** Hardware: silhouette to render. */
+  deviceKind?: DeviceKind;
+  /** Software / access: icon key (see UI icon map). */
+  icon?: string;
+  accent: string;
+  cost: number;
+  billing: 'one-time' | 'yearly' | 'free';
+  etaDays: number;
+  options?: CatalogOption[];
+  /** Sensitive access: adds a Security approval step. */
+  sensitive?: boolean;
+  /** Departments that can request it directly (undefined = everyone). Others need a justification. */
+  departments?: Department[];
+  /** Strict department list — others are not eligible at all. */
+  strictDepartments?: boolean;
+  /** Contractors may request it. */
+  contractors?: boolean;
+  /** Hardware: stock devices whose model starts with this are valid for fulfilment. */
+  stockModel?: string;
   popular?: boolean;
 }
 
-export type SelfServiceFixId =
-  | 'passkey_reset'
-  | 'vpn_wireguard'
-  | 'mdm_cert_renew'
-  | 'dns_flush'
-  | 'docker_socket'
-  | 'sso_token_refresh';
+export type ApprovalRole = 'manager' | 'it' | 'security';
+export type StepState = 'waiting' | 'pending' | 'approved' | 'denied' | 'skipped';
 
-export interface SelfServiceRun {
+export interface ApprovalStep {
+  role: ApprovalRole;
+  /** Manager step: the requester's manager. */
+  approverId?: string;
+  state: StepState;
+  decidedBy?: string;
+  decidedAt?: number;
+  note?: string;
+}
+
+export type RequestStatus = 'pending' | 'approved' | 'fulfilled' | 'denied' | 'cancelled';
+
+export interface CatalogRequest {
+  /** e.g. `REQ-2041` */
   id: string;
-  fixId: SelfServiceFixId;
-  userId: string;
-  deviceId?: string;
-  ranAt: number;
-  status: 'passed' | 'remediated' | 'escalated';
-  summary: string;
-  stepsCompleted: string[];
+  itemId: string;
+  requesterId: string;
+  options: Record<string, string>;
+  justification: string;
+  status: RequestStatus;
+  steps: ApprovalStep[];
+  createdAt: number;
+  updatedAt: number;
+  fulfilment?: { at: number; by: string; deviceTag?: string; note?: string };
 }
 
-export type MdmRemoteCommand =
-  | 'sync_telemetry'
-  | 'push_os_patch'
-  | 'rotate_filevault_key'
-  | 'toggle_repair_status';
+/* ---------------------------------------------------------------- Status */
 
-export interface NewTicketInput {
-  requesterId?: string;
-  title: string;
-  description: string;
-  category: TicketCategory;
-  priority: TicketPriority;
-  deviceId?: string;
-  requestedCatalogItemId?: string;
-  includeTelemetry?: boolean;
-}
+export type ServiceHealth = 'operational' | 'degraded' | 'partial' | 'outage' | 'maintenance';
+export type IncidentStatus = 'investigating' | 'identified' | 'monitoring' | 'resolved';
+export type IncidentSeverity = 'minor' | 'major' | 'critical';
 
-export interface NewDeviceInput {
-  assetTag?: string;
-  serialNumber: string;
+export interface Service {
+  id: string;
   name: string;
-  model: string;
-  category: DeviceCategory;
-  specs?: DeviceSpecs;
-  location: DeviceLocation;
-  costUsd: number;
-  purchaseDate?: string;
-  warrantyUntil?: string;
-  assignedToUserId?: string;
-  tags?: string[];
+  group: 'Identity' | 'Network' | 'Collaboration' | 'Engineering' | 'Workplace';
+  description: string;
+  /** Daily uptime % for the last 90 days, oldest first (today is last). */
+  uptime: number[];
+  office?: Office;
 }
 
-export interface PresetTagMeta {
-  tag: string;
-  label: string;
-  color: string;
-  description: string;
+export interface IncidentUpdate {
+  id: string;
+  at: number;
+  status: IncidentStatus;
+  body: string;
+  authorId: string;
+}
+
+export interface Incident {
+  id: string;
+  title: string;
+  serviceIds: string[];
+  severity: IncidentSeverity;
+  status: IncidentStatus;
+  startedAt: number;
+  resolvedAt?: number;
+  /** Offices affected (undefined = everyone). */
+  offices?: Office[];
+  updates: IncidentUpdate[];
+}
+
+export interface Maintenance {
+  id: string;
+  title: string;
+  serviceIds: string[];
+  startsAt: number;
+  endsAt: number;
+  body: string;
+}
+
+export interface ItAnnouncement {
+  id: string;
+  title: string;
+  body: string;
+  tone: 'info' | 'warning' | 'success';
+  at: number;
+  link?: string;
+  linkLabel?: string;
+}
+
+/* ---------------------------------------------------------------- Guides */
+
+export interface GuideStep {
+  title: string;
+  body: string;
+  code?: string;
+}
+
+export interface Guide {
+  slug: string;
+  title: string;
+  summary: string;
+  category: TicketCategory;
+  minutes: number;
+  playbookId?: PlaybookId;
+  keywords: string[];
+  steps: GuideStep[];
+  updatedAt: number;
+  /** Seed baseline votes (live votes are stored per user in `guideVotes`). */
+  helpful: number;
+  notHelpful: number;
+}
+
+/* ---------------------------------------------------------------- Self-service */
+
+export type PlaybookId =
+  | 'reset-passkey'
+  | 'repair-vpn'
+  | 'renew-wifi'
+  | 'clear-disk'
+  | 'fix-mail'
+  | 'add-printer'
+  | 'install-software'
+  | 'report-phishing'
+  | 'fix-display'
+  | 'fix-audio'
+  | 'speed-up';
+
+export type FixOutcome = 'success' | 'partial' | 'failed';
+
+export interface FixRun {
+  id: string;
+  playbookId: PlaybookId;
+  userId: string;
+  deviceTag?: string;
+  at: number;
+  outcome: FixOutcome;
+  summary: string;
+  ticketId?: string;
+}
+
+/* ---------------------------------------------------------------- Insights */
+
+export interface WeekStat {
+  weekStart: number;
+  created: number;
+  resolved: number;
+  /** Share of tickets that met both SLAs, 0..1. */
+  slaMet: number;
+  /** Median first response in minutes. */
+  frtMedianMin: number;
+  csat: number;
+}
+
+/* ---------------------------------------------------------------- Store data */
+
+export interface HelpdeskData {
+  version: number;
+  tickets: Ticket[];
+  devices: Device[];
+  tags: DeviceTag[];
+  catalog: CatalogItem[];
+  requests: CatalogRequest[];
+  services: Service[];
+  incidents: Incident[];
+  maintenance: Maintenance[];
+  announcements: ItAnnouncement[];
+  guides: Guide[];
+  macros: Macro[];
+  history: WeekStat[];
+  fixRuns: FixRun[];
+  /** slug → userId → vote */
+  guideVotes: Record<string, Record<string, 1 | -1>>;
+  /** Users subscribed to status updates. */
+  statusSubs: string[];
+  /** userId → ticketId → last seen timestamp (for unread markers). */
+  seen: Record<string, Record<string, number>>;
+  /** userId → saved fleet views. */
+  fleetViews: Record<string, SavedView[]>;
+  /** deviceTag → last health check timestamp. */
+  diagRuns: Record<string, number>;
+  seq: { ticket: number; request: number; incident: number };
 }

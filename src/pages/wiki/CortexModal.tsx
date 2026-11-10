@@ -111,13 +111,10 @@ export function CortexModal({ open, initialQuery = '', onClose }: CortexModalPro
       open={open}
       onClose={onClose}
       width={760}
+      className="wk-portal neo-portal"
       icon={
-        <span
-          className="wk-space-icon"
-          style={{ '--sp-h': 174, '--sz': '42px' } as CSSProperties}
-          aria-hidden="true"
-        >
-          <Sparkles />
+        <span className="neo-novaorb wk-cortex-orb" aria-hidden="true">
+          <i />
         </span>
       }
       title="Ask Nova Docs · Living Cortex"
@@ -125,24 +122,24 @@ export function CortexModal({ open, initialQuery = '', onClose }: CortexModalPro
       footer={
         <div className="wk-cortex-sec-foot">
           <ShieldCheck aria-hidden="true" />
-          <span className="grow">
+          <span className="wk-cortex-sec-foot__text">
             <strong>Security guarantee:</strong> Grounded strictly in spaces cleared for your role — restricted spaces are excluded
             before synthesis ({visibleArticles.length} of {allArticles.length} playbooks active
             {excludedCount > 0 ? ` · ${excludedCount} restricted excluded` : ''}).
           </span>
-          <button type="button" className="btn btn--sm" onClick={onClose}>
+          <button type="button" className="neo-btn neo-btn--soft neo-btn--sm" onClick={onClose}>
             Done
           </button>
         </div>
       }
     >
-      <div className="stack">
+      <div className="wk-cortex">
         {/* Query Input */}
-        <div className="input-wrap">
-          <Search />
+        <div className="wk-cortex__search">
+          <Search className="wk-cortex__search-icon" aria-hidden="true" />
           <input
             type="text"
-            className="input"
+            className="wk-cortex__search-input"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -155,7 +152,7 @@ export function CortexModal({ open, initialQuery = '', onClose }: CortexModalPro
           {query && (
             <button
               type="button"
-              className="icon-btn icon-btn--sm input-trail"
+              className="neo-iconbtn neo-iconbtn--sm"
               onClick={() => setQuery('')}
               aria-label="Clear question"
             >
@@ -165,21 +162,21 @@ export function CortexModal({ open, initialQuery = '', onClose }: CortexModalPro
         </div>
 
         {/* Suggested Prompts */}
-        <div className="stack stack--sm">
-          <span className="stat-label">Suggested Cortex Questions</span>
+        <div className="wk-cortex__prompts">
+          <span className="neo-hud">Suggested Cortex questions</span>
           <div className="wk-cortex-prompt-grid">
             {SUGGESTED_CORTEX_PROMPTS.map((p) => (
               <button
                 key={p}
                 type="button"
-                className="wk-cortex-prompt"
+                className={cx('wk-cortex-prompt', query === p && 'is-active')}
                 onClick={() => {
                   setQuery(p);
                   setActiveCite(null);
                   setExpandedCites(new Set([1]));
                 }}
               >
-                <Sparkles style={{ width: 12, height: 12, color: 'var(--wk-ink, #2dd4bf)', flex: 'none' }} />
+                <Sparkles aria-hidden="true" />
                 <span>{p}</span>
               </button>
             ))}
@@ -189,69 +186,60 @@ export function CortexModal({ open, initialQuery = '', onClose }: CortexModalPro
         {/* Synthesized Answer */}
         {answer && (
           <div className="wk-cortex-answer">
-            <div className="row row--between row--wrap" style={{ gap: 8 }}>
-              <span className="badge" style={{ '--b-rgb': '45 212 191' } as CSSProperties}>
-                <Sparkles /> Grounded Synthesis
+            <div className="wk-cortex-answer__chips">
+              <span className="neo-nova-chip">
+                <Sparkles /> Grounded synthesis
               </span>
               {answer.citations.some((c) => c.isStale) && (
-                <span className="badge badge--warning">
+                <span className="neo-chip" data-tone="warning">
                   <AlertTriangle /> 1+ cited source flagged or due for review
                 </span>
               )}
               {answer.restrictedHint && (
-                <span className="badge badge--muted">
+                <span className="neo-chip" data-tone="slate">
                   <Lock /> Restricted spaces excluded
                 </span>
               )}
             </div>
 
-            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 650, margin: 0 }}>
-              {answer.headline}
-            </h3>
+            <h3 className="wk-cortex-answer__title">{answer.headline}</h3>
 
-            <div className="stack stack--sm">
+            <div className="wk-cortex-answer__body">
               {answer.paragraphs.map((p, idx) => (
-                <p key={idx} className="text-sm" style={{ margin: 0, lineHeight: 1.62, color: 'var(--text)' }}>
-                  {renderCitedText(p)}
-                </p>
+                <p key={idx}>{renderCitedText(p)}</p>
               ))}
             </div>
 
             {answer.bullets.length > 0 && (
-              <ul style={{ margin: '2px 0 0', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <ul className="wk-cortex-answer__list">
                 {answer.bullets.map((b, idx) => (
-                  <li key={idx} className="text-sm" style={{ lineHeight: 1.55, color: 'var(--text-2)' }}>
-                    {renderCitedText(b)}
-                  </li>
+                  <li key={idx}>{renderCitedText(b)}</li>
                 ))}
               </ul>
             )}
 
             {/* Companion Academy Courses & Cross-App Deep Link */}
             {(relatedCourses.length > 0 || answer.relatedRoute) && (
-              <div
-                className="row row--wrap"
-                style={{ gap: 8, paddingTop: 10, borderTop: '1px solid var(--border)' }}
-              >
+              <div className="wk-cortex-answer__links">
                 {relatedCourses.map((course) =>
                   hasAcademy ? (
                     <Link
                       key={course.id}
                       to={`/academy/course/${course.id}`}
                       onClick={onClose}
-                      className="chip"
-                      style={{ height: 32, fontSize: 12.5 }}
+                      className="neo-chip neo-chip--lg"
+                      data-tone="teal"
                     >
-                      <GraduationCap style={{ color: '#2dd4bf' }} />
+                      <GraduationCap />
                       <span>Academy: {course.title}</span>
-                      <span className="count">{course.durationMins}m</span>
+                      <span className="neo-count">{course.durationMins}m</span>
                       <ArrowUpRight />
                     </Link>
                   ) : (
                     <span
                       key={course.id}
-                      className="chip"
-                      style={{ height: 32, fontSize: 12.5, opacity: 0.72 }}
+                      className="neo-chip neo-chip--lg"
+                      data-tone="slate"
                       title="Requires Helix Academy (app:learning) permission"
                     >
                       <Lock />
@@ -264,10 +252,10 @@ export function CortexModal({ open, initialQuery = '', onClose }: CortexModalPro
                   <Link
                     to={answer.relatedRoute.to}
                     onClick={onClose}
-                    className="chip"
-                    style={{ height: 32, fontSize: 12.5 }}
+                    className="neo-chip neo-chip--lg"
+                    data-tone="app"
                   >
-                    <ExternalLink style={{ color: 'var(--accent-ink)' }} />
+                    <ExternalLink />
                     <span>{answer.relatedRoute.label}</span>
                   </Link>
                 )}
@@ -278,8 +266,11 @@ export function CortexModal({ open, initialQuery = '', onClose }: CortexModalPro
 
         {/* Expandable Source Cards */}
         {answer && answer.citations.length > 0 && (
-          <div className="stack stack--sm">
-            <span className="stat-label">Verified Source Citations ({answer.citations.length})</span>
+          <div className="wk-cortex-sources">
+            <div className="wk-cortex-sources__head">
+              <span className="neo-hud">Verified source citations</span>
+              <span className="neo-count">{answer.citations.length}</span>
+            </div>
             {answer.citations.map((c) => {
               const expanded = expandedCites.has(c.index);
               const deepUrl = `/wiki/doc/${c.articleSlug}${c.sectionId ? `#${c.sectionId}` : ''}`;
@@ -291,24 +282,25 @@ export function CortexModal({ open, initialQuery = '', onClose }: CortexModalPro
                   }}
                   className={cx('wk-source-card', activeCite === c.index && 'is-highlighted')}
                 >
-                  <div className="row row--between row--wrap" style={{ gap: 8 }}>
-                    <div className="row row--wrap" style={{ gap: 8, minWidth: 0 }}>
+                  <div className="wk-source-card__top">
+                    <div className="wk-source-card__chips">
                       <span className="wk-cite-pill is-active">[{c.index}]</span>
                       <span className="wk-space-pill" style={{ '--sp-h': c.spaceHue } as CSSProperties}>
                         {c.spaceName}
                       </span>
                       <span
-                        className={cx('wk-fresh', c.isStale ? 'wk-fresh--stale' : 'wk-fresh--verified')}
+                        className="neo-chip neo-chip--sm wk-fresh"
+                        data-tone={c.isStale ? 'danger' : 'success'}
                       >
                         {c.isStale ? <AlertTriangle /> : <CheckCircle2 />}
                         {c.freshnessLabel}
                       </span>
                     </div>
 
-                    <div className="row" style={{ gap: 6 }}>
+                    <div className="wk-source-card__acts">
                       <button
                         type="button"
-                        className="btn btn--ghost btn--sm"
+                        className="neo-btn neo-btn--ghost neo-btn--xs"
                         onClick={() => toggleExpand(c.index)}
                         aria-expanded={expanded}
                       >
@@ -318,35 +310,18 @@ export function CortexModal({ open, initialQuery = '', onClose }: CortexModalPro
                       <Link
                         to={deepUrl}
                         onClick={onClose}
-                        className="btn btn--sm"
+                        className="neo-btn neo-btn--soft neo-btn--xs"
                       >
                         Open section <ArrowUpRight />
                       </Link>
                     </div>
                   </div>
 
-                  <div className="text-sm" style={{ fontWeight: 600 }}>
-                    {c.articleTitle}{' '}
-                    <span className="muted" style={{ fontWeight: 500 }}>
-                      § {c.sectionHeading}
-                    </span>
+                  <div className="wk-source-card__title">
+                    {c.articleTitle} <span>· § {c.sectionHeading}</span>
                   </div>
 
-                  {expanded && (
-                    <p
-                      className="text-xs muted"
-                      style={{
-                        margin: 0,
-                        padding: '9px 11px',
-                        borderRadius: 'var(--r-xs)',
-                        background: 'var(--bg-2)',
-                        border: '1px solid var(--border)',
-                        lineHeight: 1.55,
-                      }}
-                    >
-                      “{c.excerpt}”
-                    </p>
-                  )}
+                  {expanded && <p className="wk-source-card__excerpt">“{c.excerpt}”</p>}
                 </div>
               );
             })}

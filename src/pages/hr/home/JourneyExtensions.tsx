@@ -89,7 +89,8 @@ function PulsePanel({ journey: j, roles }: { journey: OnboardingJourney; roles: 
         : `Scores and comments stay private with People Ops. You’ll see when ${first} has checked in.`;
 
   return (
-    <section className="hr-home-jx__card" aria-labelledby={`hr-home-jx-pulse-${j.id}`}>
+    <section className="neo-panel hr-home-jx__card" aria-labelledby={`hr-home-jx-pulse-${j.id}`}>
+      <div className="neo-hud">Wellbeing</div>
       <h2 id={`hr-home-jx-pulse-${j.id}`} className="hr-home-jx__title">
         <HeartPulse aria-hidden="true" /> Pulse check-ins
         {avg !== null && (
@@ -189,7 +190,8 @@ function PaperworkPanel({ journey: j, roles }: { journey: OnboardingJourney; rol
 
   if (!data)
     return (
-      <section className="hr-home-jx__card is-waiting" aria-labelledby={`hr-home-jx-docs-${j.id}`}>
+      <section className="neo-panel hr-home-jx__card is-waiting" aria-labelledby={`hr-home-jx-docs-${j.id}`}>
+        <div className="neo-hud">Compliance</div>
         <h2 id={`hr-home-jx-docs-${j.id}`} className="hr-home-jx__title">
           <ClipboardCheck aria-hidden="true" /> Paperwork
         </h2>
@@ -237,7 +239,8 @@ function PaperworkPanel({ journey: j, roles }: { journey: OnboardingJourney; rol
               : `Overdue by ${-left} day${left === -1 ? '' : 's'}`;
 
   return (
-    <section className="hr-home-jx__card" aria-labelledby={`hr-home-jx-docs-${j.id}`}>
+    <section className="neo-panel hr-home-jx__card" aria-labelledby={`hr-home-jx-docs-${j.id}`}>
+      <div className="neo-hud">Compliance</div>
       <h2 id={`hr-home-jx-docs-${j.id}`} className="hr-home-jx__title">
         <ClipboardCheck aria-hidden="true" /> Paperwork
         <span className={cx('hr-home-jx__count', done === total && 'is-done')}>
@@ -357,7 +360,8 @@ function TrainingPanel({ journey: j, roles }: { journey: OnboardingJourney; role
 
   if (!uid) {
     return (
-      <section className="hr-home-jx__card hr-home-jx__card--wide is-waiting" aria-labelledby={`hr-home-jx-acad-${j.id}`}>
+      <section className="neo-panel hr-home-jx__card hr-home-jx__card--wide is-waiting" aria-labelledby={`hr-home-jx-acad-${j.id}`}>
+        <div className="neo-hud">Learning</div>
         <h2 id={`hr-home-jx-acad-${j.id}`} className="hr-home-jx__title">
           <GraduationCap aria-hidden="true" /> Academy &amp; Reading Pack
         </h2>
@@ -376,7 +380,8 @@ function TrainingPanel({ journey: j, roles }: { journey: OnboardingJourney; role
   const nextOpen = summary.items.find((x) => x.enrollment?.status !== 'completed');
 
   return (
-    <section className="hr-home-jx__card hr-home-jx__card--wide" aria-labelledby={`hr-home-jx-acad-${j.id}`}>
+    <section className="neo-panel hr-home-jx__card hr-home-jx__card--wide" aria-labelledby={`hr-home-jx-acad-${j.id}`}>
+      <div className="neo-hud">Learning</div>
       <h2 id={`hr-home-jx-acad-${j.id}`} className="hr-home-jx__title">
         <GraduationCap aria-hidden="true" /> Required Training &amp; Reading
         <span className={cx('hr-home-jx__count', totalCount > 0 && doneCount === totalCount && 'is-done')}>

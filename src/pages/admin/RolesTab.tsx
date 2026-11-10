@@ -1,21 +1,35 @@
 import { useMemo, useState, type CSSProperties } from 'react';
-import { LockKeyhole, Pencil, Plus, ShieldHalf, Trash2 } from 'lucide-react';
+import { useSearchParams } from 'react-router';
+import { Fingerprint, LockKeyhole, Pencil, Plus, ShieldHalf, Trash2 } from 'lucide-react';
+import { NeoTabs } from '@/components/neo';
 import { useHub } from '@/store/hub';
 import { useClearance } from '@/store/selectors';
 import { toast } from '@/store/toast';
 import { Avatar, ClearanceBadge } from '@/components/ui/primitives';
 import { pluralize } from '@/lib/format';
 import type { Role, User } from '@/types';
+import { useAdminChrome } from './chrome';
 import { PermissionMatrix } from './PermissionMatrix';
 import { RoleFormModal } from './RoleFormModal';
 import { ConfirmModal, Tip, useDisclosure } from './shared';
+
+type View = 'catalog' | 'matrix';
 
 export function RolesTab() {
   const roles = useHub((s) => s.roles);
   const users = useHub((s) => s.users);
   const myClearance = useClearance();
+  const [sp, setSp] = useSearchParams();
+  const view: View = sp.get('view') === 'matrix' ? 'matrix' : 'catalog';
   const [form, setForm] = useState<{ open: boolean; roleId: string | null; key: number }>({ open: false, roleId: null, key: 0 });
   const del = useDisclosure<string>();
+
+  const setView = (v: View) => {
+    const next = new URLSearchParams(sp);
+    if (v === 'catalog') next.delete('view');
+    else next.set('view', v);
+    setSp(next, { replace: true });
+  };
 
   const sorted = useMemo(() => [...roles].sort((a, b) => b.clearance - a.clearance || a.name.localeCompare(b.name)), [roles]);
   const membersByRole = useMemo(() => {
@@ -33,22 +47,33 @@ export function RolesTab() {
   const delMembers = delRole ? (membersByRole.get(delRole.id) ?? []) : [];
   const orphaned = delMembers.filter((u) => u.roleIds.length === 1);
 
-  return (
-    <div className="adm-panel">
-      <section aria-labelledby="adm-roles-cat-h">
-        <div className="section-head adm-wrap-head">
-          <div>
-            <h2 id="adm-roles-cat-h" className="section-title">
-              <ShieldHalf aria-hidden="true" /> Roles <span className="count">{roles.length}</span>
-            </h2>
-            <p className="text-sm faint">People can hold several roles; their clearance is the highest among them.</p>
-          </div>
-          <button type="button" className="btn btn--primary" onClick={() => openForm(null)}>
-            <Plus aria-hidden="true" /> New role
-          </button>
-        </div>
+  useAdminChrome({
+    toolbar: (
+      <>
+        <NeoTabs<View>
+          label="Roles views"
+          value={view}
+          onChange={setView}
+          items={[
+            { value: 'catalog', label: 'Role catalog', icon: <ShieldHalf />, count: roles.length },
+            { value: 'matrix', label: 'Permission matrix', icon: <Fingerprint /> },
+          ]}
+        />
+        <div className="grow" />
+        <span className="adm-toolbar-hint">People can hold several roles — their clearance is the highest among them</span>
+      </>
+    ),
+    actions: (
+      <button type="button" className="neo-btn neo-btn--plasma" onClick={() => openForm(null)} data-qa="adm-new-role">
+        <Plus /> <span className="neo-btn__label">New role</span>
+      </button>
+    ),
+  });
 
-        <div className="adm-roles-grid stagger">
+  return (
+    <div className="adm-view">
+      {view === 'catalog' ? (
+        <div className="adm-roles-grid neo-stagger">
           {sorted.map((role, i) => {
             const members = membersByRole.get(role.id) ?? [];
             const active = members.filter((u) => u.active);
@@ -59,7 +84,7 @@ export function RolesTab() {
             return (
               <article
                 key={role.id}
-                className="card adm-role-card"
+                className="neo-card adm-role-card"
                 style={{ '--role': role.color, '--i': i } as CSSProperties}
                 aria-labelledby={`adm-role-${role.id}`}
               >
@@ -72,9 +97,17 @@ export function RolesTab() {
                       {role.name}
                     </h3>
                     <div className="row row--wrap adm-gap-6">
-                      {role.system ? <span className="tag">System</span> : <span className="tag adm-tag--custom">Custom</span>}
+                      {role.system ? (
+                        <span className="neo-chip neo-chip--sm" data-tone="slate">
+                          System
+                        </span>
+                      ) : (
+                        <span className="neo-chip neo-chip--sm" data-tone="app">
+                          Custom
+                        </span>
+                      )}
                       {role.locked && (
-                        <span className="tag">
+                        <span className="neo-chip neo-chip--sm" data-tone="violet">
                           <LockKeyhole aria-hidden="true" /> Locked
                         </span>
                       )}
@@ -82,17 +115,17 @@ export function RolesTab() {
                   </div>
                   <ClearanceBadge level={role.clearance} compact />
                 </div>
-                <p className="text-sm muted clamp-2 adm-role-card__desc">{role.description}</p>
+                <p className="adm-role-card__desc clamp-2">{role.description}</p>
                 <div className="adm-role-card__stats">
                   <div className="adm-role-card__stat">
-                    <span className="adm-micro">Members</span>
+                    <span className="neo-hud">Members</span>
                     <strong>{members.length}</strong>
-                    <span className="text-xs faint">{members.length === active.length ? 'all active' : `${active.length} active`}</span>
+                    <span className="adm-cell-sub">{members.length === active.length ? 'all active' : `${active.length} active`}</span>
                   </div>
                   <div className="adm-role-card__stat">
-                    <span className="adm-micro">Permissions</span>
+                    <span className="neo-hud">Permissions</span>
                     <strong>{fullAccess ? 'All (∗)' : role.permissions.length}</strong>
-                    <span className="text-xs faint">
+                    <span className="adm-cell-sub">
                       {fullAccess ? 'every app & capability' : `${role.permissions.filter((p) => p.startsWith('app:')).length} apps`}
                     </span>
                   </div>
@@ -106,17 +139,11 @@ export function RolesTab() {
                       {members.length > 5 && <span className="adm-stack-more">+{members.length - 5}</span>}
                     </span>
                   ) : (
-                    <span className="text-xs faint">No members yet</span>
+                    <span className="adm-cell-sub">No members yet</span>
                   )}
                   <span className="spacer" />
                   <Tip tip={editLock}>
-                    <button
-                      type="button"
-                      className="icon-btn icon-btn--sm"
-                      aria-label={`Edit ${role.name}`}
-                      disabled={!!editLock}
-                      onClick={() => openForm(role.id)}
-                    >
+                    <button type="button" className="neo-iconbtn" aria-label={`Edit ${role.name}`} disabled={!!editLock} onClick={() => openForm(role.id)}>
                       <Pencil />
                     </button>
                   </Tip>
@@ -124,7 +151,7 @@ export function RolesTab() {
                     <Tip tip={deleteLock}>
                       <button
                         type="button"
-                        className="icon-btn icon-btn--sm adm-icon-danger"
+                        className="neo-iconbtn adm-icon-danger"
                         aria-label={`Delete ${role.name}`}
                         disabled={!!deleteLock}
                         onClick={() => del.show(role.id)}
@@ -137,10 +164,17 @@ export function RolesTab() {
               </article>
             );
           })}
+          <button type="button" className="adm-role-new neo-spot" onClick={() => openForm(null)}>
+            <span className="adm-role-new__icon" aria-hidden="true">
+              <Plus />
+            </span>
+            <b>New role</b>
+            <span>Bundle permissions for a team, then assign it from People.</span>
+          </button>
         </div>
-      </section>
-
-      <PermissionMatrix />
+      ) : (
+        <PermissionMatrix />
+      )}
 
       <RoleFormModal key={form.key} open={form.open} onClose={closeForm} role={formRole} myClearance={myClearance} />
 

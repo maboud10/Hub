@@ -7,6 +7,7 @@ import { toast } from '@/store/toast';
 import { Modal } from '@/components/ui/Modal';
 import { Avatar } from '@/components/ui/primitives';
 import { primaryRole } from '@/lib/rbac';
+import { loadBridge } from '@/lib/appBridge';
 import { BRAND } from '@/config/brand';
 import { cx } from '@/lib/cx';
 import { SettingsSection } from './SettingsSection';
@@ -19,6 +20,7 @@ const RESET_SCOPE = [
   'Talent Hub pipeline, offers and HR Portal onboarding journeys',
   'Knowledge Base playbooks, change proposals and Academy enrollments & certificates',
   'Travel & Expense trips, receipts, reimbursements and Payroll Console runs & bonuses',
+  'Projects, Drive files & permissions, Pulse Chat conversations and IT Helpdesk tickets & devices',
   'Everyone’s preferences — theme, pins and widgets',
 ];
 
@@ -39,10 +41,7 @@ export function DemoSection() {
     void import('@/academy/store').then((m) => m.useAcademy.getState().resetAcademyDemo());
     void import('@/expenses/store').then((m) => m.useExpenses.getState().resetExpensesDemo());
     void import('@/payroll/store').then((m) => m.usePayroll.getState().resetPayrollDemo());
-    void import('@/projects/store').then((m) => m.useProjects.getState().resetProjectsDemo());
-    void import('@/drive/store').then((m) => m.useDrive.getState().resetDriveDemo());
-    void import('@/chat/store').then((m) => m.useChatStore.getState().resetChat());
-    void import('@/helpdesk/store').then((m) => m.useHelpdesk.getState().resetHelpdeskDemo());
+    for (const app of ['projects', 'drive', 'chat', 'helpdesk'] as const) void loadBridge(app).then((api) => api.resetDemo()).catch(() => undefined);
     setConfirmOpen(false);
     toast.success('Demo data restored', 'Personas, apps, HR, Cortex, Academy, Spend, Payroll, Projects, Drive, Pulse Chat and IT Helpdesk are back to their starting state.');
   };

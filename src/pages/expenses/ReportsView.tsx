@@ -1,21 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import {
+  ArrowRight,
   CheckSquare,
   ChevronDown,
-  ChevronUp,
   CreditCard,
   ExternalLink,
+  FilePen,
   FileSpreadsheet,
   History,
   Plane,
-  Receipt,
   Save,
   Send,
   Sparkles,
   Square,
   Wallet,
 } from 'lucide-react';
+import { Chip, NeoBanner, NeoBanners, NeoEmpty, NeoPanel } from '@/components/neo';
 import { cx } from '@/lib/cx';
 import { formatDateTime } from '@/lib/format';
 import { formatDay } from '@/hr/calendar';
@@ -24,9 +25,10 @@ import { useExpenses } from '@/expenses/store';
 import { useMySpendSummary } from '@/expenses/selectors';
 import { useHub } from '@/store/hub';
 import { useSessionUser } from '@/store/selectors';
-import { Avatar, EmptyState, Switch } from '@/components/ui/primitives';
+import { Avatar, Switch } from '@/components/ui/primitives';
 import { toast } from '@/store/toast';
 import {
+  CategoryGlyph,
   formatAed,
   formatOrigCurrency,
   PolicyWarningChips,
@@ -43,6 +45,9 @@ export function ReportsView() {
   const allReceipts = useExpenses((s) => s.receipts);
   const createAndSubmitReport = useExpenses((s) => s.createAndSubmitReport);
   const submitDraftReport = useExpenses((s) => s.submitDraftReport);
+
+  const studioRef = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
 
   const usersById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
   const receiptsById = useMemo(() => new Map(allReceipts.map((r) => [r.id, r])), [allReceipts]);
@@ -85,6 +90,12 @@ export function ReportsView() {
       if (!title && summary.unbundledReceipts.length > 0) {
         setTitle(`${me?.department ?? 'Team'} Travel & Business Expenses`);
       }
+    }
+    if (paramTrip || searchParams.get('new') === '1') {
+      requestAnimationFrame(() => {
+        studioRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        titleRef.current?.focus({ preventScroll: true });
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -171,37 +182,51 @@ export function ReportsView() {
   const [resubmitNotes, setResubmitNotes] = useState<Record<string, string>>({});
 
   const costCenter = me ? DEPT_COST_CENTER[me.department] : DEPT_COST_CENTER.Engineering;
+  const needsChanges = summary.myReports.filter((r) => r.status === 'changes_requested');
+  const allSelected = summary.unbundledReceipts.length > 0 && validSelectedSet.size === summary.unbundledReceipts.length;
+
+  const openReport = (id: string) => {
+    setExpandedId(id);
+    requestAnimationFrame(() => document.getElementById(`ex-rep-${id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+  };
 
   return (
-    <div className="stack stack--lg" style={{ minWidth: 0 }}>
+    <div className="neo-stack">
+      {needsChanges.length > 0 && (
+        <NeoBanners>
+          {needsChanges.slice(0, 2).map((rep) => (
+            <NeoBanner key={rep.id} tone="warning" icon={<FilePen />} title={`${rep.reference} needs changes`} meta={rep.title} onClick={() => openReport(rep.id)}>
+              {rep.reviewNote ? `“${rep.reviewNote}”` : 'Open the report to see what to fix, then resubmit.'}
+            </NeoBanner>
+          ))}
+        </NeoBanners>
+      )}
+
       {/* Expense Report Studio */}
-      <section className="card stack" style={{ minWidth: 0 }}>
-        <div className="row row--between row--wrap" style={{ gap: 10 }}>
-          <div>
-            <h2 className="section-title" style={{ fontSize: 17 }}>
-              <FileSpreadsheet style={{ width: 18, height: 18, color: 'var(--ex-ink)' }} />
-              Expense Report Builder Studio
-            </h2>
-            <p className="text-xs muted" style={{ marginTop: 2 }}>
-              Bundle unsubmitted vault receipts, optionally attach a pre-approved trip + 1-click Per Diem, and split Corporate Card vs Out-of-Pocket reimbursement.
-            </p>
+      <section ref={studioRef} className="neo-panel" aria-label="Report studio">
+        <header className="neo-panel__head">
+          <span className="neo-panel__icon">
+            <FileSpreadsheet />
+          </span>
+          <div className="neo-panel__titles">
+            <div className="neo-hud">Report studio</div>
+            <h2 className="neo-panel__title">Build an expense report</h2>
           </div>
-          <button
-            type="button"
-            className="btn btn--sm"
-            onClick={() => navigate('/expenses/receipts')}
-          >
-            <Receipt /> Scan More Receipts
-          </button>
-        </div>
+          <div className="neo-panel__actions">
+            <Link to="/expenses/receipts" className="neo-btn neo-btn--ghost neo-btn--xs">
+              Scan more <ArrowRight />
+            </Link>
+          </div>
+        </header>
 
         <div className="ex-two-col">
           {/* Left: Title, Trip Link, Per Diem Toggle & Receipt Checklist */}
           <div className="stack" style={{ minWidth: 0 }}>
             <div className="ex-form-grid">
               <label className="field">
-                <span className="field-label">Report Title</span>
+                <span className="field-label">Report title</span>
                 <input
+                  ref={titleRef}
                   className="input"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
@@ -210,7 +235,7 @@ export function ReportsView() {
               </label>
 
               <label className="field">
-                <span className="field-label">Link to Pre-Approved Trip (Optional)</span>
+                <span className="field-label">Link a pre-approved trip (optional)</span>
                 <select
                   className="select"
                   value={selectedTripId}
@@ -234,72 +259,53 @@ export function ReportsView() {
             </div>
 
             {selectedTrip && (
-              <div
-                className="row row--between row--wrap"
-                style={{
-                  padding: '10px 13px',
-                  borderRadius: 'var(--r-sm)',
-                  border: '1px solid rgb(var(--ex-1-rgb) / 0.32)',
-                  background: 'rgb(var(--ex-1-rgb) / 0.07)',
-                  gap: 10,
-                }}
-              >
-                <div className="row" style={{ gap: 10, minWidth: 0 }}>
-                  <Switch
-                    checked={includePerDiem}
-                    onChange={setIncludePerDiem}
-                    label="Auto-include Trip Per Diem"
-                  />
-                  <div style={{ minWidth: 0 }}>
-                    <div className="text-sm" style={{ fontWeight: 600 }}>
-                      <Sparkles style={{ width: 13, height: 13, display: 'inline', marginRight: 5, color: 'var(--ex-ink)' }} />
-                      Auto-include {selectedTrip.destinationCity} Trip Per Diem
-                    </div>
-                    <div className="text-xs muted">
-                      {selectedTrip.days} days × {formatAed(selectedTrip.perDiemRateAed)}/day ={' '}
-                      <b className="mono">{formatAed(selectedTrip.days * selectedTrip.perDiemRateAed)}</b> tax-free allowance
-                    </div>
-                  </div>
+              <div className="ex-perdiem ex-perdiem--row">
+                <Switch
+                  checked={includePerDiem}
+                  onChange={setIncludePerDiem}
+                  label="Auto-include Trip Per Diem"
+                />
+                <div>
+                  <b>
+                    <Sparkles className="ex-inline-icon" /> Include {selectedTrip.destinationCity} per diem
+                  </b>
+                  <span>
+                    {selectedTrip.days} days × {formatAed(selectedTrip.perDiemRateAed)}/day ={' '}
+                    <b className="neo-mono">{formatAed(selectedTrip.days * selectedTrip.perDiemRateAed)}</b> tax-free allowance
+                  </span>
                 </div>
               </div>
             )}
 
             {/* Unbundled Receipts Multi-Select Checklist */}
             <div className="stack stack--sm">
-              <div className="row row--between">
-                <span className="field-label">
-                  Unsubmitted Vault Receipts ({validSelectedSet.size}/{summary.unbundledReceipts.length} selected)
+              <div className="ex-subhead">
+                <span className="neo-hud">
+                  Unsubmitted receipts · {validSelectedSet.size}/{summary.unbundledReceipts.length} selected
                 </span>
                 {summary.unbundledReceipts.length > 0 && (
                   <button
                     type="button"
-                    className="btn btn--sm btn--ghost"
+                    className="neo-btn neo-btn--ghost neo-btn--xs"
                     onClick={() => {
-                      if (validSelectedSet.size === summary.unbundledReceipts.length) {
+                      if (allSelected) {
                         setSelectedReceiptIds([]);
                       } else {
                         setSelectedReceiptIds(summary.unbundledReceipts.map((r) => r.id));
                       }
                     }}
                   >
-                    {validSelectedSet.size === summary.unbundledReceipts.length ? 'Clear all' : 'Select all'}
+                    {allSelected ? 'Clear all' : 'Select all'}
                   </button>
                 )}
               </div>
 
               {summary.unbundledReceipts.length === 0 ? (
-                <div
-                  className="text-xs muted"
-                  style={{
-                    padding: '14px',
-                    borderRadius: 'var(--r-sm)',
-                    border: '1px dashed var(--border-2)',
-                  }}
-                >
-                  Your Receipt Vault has 0 unsubmitted receipts right now.{' '}
+                <div className="ex-dashed">
+                  Your receipt vault has no unsubmitted receipts right now.{' '}
                   {selectedTrip && includePerDiem
-                    ? `You can still submit this report with your ${selectedTrip.days}-day Trip Per Diem (${formatAed(splitPreview.autoPerDiemAdd)})!`
-                    : 'Scan a sample or PDF receipt in Smart Receipt Vault first.'}
+                    ? `You can still submit this report with your ${selectedTrip.days}-day trip per diem (${formatAed(splitPreview.autoPerDiemAdd)}).`
+                    : 'Scan a receipt in the vault first — or describe one to Nova on the Flow home.'}
                 </div>
               ) : (
                 <div className="stack stack--sm">
@@ -311,7 +317,7 @@ export function ReportsView() {
                         role="checkbox"
                         aria-checked={checked}
                         tabIndex={0}
-                        className={cx('ex-check-item', checked && 'is-checked')}
+                        className={cx('ex-check', checked && 'is-checked')}
                         onClick={() => toggleReceipt(r.id)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
@@ -320,36 +326,30 @@ export function ReportsView() {
                           }
                         }}
                       >
-                        <div className="row" style={{ gap: 10, minWidth: 0 }}>
-                          {checked ? (
-                            <CheckSquare style={{ width: 17, height: 17, color: 'var(--ex-ink)', flex: 'none' }} />
-                          ) : (
-                            <Square style={{ width: 17, height: 17, color: 'var(--text-3)', flex: 'none' }} />
-                          )}
-                          <div style={{ minWidth: 0 }}>
-                            <div className="row row--wrap" style={{ gap: 6 }}>
-                              <span className="text-sm" style={{ fontWeight: 600 }}>
-                                {r.merchant}
-                              </span>
-                              <span className="ex-gl-badge">{r.glCode}</span>
-                              {r.paymentMethod === 'corporate_card' ? (
-                                <span className="badge badge--info">Virtual Card</span>
-                              ) : (
-                                <span className="badge badge--success">Reimbursable</span>
-                              )}
-                            </div>
-                            <div className="text-xs muted">
-                              {formatDay(r.date)} ·{' '}
-                              {r.currency !== 'AED'
-                                ? `${formatOrigCurrency(r.originalAmount, r.currency)} → ${formatAed(r.amountAed, true)}`
-                                : formatAed(r.amountAed, true)}
-                            </div>
+                        {checked ? <CheckSquare className="ex-check__box is-on" /> : <Square className="ex-check__box" />}
+                        <CategoryGlyph category={r.category} size="sm" />
+                        <div className="ex-check__text">
+                          <div className="ex-check__top">
+                            <b>{r.merchant}</b>
+                            <span className="ex-gl">{r.glCode}</span>
+                            {r.paymentMethod === 'corporate_card' ? (
+                              <Chip size="sm" tone="cyan">
+                                Virtual card
+                              </Chip>
+                            ) : (
+                              <Chip size="sm" tone="success">
+                                Reimbursable
+                              </Chip>
+                            )}
                           </div>
+                          <span className="ex-check__meta">
+                            {formatDay(r.date)} ·{' '}
+                            {r.currency !== 'AED'
+                              ? `${formatOrigCurrency(r.originalAmount, r.currency)} → ${formatAed(r.amountAed, true)}`
+                              : formatAed(r.amountAed, true)}
+                          </span>
                         </div>
-
-                        <b className="mono text-sm" style={{ flex: 'none' }}>
-                          {formatAed(r.amountAed, true)}
-                        </b>
+                        <b className="ex-check__amt neo-num">{formatAed(r.amountAed, true)}</b>
                       </div>
                     );
                   })}
@@ -358,7 +358,7 @@ export function ReportsView() {
             </div>
 
             <label className="field">
-              <span className="field-label">Submission Note for Manager (Optional)</span>
+              <span className="field-label">Note for your manager (optional)</span>
               <input
                 className="input"
                 value={submitNote}
@@ -370,98 +370,84 @@ export function ReportsView() {
 
           {/* Right: Live Split Summary Panel */}
           <div className="stack" style={{ minWidth: 0 }}>
-            <div className="ex-split-panel">
-              <div className="row row--between">
-                <span style={{ fontWeight: 650, fontSize: 14.5 }}>Live Reconciliation &amp; Payout Split</span>
-                <span className="badge badge--muted mono">{splitPreview.itemCount} line items</span>
+            <div className="ex-split">
+              <div className="ex-split__head">
+                <span className="neo-hud">Live reconciliation</span>
+                <Chip size="sm">{splitPreview.itemCount} line items</Chip>
               </div>
 
-              <div className="ex-split-row">
-                <span>Cost Center Allocation</span>
+              <div className="ex-split__row">
+                <span>Cost center</span>
                 <b>{costCenter}</b>
               </div>
 
-              <div className="ex-split-row">
-                <span>Total Business Spend</span>
+              <div className="ex-split__row">
+                <span>Total business spend</span>
                 <b>{formatAed(splitPreview.totalSpendAed, true)}</b>
               </div>
 
-              <div className="ex-split-row">
+              <div className="ex-split__row">
                 <span>
-                  <CreditCard style={{ width: 13, height: 13, display: 'inline', marginRight: 5 }} />
-                  Less: Corporate Card Reconciled
+                  <CreditCard className="ex-inline-icon" /> Less corporate card
                 </span>
                 <b>− {formatAed(splitPreview.corporateCardAed, true)}</b>
               </div>
 
-              <div className="ex-split-row">
-                <span>Recoverable Input VAT (Finance GL)</span>
+              <div className="ex-split__row">
+                <span>Recoverable input VAT</span>
                 <b>{formatAed(splitPreview.vatTotalAed, true)}</b>
               </div>
 
               {splitPreview.autoPerDiemAdd > 0 && (
-                <div className="ex-split-row">
-                  <span>Auto-Generated Trip Per Diem</span>
-                  <b style={{ color: 'var(--ex-ink)' }}>+ {formatAed(splitPreview.autoPerDiemAdd, true)}</b>
+                <div className="ex-split__row">
+                  <span>Trip per diem (auto)</span>
+                  <b className="neo-tint">+ {formatAed(splitPreview.autoPerDiemAdd, true)}</b>
                 </div>
               )}
 
-              <div className="ex-split-row ex-split-row--net">
+              <div className="ex-split__row ex-split__row--net">
                 <span>
-                  <Wallet style={{ width: 15, height: 15, display: 'inline', marginRight: 6, color: 'var(--ex-ink)' }} />
-                  Out-of-Pocket Reimbursable
+                  <Wallet className="ex-inline-icon" /> Out-of-pocket reimbursable
                 </span>
                 <b>{formatAed(splitPreview.reimbursableAed, true)}</b>
               </div>
             </div>
 
-            <div className="row row--wrap" style={{ gap: 10 }}>
+            <div className="ex-btn-row">
               <button
                 type="button"
-                className="btn"
-                style={{ flex: 1 }}
+                className="neo-btn"
                 disabled={splitPreview.itemCount === 0}
                 onClick={() => handleBuildReport(false)}
               >
-                <Save /> Save Draft
+                <Save /> Save draft
               </button>
               <button
                 type="button"
-                className="btn ex-btn-teal"
-                style={{ flex: 1.4 }}
+                className="neo-btn neo-btn--plasma"
                 disabled={splitPreview.itemCount === 0}
                 onClick={() => handleBuildReport(true)}
               >
-                <Send /> Submit to Manager
+                <Send /> Submit to manager
               </button>
             </div>
 
-            <p className="text-xs muted">
-              Once approved by your manager and verified by Finance, your{' '}
-              <b className="mono">{formatAed(splitPreview.reimbursableAed, true)}</b> out-of-pocket claim is queued directly into your monthly tax-free paycheck.
+            <p className="ex-hint">
+              Once your manager approves and Finance verifies it, the{' '}
+              <b className="neo-mono">{formatAed(splitPreview.reimbursableAed, true)}</b> out-of-pocket claim is queued straight into your monthly, tax-free paycheck.
             </p>
           </div>
         </div>
       </section>
 
       {/* Expandable List of User's Expense Reports */}
-      <section className="stack" style={{ minWidth: 0 }}>
-        <div className="row row--between row--wrap">
-          <h2 className="section-title">
-            My Expense Reports
-            <span className="count">{summary.myReports.length}</span>
-          </h2>
-        </div>
-
+      <NeoPanel hud="History" title="My expense reports" actions={<Chip size="sm">{summary.myReports.length}</Chip>}>
         {summary.myReports.length === 0 ? (
-          <EmptyState
-            icon={<FileSpreadsheet />}
-            title="No expense reports created yet"
-          >
-            Select receipts in the Builder Studio above to save a draft or submit your first report.
-          </EmptyState>
+          <NeoEmpty compact icon={<FileSpreadsheet />} title="No expense reports yet">
+            Select receipts in the studio above to save a draft or submit your first report.
+          </NeoEmpty>
         ) : (
-          <div className="stack">
+          <ul className="ex-reps">
             {summary.myReports.map((rep) => {
               const isOpen = expandedId === rep.id;
               const items = rep.receiptIds
@@ -471,216 +457,165 @@ export function ReportsView() {
               const canSubmitNow = rep.status === 'draft' || rep.status === 'changes_requested';
 
               return (
-                <article key={rep.id} className="card stack" style={{ minWidth: 0 }}>
+                <li key={rep.id} id={`ex-rep-${rep.id}`} className={cx('ex-rep', isOpen && 'is-open')}>
                   {/* Summary Header */}
-                  <div
-                    className="row row--between row--wrap"
-                    style={{ gap: 12, cursor: 'pointer' }}
+                  <button
+                    type="button"
+                    className="ex-rep__head"
+                    aria-expanded={isOpen}
                     onClick={() => setExpandedId(isOpen ? null : rep.id)}
                   >
-                    <div className="stack stack--sm" style={{ minWidth: 0 }}>
-                      <div className="row row--wrap" style={{ gap: 8 }}>
-                        <span className="mono text-xs muted">{rep.reference}</span>
-                        <ReportStatusBadge status={rep.status} />
-                        <span className="badge badge--muted">{rep.costCenter}</span>
+                    <span className="ex-rep__icon" aria-hidden="true">
+                      <FileSpreadsheet />
+                    </span>
+                    <span className="ex-rep__text">
+                      <span className="ex-rep__chips">
+                        <span className="neo-mono ex-faint">{rep.reference}</span>
+                        <ReportStatusBadge status={rep.status} size="sm" />
                         {linkedTrip && (
-                          <span className="badge badge--info">
-                            <Plane /> {linkedTrip.destinationCity}
-                          </span>
+                          <Chip size="sm" icon={<Plane />}>
+                            {linkedTrip.destinationCity}
+                          </Chip>
                         )}
-                      </div>
-                      <div style={{ fontWeight: 650, fontSize: 15.5 }}>{rep.title}</div>
-                      <div className="text-xs muted">
-                        {items.length} line item{items.length === 1 ? '' : 's'} · Total spend{' '}
-                        <b className="mono">{formatAed(rep.totalSpendAed, true)}</b>
-                        {rep.corporateCardAed > 0 && (
-                          <> · Corp card reconciled <b className="mono">{formatAed(rep.corporateCardAed)}</b></>
-                        )}
-                        {rep.payrollPeriod && (
-                          <> · Target payroll <b className="mono">{rep.payrollPeriod}</b></>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="row" style={{ gap: 14 }}>
-                      <div style={{ textAlign: 'right' }}>
-                        <div className="text-xs muted">Reimbursable</div>
-                        <div className="mono" style={{ fontWeight: 700, fontSize: 16, color: 'var(--ex-ink)' }}>
-                          {formatAed(rep.reimbursableAed, true)}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className="icon-btn icon-btn--sm"
-                        aria-label={isOpen ? 'Collapse report' : 'Expand report'}
-                      >
-                        {isOpen ? <ChevronUp /> : <ChevronDown />}
-                      </button>
-                    </div>
-                  </div>
+                      </span>
+                      <span className="ex-rep__title">{rep.title}</span>
+                      <span className="ex-rep__meta">
+                        {items.length} line item{items.length === 1 ? '' : 's'} · total {formatAed(rep.totalSpendAed, true)}
+                        {rep.corporateCardAed > 0 && <> · card {formatAed(rep.corporateCardAed)}</>}
+                        {rep.payrollPeriod && <> · payroll {rep.payrollPeriod}</>} · {rep.costCenter}
+                      </span>
+                    </span>
+                    <span className="ex-amt">
+                      <span className="neo-hud">Reimbursable</span>
+                      <b className="neo-num neo-tint">{formatAed(rep.reimbursableAed, true)}</b>
+                    </span>
+                    <ChevronDown className="ex-rep__chev" aria-hidden="true" />
+                  </button>
 
                   {/* Review / Revision Note Banner */}
                   {rep.reviewNote && (
-                    <div
-                      className="text-xs"
-                      style={{
-                        padding: '9px 12px',
-                        borderRadius: 'var(--r-xs)',
-                        background:
-                          rep.status === 'changes_requested'
-                            ? 'rgb(var(--warning-rgb) / 0.12)'
-                            : 'var(--surface-2)',
-                        border: '1px solid var(--border)',
-                      }}
-                    >
-                      <b>Reviewer note:</b> {rep.reviewNote}
+                    <div className="ex-callout" data-tone={rep.status === 'changes_requested' ? 'warning' : 'slate'}>
+                      <div className="ex-callout__row">
+                        <FilePen />
+                        <span>
+                          <b>Reviewer note</b> {rep.reviewNote}
+                        </span>
+                      </div>
                     </div>
                   )}
 
                   {/* Expanded Line Items, Resubmit Form & Audit Trail */}
                   {isOpen && (
-                    <div className="stack" style={{ paddingTop: 6, borderTop: '1px solid var(--border)' }}>
-                      <div className="text-xs muted" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                        Attached Receipts ({items.length})
-                      </div>
-                      <div className="stack stack--sm">
+                    <div className="ex-rep__body">
+                      <span className="neo-hud">Attached receipts · {items.length}</span>
+                      <ul className="ex-lines">
                         {items.map((r) => (
-                          <div
-                            key={r.id}
-                            className="row row--between row--wrap"
-                            style={{
-                              padding: '10px 12px',
-                              borderRadius: 'var(--r-sm)',
-                              background: 'var(--surface)',
-                              border: '1px solid var(--border)',
-                              gap: 10,
-                            }}
-                          >
-                            <div style={{ minWidth: 0 }}>
-                              <div className="row row--wrap" style={{ gap: 6 }}>
-                                <b className="text-sm">{r.merchant}</b>
-                                <span className="ex-gl-badge">{r.glCode}</span>
-                                <span className="badge badge--muted">{CATEGORY_META[r.category].label}</span>
+                          <li key={r.id} className="ex-line">
+                            <CategoryGlyph category={r.category} size="sm" />
+                            <div className="ex-line__text">
+                              <div className="ex-line__top">
+                                <b>{r.merchant}</b>
+                                <span className="ex-gl">{r.glCode}</span>
+                                <span className="ex-faint">{CATEGORY_META[r.category].label}</span>
                                 {r.paymentMethod === 'corporate_card' ? (
-                                  <span className="badge badge--info">Virtual Card</span>
+                                  <Chip size="sm" tone="cyan">
+                                    Virtual card
+                                  </Chip>
                                 ) : (
-                                  <span className="badge badge--success">Out-of-Pocket</span>
+                                  <Chip size="sm" tone="success">
+                                    Out of pocket
+                                  </Chip>
                                 )}
                               </div>
-                              <div className="text-xs muted" style={{ marginTop: 2 }}>
+                              <span className="ex-line__meta">
                                 {formatDay(r.date)}
                                 {r.fileName && ` · ${r.fileName}`}
                                 {r.notes && ` · ${r.notes}`}
-                              </div>
-                              {r.warnings.length > 0 && (
-                                <div style={{ marginTop: 4 }}>
-                                  <PolicyWarningChips warnings={r.warnings} />
-                                </div>
-                              )}
+                              </span>
+                              {r.warnings.length > 0 && <PolicyWarningChips warnings={r.warnings} />}
                             </div>
-
-                            <div style={{ textAlign: 'right' }}>
-                              <div className="mono text-sm" style={{ fontWeight: 650 }}>
-                                {formatAed(r.amountAed, true)}
-                              </div>
-                              {r.currency !== 'AED' && (
-                                <div className="mono text-xs muted">
-                                  {formatOrigCurrency(r.originalAmount, r.currency)}
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                            <span className="ex-amt">
+                              <b className="neo-mono">{formatAed(r.amountAed, true)}</b>
+                              {r.currency !== 'AED' && <span>{formatOrigCurrency(r.originalAmount, r.currency)}</span>}
+                            </span>
+                          </li>
                         ))}
-                      </div>
+                      </ul>
 
                       {/* Draft Submit / Changes Requested Resubmit Bar */}
                       {canSubmitNow && (
-                        <div className="row row--wrap" style={{ gap: 8 }}>
+                        <div className="ex-decide">
                           <input
-                            className="input grow"
-                            style={{ minWidth: 200 }}
+                            className="input"
                             value={resubmitNotes[rep.id] ?? ''}
                             onChange={(e) =>
                               setResubmitNotes((s) => ({ ...s, [rep.id]: e.target.value }))
                             }
                             placeholder={
                               rep.status === 'changes_requested'
-                                ? 'Add revision note for your manager...'
+                                ? 'Add a revision note for your manager...'
                                 : 'Optional note before submitting...'
                             }
                           />
                           <button
                             type="button"
-                            className="btn ex-btn-teal"
+                            className="neo-btn neo-btn--plasma"
                             onClick={() => {
                               const res = submitDraftReport(rep.id, resubmitNotes[rep.id]);
                               toast.result(res, 'Submitted to manager');
                             }}
                           >
-                            <Send />{' '}
-                            {rep.status === 'changes_requested' ? 'Resubmit Report' : 'Submit Draft to Manager'}
+                            <Send /> {rep.status === 'changes_requested' ? 'Resubmit report' : 'Submit to manager'}
                           </button>
                         </div>
                       )}
 
                       {rep.status === 'reimbursed' && (
-                        <div className="row row--between row--wrap" style={{ gap: 8 }}>
-                          <span className="text-xs muted">
-                            Settled via <code className="mono">{rep.paymentRef}</code> in payroll period{' '}
-                            <code className="mono">{rep.payrollPeriod}</code>
+                        <div className="ex-paidbar">
+                          <span>
+                            Settled via <code className="neo-mono">{rep.paymentRef}</code> in payroll period{' '}
+                            <code className="neo-mono">{rep.payrollPeriod}</code>
                           </span>
                           <button
                             type="button"
-                            className="btn btn--sm btn--success"
+                            className="neo-btn neo-btn--success neo-btn--sm"
                             onClick={() => navigate('/hr/documents?tab=payslips')}
                           >
-                            View on HR Portal Payslip <ExternalLink />
+                            View on HR payslip <ExternalLink />
                           </button>
                         </div>
                       )}
 
                       {/* Audit Trail History */}
-                      <div className="stack stack--sm">
-                        <div className="row" style={{ gap: 6 }}>
-                          <History style={{ width: 14, height: 14, color: 'var(--text-3)' }} />
-                          <span className="text-xs muted" style={{ fontWeight: 600 }}>
-                            Four-Eyes Audit Trail
-                          </span>
-                        </div>
-                        <div className="stack stack--sm">
+                      <div className="ex-trail">
+                        <span className="neo-hud">
+                          <History className="ex-inline-icon" /> Four-eyes audit trail
+                        </span>
+                        <ol className="ex-trail__list">
                           {rep.history.map((step, idx) => {
                             const actor = usersById.get(step.actorId);
                             return (
-                              <div
-                                key={`${step.at}-${idx}`}
-                                className="row row--between row--wrap text-xs"
-                                style={{
-                                  padding: '7px 10px',
-                                  borderRadius: 'var(--r-xs)',
-                                  background: 'var(--surface)',
-                                  gap: 8,
-                                }}
-                              >
-                                <div className="row" style={{ gap: 8, minWidth: 0 }}>
-                                  {actor && <Avatar user={actor} size={22} />}
-                                  <span style={{ fontWeight: 600 }}>{actor?.name ?? step.actorId}</span>
-                                  <span className="badge badge--muted mono">{step.action.replace('_', ' ')}</span>
-                                  {step.note && <span className="muted truncate">— “{step.note}”</span>}
-                                </div>
-                                <span className="mono muted">{formatDateTime(step.at)}</span>
-                              </div>
+                              <li key={`${step.at}-${idx}`} className="ex-trail__step">
+                                {actor && <Avatar user={actor} size={22} />}
+                                <span className="ex-trail__who">{actor?.name ?? step.actorId}</span>
+                                <Chip size="sm" className="neo-mono">
+                                  {step.action.replace('_', ' ')}
+                                </Chip>
+                                {step.note && <span className="ex-trail__note truncate">“{step.note}”</span>}
+                                <span className="ex-trail__at neo-mono">{formatDateTime(step.at)}</span>
+                              </li>
                             );
                           })}
-                        </div>
+                        </ol>
                       </div>
                     </div>
                   )}
-                </article>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
-      </section>
+      </NeoPanel>
     </div>
   );
 }

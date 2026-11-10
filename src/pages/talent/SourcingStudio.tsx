@@ -11,12 +11,13 @@
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
-import { ArrowLeft, ArrowRight, BrainCircuit, FileText, Linkedin, LoaderCircle, Radar, Recycle, RotateCcw, Send, Target } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BrainCircuit, FileText, Linkedin, LoaderCircle, Recycle, RotateCcw, Send, Target } from 'lucide-react';
 import type { JobProfile, Requisition } from '@/talent/types';
 import { aiStatus, rankByMatch } from '@/talent/ai/engine';
 import { useTalentScope } from '@/talent/selectors';
 import { toast } from '@/store/toast';
 import { cx } from '@/lib/cx';
+import { HeadActions, scrollStageTo } from './components/head';
 import { EngineBadge, ReqStatusBadge, Stepper, type StepDef } from './components/shared';
 import { STEP, studio, useStudio, useStudioJD, type StudioStep } from './sourcing/store';
 import { StepDecode, StepJD } from './sourcing/StepBrief';
@@ -31,8 +32,6 @@ const STEPS: StepDef[] = [
   { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, hint: 'Boolean, X-ray and prospect feed' },
   { id: 'outreach', label: 'Outreach', icon: Send, hint: 'Personalised drafts, logged as sent' },
 ];
-
-const reducedMotion = () => document.documentElement.dataset.motion === 'reduced' || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export function SourcingStudio() {
   const jd = useStudioJD();
@@ -86,10 +85,7 @@ export function SourcingStudio() {
       firstPaint.current = false;
       return;
     }
-    const el = rootRef.current;
-    if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 84;
-    if (window.scrollY > top) window.scrollTo({ top, behavior: reducedMotion() ? 'auto' : 'smooth' });
+    scrollStageTo(rootRef.current);
   }, [current, finished]);
 
   let body: ReactNode;
@@ -103,7 +99,6 @@ export function SourcingStudio() {
     <div ref={rootRef} className="tl-src">
       <StudioHeader
         profile={profile}
-        busy={busy || hitsStatus === 'loading'}
         targetReq={targetReq}
         requisitions={requisitions}
         telemetry={[
@@ -133,17 +128,15 @@ export function SourcingStudio() {
   );
 }
 
-// ───────────────────────── header ─────────────────────────
+// ───────────────────────── header HUD ─────────────────────────
 function StudioHeader({
   profile,
-  busy,
   targetReq,
   requisitions,
   telemetry,
   dirty,
 }: {
   profile: JobProfile | null;
-  busy: boolean;
   targetReq: Requisition | null;
   requisitions: Requisition[];
   telemetry: { label: string; value: string; on: boolean }[];
@@ -159,38 +152,36 @@ function StudioHeader({
   const options = useMemo(() => requisitions.filter((r) => r.status === 'open' || r.status === 'pending-approval' || r.id === targetReq?.id), [requisitions, targetReq]);
 
   return (
-    <section className="tl-src-head">
-      <div className="tl-src-head__id">
-        <span className={cx('tl-src-head__radar', busy && 'is-busy')} aria-hidden="true">
-          <Radar />
-          <i />
-        </span>
-        <div className="grow">
-          <div className="tl-src-head__kicker">
-            <span>AI Sourcing studio</span>
-            <EngineBadge engine={profile?.engine ?? ai.engine} />
-          </div>
-          <h2 className="tl-src-head__title">
-            {profile ? (
-              <>
-                Sourcing for <span className="tl-src-grad">{targetReq?.title ?? profile.title}</span>
-              </>
-            ) : (
-              'From job description to first message'
-            )}
-          </h2>
-          <p className="tl-src-head__sub">
-            {profile
-              ? 'Decoded JD → rediscover your pool → search LinkedIn → personalised outreach you send yourself.'
-              : 'Drop in a JD. We rank the people you already know, build LinkedIn searches and draft a personal note for each person.'}
-          </p>
-        </div>
-      </div>
-
-      <div className="tl-src-head__side">
+    <>
+      <HeadActions>
+        <EngineBadge engine={profile?.engine ?? ai.engine} />
+        <button
+          type="button"
+          className={cx('neo-btn', confirm ? 'neo-btn--danger' : 'neo-btn--soft')}
+          disabled={!dirty}
+          onClick={() => {
+            if (!confirm) return setConfirm(true);
+            setConfirm(false);
+            studio.startOver();
+          }}
+          title="Clears the studio (anything you logged stays in Talent Hub)"
+          aria-label={confirm ? 'Tap again to reset the studio' : 'Start over'}
+        >
+          <RotateCcw aria-hidden="true" /> <span className="neo-btn__label">{confirm ? 'Tap again to reset' : 'Start over'}</span>
+        </button>
+      </HeadActions>
+      <section className="tl-src-hud" aria-label="Studio status">
+        <dl className="tl-src-telemetry">
+          {telemetry.map((t) => (
+            <div key={t.label} className={cx('tl-src-telemetry__item', t.on && 'is-on')}>
+              <dt>{t.label}</dt>
+              <dd>{t.value}</dd>
+            </div>
+          ))}
+        </dl>
         <label className="tl-src-target">
           <span className="tl-src-target__label">
-            <Target aria-hidden="true" /> Target requisition
+            <Target aria-hidden="true" /> Target req
             {targetReq && targetReq.status !== 'open' && <ReqStatusBadge status={targetReq.status} />}
           </span>
           <select className="select" value={targetReq?.id ?? ''} onChange={(e) => studio.setTarget(e.target.value || null)}>
@@ -203,31 +194,8 @@ function StudioHeader({
             ))}
           </select>
         </label>
-        <button
-          type="button"
-          className={cx('btn btn--sm tl-src-head__reset', confirm ? 'btn--danger is-confirm' : 'btn--ghost')}
-          disabled={!dirty}
-          onClick={() => {
-            if (!confirm) return setConfirm(true);
-            setConfirm(false);
-            studio.startOver();
-          }}
-          title="Clears the studio (anything you logged stays in Talent Hub)"
-          aria-label={confirm ? 'Tap again to reset the studio' : 'Start over'}
-        >
-          <RotateCcw aria-hidden="true" /> <span>{confirm ? 'Tap again to reset' : 'Start over'}</span>
-        </button>
-      </div>
-
-      <dl className="tl-src-telemetry">
-        {telemetry.map((t) => (
-          <div key={t.label} className={cx('tl-src-telemetry__item', t.on && 'is-on')}>
-            <dt>{t.label}</dt>
-            <dd>{t.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </section>
+      </section>
+    </>
   );
 }
 

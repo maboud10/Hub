@@ -69,6 +69,7 @@ export function NextSteps({ onTask }: { onTask: (task: HrTask) => void }) {
   return (
     <HrPanel
       className="hr-home-steps"
+      hud="Needs you"
       title="Your next steps"
       icon={<ListChecks aria-hidden="true" />}
       sub={summary(tasks.length, urgent)}

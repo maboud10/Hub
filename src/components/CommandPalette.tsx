@@ -12,7 +12,6 @@ import {
   ClipboardList,
   CornerDownLeft,
   FileText,
-  FolderOpen,
   GraduationCap,
   HeartPulse,
   History,
@@ -33,7 +32,6 @@ import {
   ShieldHalf,
   Signature,
   Sparkles,
-  SquareKanban,
   Timer,
   TrendingUp,
   UserCog,
@@ -49,12 +47,7 @@ import { useAppAccess, usePermissions, usePrefs, useSessionUser } from '@/store/
 import { useWiki } from '@/wiki/store';
 import { readableSpaceIds } from '@/wiki/access';
 import { useAcademy } from '@/academy/store';
-import { useProjects } from '@/projects/store';
-import { buildProjectsViewer, canCreateProject, projectRoleFor } from '@/projects/access';
-import { HEALTH_META } from '@/projects/constants';
-import { useDrive } from '@/drive/store';
-import { buildDriveContext, buildDriveViewer, effectiveRole } from '@/drive/access';
-import { KIND_META } from '@/drive/constants';
+import { loadAllBridges, type AppPublicApi, type PaletteEntry } from '@/lib/appBridge';
 import { hasAny, hasPermission } from '@/lib/rbac';
 import { fuzzyMatch, fuzzyScore } from '@/lib/fuzzy';
 import { useFocusTrap, usePresence } from '@/hooks/useOverlay';
@@ -130,10 +123,6 @@ export function CommandPalette() {
   const wikiArticles = useWiki((s) => s.articles);
   const academyCourses = useAcademy((s) => s.courses);
   const roles = useHub((s) => s.roles);
-  const projects = useProjects((s) => s.projects);
-  const tasks = useProjects((s) => s.tasks);
-  const driveItems = useDrive((s) => s.items);
-  const drives = useDrive((s) => s.drives);
   const { updatePrefs, setPresence, logout } = useHub.getState();
   const focusMode = useFocus((s) => s.mode);
   const theme = useResolvedTheme();
@@ -145,10 +134,28 @@ export function CommandPalette() {
   const listRef = useRef<HTMLDivElement>(null);
   useFocusTrap(panelRef, open, inputRef);
 
+  // Workspace apps (Projects, Drive, Pulse Chat, IT Helpdesk) contribute actions + objects
+  // through their App Bridge. Loaded lazily on open so app stores stay out of the main
+  // bundle; a fresh array on every open re-snapshots their data.
+  const [bridgeApis, setBridgeApis] = useState<AppPublicApi[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    void loadAllBridges().then((apis) => {
+      if (alive) setBridgeApis(apis);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
+
   useEffect(() => {
     if (open) {
-      setQuery('');
+      // A Nova prompt (e.g. on the Launchpad) may hand over a query to start from.
+      const pending = useUI.getState().paletteQuery;
+      setQuery(pending);
       setActive(0);
+      if (pending) useUI.setState({ paletteQuery: '' });
     }
   }, [open]);
 
@@ -251,26 +258,31 @@ export function CommandPalette() {
       if (can('expenses.approve') || can('expenses.audit'))
         action('exp-approvals', 'Review travel & expense approvals', <ClipboardCheck />, go('/expenses/approvals'), ['approve expense', 'audit', 'finance queue', 'manager']);
     }
-    if (can('app:projects')) {
-      action('proj-my', 'My tasks (Projects)', <SquareKanban />, go('/projects'), ['todo', 'today', 'tasks', 'asana', 'kanban', 'work']);
-      const pv = buildProjectsViewer(user, roles);
-      if (canCreateProject(pv)) action('proj-new', 'Create a project', <Plus />, go('/projects/browse?new=1'), ['new project', 'template', 'board', 'sprint']);
-      action('proj-goals', 'Goals & OKRs', <Sparkles />, go('/projects/goals'), ['okr', 'objectives', 'portfolio', 'roadmap']);
-    }
-    if (can('app:drive')) {
-      action('drive-upload', 'Upload files to Drive', <FolderOpen />, go('/drive?upload=1'), ['upload', 'file', 'document', 'storage']);
-      action('drive-shared', 'Files shared with me', <FolderOpen />, go('/drive/shared'), ['shared', 'drive', 'files', 'folder']);
-      if (can('drive.manage')) action('drive-gov', 'Drive governance & DLP', <ShieldHalf />, go('/drive/governance'), ['dlp', 'sensitivity', 'oversharing', 'retention', 'legal hold']);
-    }
-    if (can('app:chat')) {
-      action('chat-open', 'Open Pulse Chat (#general)', <Sparkles />, go('/chat/c/ch-general'), ['slack', 'teams', 'chat', 'message', 'channel', 'pulse']);
-      action('chat-huddle', 'Start a live Pulse Huddle', <Sparkles />, go('/chat?huddle=1'), ['huddle', 'voice', 'audio', 'call', 'screen share']);
-      action('chat-watercooler', 'Pulse Watercooler & Coffee Roulette', <HeartPulse />, go('/chat/c/ch-watercooler'), ['watercooler', 'coffee', 'icebreaker', 'poll', 'kudos']);
-    }
-    if (can('app:helpdesk')) {
-      action('hd-new', 'Raise an IT Helpdesk ticket', <ClipboardList />, go('/helpdesk/tickets?new=1'), ['it', 'helpdesk', 'ticket', 'support', 'laptop', 'vpn', 'access']);
-      action('hd-devices', 'View my assigned devices & asset tags', <Briefcase />, go('/helpdesk/my-devices'), ['macbook', 'device', 'hardware', 'asset tag', 'serial', 'mdm', 'yubikey']);
-      action('hd-inventory', 'IT Admin: Device inventory & asset tags', <ShieldHalf />, go('/helpdesk/inventory'), ['inventory', 'fleet', 'asset tag', 'assign device', 'mdm', 'stock']);
+    // Workspace apps: actions + objects the viewer may see, straight from each app's bridge.
+    const viewer = { user, roles, perms };
+    for (const api of bridgeApis) {
+      if (!can(`app:${api.appId}`)) continue;
+      let entries: PaletteEntry[] = [];
+      try {
+        entries = api.paletteEntries(viewer);
+      } catch {
+        entries = [];
+      }
+      for (const e of entries)
+        items.push({
+          id: e.id,
+          group: e.group,
+          title: e.title,
+          subtitle: e.subtitle,
+          icon: (
+            <span className="palette__glyph" style={e.glyphColor ? { background: e.glyphColor, color: '#0b1220' } : undefined}>
+              {e.icon ?? <Sparkles />}
+            </span>
+          ),
+          keywords: e.keywords,
+          hint: e.hint ?? (e.group === 'Actions' ? 'Run' : 'Open'),
+          run: go(e.to),
+        });
     }
     if (can('app:payroll')) {
       action('pay-run', 'Open Payroll Console & active pay run', <Wallet />, go('/payroll'), ['payroll', 'payday', 'wps', 'sif', 'disburse', 'salaries']);
@@ -323,62 +335,6 @@ export function CommandPalette() {
       }
     }
 
-    // Projects, tasks & Drive files the viewer can actually see
-    if (can('app:projects')) {
-      const pv = buildProjectsViewer(user, roles);
-      const visible = projects.filter((p) => !p.archived && projectRoleFor(pv, p));
-      const visibleIds = new Set(visible.map((p) => p.id));
-      for (const p of visible) {
-        items.push({
-          id: `prj-${p.id}`,
-          group: 'Work',
-          title: p.name,
-          subtitle: `Project ${p.key} · ${HEALTH_META[p.health].label} · ${p.department}`,
-          icon: <span className="palette__glyph" style={{ background: p.color, color: '#0b1220' }}>{p.icon}</span>,
-          keywords: [p.key, p.description, p.department],
-          hint: 'Open',
-          run: go(`/projects/p/${p.id}`),
-        });
-      }
-      const byId = new Map(visible.map((p) => [p.id, p]));
-      for (const t of tasks) {
-        if (t.status === 'done' || !visibleIds.has(t.projectId)) continue;
-        const p = byId.get(t.projectId)!;
-        items.push({
-          id: `task-${t.id}`,
-          group: 'Work',
-          title: t.title,
-          subtitle: `${p.key}-${t.number} · ${p.name}${t.dueDate ? ` · due ${t.dueDate}` : ''}`,
-          icon: (
-            <span className="palette__glyph">
-              <SquareKanban />
-            </span>
-          ),
-          keywords: [`${p.key}-${t.number}`, ...t.tags, t.priority, t.type],
-          hint: 'Open task',
-          run: go(`/projects/p/${p.id}?task=${t.id}`),
-        });
-      }
-    }
-    if (can('app:drive')) {
-      const dv = buildDriveViewer(user, roles);
-      const ctx = buildDriveContext(driveItems, drives);
-      const driveName = new Map(drives.map((d) => [d.id, d.name]));
-      for (const f of driveItems) {
-        if (f.trashed || f.kind === 'folder' || !effectiveRole(dv, f, ctx)) continue;
-        items.push({
-          id: `file-${f.id}`,
-          group: 'Work',
-          title: f.name,
-          subtitle: `${KIND_META[f.kind].label} · ${driveName.get(f.driveId) ?? 'Drive'} · ${f.sensitivity}`,
-          icon: <span className="palette__glyph" style={{ color: KIND_META[f.kind].color }}><FolderOpen /></span>,
-          keywords: [...f.tags, f.description ?? '', f.sensitivity],
-          hint: 'Open file',
-          run: go(`/drive/file/${f.id}`),
-        });
-      }
-    }
-
     // People
     if (can('hub.people.view'))
       for (const u of users)
@@ -401,7 +357,7 @@ export function CommandPalette() {
       items.push({ id: `page-${n.to}`, group: 'Pages', title: n.label, subtitle: 'Go to page', icon: <span className="palette__glyph"><Icon /></span>, hint: 'Go', run: go(n.to) });
     }
     return items;
-  }, [user, perms, apps, users, wikiSpaces, wikiArticles, academyCourses, roles, projects, tasks, driveItems, drives, theme, focusMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, perms, apps, users, wikiSpaces, wikiArticles, academyCourses, roles, bridgeApis, theme, focusMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const results = useMemo(() => {
     const q = query.trim();

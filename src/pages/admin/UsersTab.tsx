@@ -1,18 +1,21 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useSearchParams } from 'react-router';
-import { Hourglass, KeyRound, LockKeyhole, Search, UserCog, UserX, Users } from 'lucide-react';
+import { Download, Hourglass, KeyRound, LockKeyhole, UserCog, UserX, Users } from 'lucide-react';
+import { NeoEmpty, NeoPanel, NeoSearch, NeoTabs } from '@/components/neo';
 import { useHub } from '@/store/hub';
 import { useClearance, useSessionUser } from '@/store/selectors';
 import { useNow } from '@/hooks/useNow';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { toast } from '@/store/toast';
-import { Avatar, ClearanceBadge, EmptyState, RoleChip, Switch } from '@/components/ui/primitives';
+import { Avatar, ClearanceBadge, RoleChip, Switch } from '@/components/ui/primitives';
 import { SUPER_ADMIN_ROLE_ID } from '@/data/roles';
 import { clearanceOf, isGrantActive } from '@/lib/rbac';
-import { pluralize, relativeTime } from '@/lib/format';
+import { downloadCsv } from '@/lib/csv';
+import { pluralize, relativeTime, todayKey } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import type { Grant, Role, User } from '@/types';
-import { ConfirmModal, FilterChip, isExpiringSoon, Tip, useDisclosure } from './shared';
+import { useAdminChrome } from './chrome';
+import { ConfirmModal, isExpiringSoon, Tip, useDisclosure } from './shared';
 import { UserSheet } from './UserSheet';
 
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -122,117 +125,135 @@ export function UsersTab() {
     toast.result(useHub.getState().setUserActive(user.id, true));
   };
 
-  const pendingDeactivation = deactivate.value ? rows.find((r) => r.user.id === deactivate.value) : undefined;
+  /** Access-review export of the people currently in view. */
+  const exportRoster = () => {
+    if (!filtered.length) return;
+    downloadCsv(
+      `nexus-access-roster-${todayKey()}.csv`,
+      filtered.map(({ user, clearance, roles: rs, live, expiring, permanent }) => ({
+        name: user.name,
+        email: user.email,
+        title: user.title,
+        department: user.department,
+        location: user.location,
+        status: user.active ? 'active' : 'deactivated',
+        roles: rs.map((r) => r.name).join('; '),
+        clearance: `L${clearance}`,
+        direct_grants: live.length,
+        expiring_7d: expiring,
+        permanent_grants: permanent,
+        last_active: user.lastActiveAt ? new Date(user.lastActiveAt).toISOString() : '',
+      })),
+    );
+    toast.success(`Exported ${pluralize(filtered.length, 'person', 'people')}`, hasFilters ? 'Only people matching your filters were included.' : 'Full access roster for your review.');
+  };
 
-  return (
-    <div className="adm-panel">
-      <div className="adm-toolbar">
-        <label className="input-wrap adm-search">
-          <Search aria-hidden="true" />
-          <span className="sr-only">Search people</span>
-          <input
-            className="input"
-            type="search"
-            placeholder="Search name, email, title, department…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </label>
-        <label className="adm-select-label">
-          <span className="sr-only">Filter by role</span>
-          <select className="select" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
-            <option value="all">All roles</option>
-            {sortedRoles.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name} · L{r.clearance}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="adm-select-label">
-          <span className="sr-only">Filter by direct grants</span>
-          <select className="select" value={grantFilter} onChange={(e) => setGrantFilter(parseGrants(e.target.value))}>
-            <option value="all">Any grants</option>
-            <option value="any">Has direct grants</option>
-            <option value="expiring">Expiring ≤ 7 days</option>
-            <option value="permanent">Permanent grants</option>
-          </select>
-        </label>
-      </div>
-      <div className="adm-toolbar adm-toolbar--sub">
-        <div className="chips" role="group" aria-label="Filter by account status">
-          <FilterChip active={status === 'all'} count={statusCounts.all} onClick={() => setStatus('all')}>
-            All
-          </FilterChip>
-          <FilterChip active={status === 'active'} count={statusCounts.active} onClick={() => setStatus('active')}>
-            Active
-          </FilterChip>
-          <FilterChip active={status === 'inactive'} count={statusCounts.inactive} onClick={() => setStatus('inactive')}>
-            Deactivated
-          </FilterChip>
-        </div>
-        <span className="spacer" />
-        <span className="text-xs faint" aria-live="polite">
+  useAdminChrome({
+    toolbar: (
+      <>
+        <NeoTabs<StatusFilter>
+          label="Account status"
+          value={status}
+          onChange={setStatus}
+          items={[
+            { value: 'all', label: 'All', count: statusCounts.all },
+            { value: 'active', label: 'Active', count: statusCounts.active },
+            { value: 'inactive', label: 'Deactivated', count: statusCounts.inactive },
+          ]}
+        />
+        <NeoSearch value={q} onChange={setQ} placeholder="Search name, email, title, department…" size="sm" label="Search people" className="adm-tool-search" />
+        <select className="neo-select neo-select--sm adm-tool-select" value={roleId} onChange={(e) => setRoleId(e.target.value)} aria-label="Filter by role">
+          <option value="all">All roles</option>
+          {sortedRoles.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name} · L{r.clearance}
+            </option>
+          ))}
+        </select>
+        <select
+          className="neo-select neo-select--sm adm-tool-select"
+          value={grantFilter}
+          onChange={(e) => setGrantFilter(parseGrants(e.target.value))}
+          aria-label="Filter by direct grants"
+        >
+          <option value="all">Any grants</option>
+          <option value="any">Has direct grants</option>
+          <option value="expiring">Expiring ≤ 7 days</option>
+          <option value="permanent">Permanent grants</option>
+        </select>
+        <div className="grow" />
+        <span className="adm-toolbar-hint" aria-live="polite">
           {pluralize(filtered.length, 'person', 'people')}
         </span>
         {hasFilters && (
-          <button type="button" className="btn btn--ghost btn--sm" onClick={clearFilters}>
-            Clear filters
+          <button type="button" className="neo-btn neo-btn--ghost neo-btn--sm" onClick={clearFilters}>
+            Clear
           </button>
         )}
-      </div>
+      </>
+    ),
+    actions: (
+      <button type="button" className="neo-btn neo-btn--soft" onClick={exportRoster} disabled={!filtered.length}>
+        <Download /> <span className="neo-btn__label">Export roster</span>
+      </button>
+    ),
+  });
 
+  const pendingDeactivation = deactivate.value ? rows.find((r) => r.user.id === deactivate.value) : undefined;
+
+  return (
+    <div className="adm-view">
       {filtered.length === 0 ? (
-        <div className="card">
-          <EmptyState
+        <NeoPanel>
+          <NeoEmpty
             icon={<Users />}
             title="No people match"
             action={
               hasFilters ? (
-                <button type="button" className="btn btn--sm" onClick={clearFilters}>
+                <button type="button" className="neo-btn neo-btn--soft" onClick={clearFilters}>
                   Clear filters
                 </button>
               ) : undefined
             }
           >
             Try a different search or loosen the filters.
-          </EmptyState>
-        </div>
+          </NeoEmpty>
+        </NeoPanel>
       ) : isMobile ? (
-        <ul className="adm-user-cards stagger">
+        <ul className="adm-user-cards neo-stagger">
           {filtered.map((row, i) => {
             const lock = statusLock(row);
             const { user } = row;
             return (
-              <li key={user.id} className={cx('card card--tight adm-user-card', !user.active && 'is-inactive')} style={{ '--i': i } as CSSProperties}>
+              <li key={user.id} className={cx('neo-card adm-user-card', !user.active && 'is-inactive')} style={{ '--i': i } as CSSProperties}>
                 <div className="adm-user-card__top">
                   <Avatar user={user} size={44} presence />
                   <div className="grow">
                     <div className="adm-user-name">
                       <span className="truncate">{user.name}</span>
-                      {user.id === me?.id && <span className="tag">You</span>}
+                      {user.id === me?.id && <YouChip />}
                     </div>
-                    <div className="text-xs faint truncate">{user.email}</div>
-                    <div className="text-xs muted truncate">
+                    <div className="adm-cell-sub truncate">{user.email}</div>
+                    <div className="adm-cell-sub truncate">
                       {user.title} · {user.department}
                     </div>
                   </div>
                   <StatusSwitch user={user} lock={lock} onChange={onStatus} />
                 </div>
                 <div className="row row--wrap adm-gap-6">
-                  {row.roles.length ? row.roles.map((r) => <RoleChip key={r.id} name={r.name} color={r.color} />) : <span className="badge badge--danger">No role</span>}
+                  {row.roles.length ? row.roles.map((r) => <RoleChip key={r.id} name={r.name} color={r.color} />) : <NoRoleChip />}
                 </div>
                 <div className="adm-user-card__meta">
                   <ClearanceBadge level={row.clearance} compact />
                   <GrantsCell row={row} />
-                  <span className="text-xs faint">{user.lastActiveAt ? `Active ${relativeTime(user.lastActiveAt, now)}` : 'Never active'}</span>
+                  <span className="adm-cell-sub">{user.lastActiveAt ? `Active ${relativeTime(user.lastActiveAt, now)}` : 'Never active'}</span>
                 </div>
                 {lock && (
-                  <div className="text-xs faint adm-lock-line">
+                  <div className="adm-cell-sub adm-lock-line">
                     <LockKeyhole aria-hidden="true" /> {lock}
                   </div>
                 )}
-                <button type="button" className="btn btn--block" onClick={() => sheet.show(user.id)}>
+                <button type="button" className="neo-btn neo-btn--soft neo-btn--block" onClick={() => sheet.show(user.id)}>
                   <UserCog aria-hidden="true" /> Manage access
                 </button>
               </li>
@@ -240,11 +261,11 @@ export function UsersTab() {
           })}
         </ul>
       ) : (
-        <div className="table-wrap adm-table-wrap">
-          <table className="table adm-table">
+        <div className="neo-table-wrap adm-table-wrap">
+          <table className="neo-table adm-table">
             <thead>
               <tr>
-                <th scope="col">User</th>
+                <th scope="col">Person</th>
                 <th scope="col">Department</th>
                 <th scope="col">Roles</th>
                 <th scope="col">Clearance</th>
@@ -264,28 +285,22 @@ export function UsersTab() {
                   <tr key={user.id} className={cx(!user.active && 'is-inactive')}>
                     <td>
                       <div className="adm-user-cell">
-                        <Avatar user={user} size={36} presence />
+                        <Avatar user={user} size={34} presence />
                         <div className="grow">
                           <div className="adm-user-name">
                             <span className="truncate">{user.name}</span>
-                            {user.id === me?.id && <span className="tag">You</span>}
+                            {user.id === me?.id && <YouChip />}
                           </div>
-                          <div className="text-xs faint truncate">{user.email}</div>
+                          <div className="adm-cell-sub truncate">{user.email}</div>
                         </div>
                       </div>
                     </td>
                     <td>
-                      <div className="text-sm adm-dim">{user.department}</div>
-                      <div className="text-xs faint truncate adm-cell-title">{user.title}</div>
+                      <div className="adm-dim">{user.department}</div>
+                      <div className="adm-cell-sub truncate adm-cell-title">{user.title}</div>
                     </td>
                     <td>
-                      <div className="adm-chip-cell">
-                        {row.roles.length ? (
-                          row.roles.map((r) => <RoleChip key={r.id} name={r.name} color={r.color} />)
-                        ) : (
-                          <span className="badge badge--danger">No role</span>
-                        )}
-                      </div>
+                      <div className="adm-chip-cell">{row.roles.length ? row.roles.map((r) => <RoleChip key={r.id} name={r.name} color={r.color} />) : <NoRoleChip />}</div>
                     </td>
                     <td>
                       <ClearanceBadge level={row.clearance} compact />
@@ -296,12 +311,12 @@ export function UsersTab() {
                     <td>
                       <div className="row adm-gap-6">
                         <StatusSwitch user={user} lock={lock} onChange={onStatus} />
-                        <span className={cx('text-xs', user.active ? 'muted' : 'adm-text-danger')}>{user.active ? 'Active' : 'Off'}</span>
+                        <span className={cx('adm-cell-sub', !user.active && 'adm-text-danger')}>{user.active ? 'Active' : 'Off'}</span>
                       </div>
                     </td>
-                    <td className="text-sm muted adm-nowrap">{user.lastActiveAt ? relativeTime(user.lastActiveAt, now) : '—'}</td>
-                    <td>
-                      <button type="button" className="btn btn--sm" onClick={() => sheet.show(user.id)} aria-label={`Manage ${user.name}`}>
+                    <td className="adm-cell-sub adm-nowrap">{user.lastActiveAt ? relativeTime(user.lastActiveAt, now) : '—'}</td>
+                    <td className="adm-cell-actions">
+                      <button type="button" className="neo-btn neo-btn--soft neo-btn--sm" onClick={() => sheet.show(user.id)} aria-label={`Manage ${user.name}`}>
                         <UserCog aria-hidden="true" /> Manage
                       </button>
                     </td>
@@ -344,6 +359,22 @@ export function UsersTab() {
   );
 }
 
+function YouChip() {
+  return (
+    <span className="neo-chip neo-chip--sm" data-tone="app">
+      You
+    </span>
+  );
+}
+
+function NoRoleChip() {
+  return (
+    <span className="neo-chip" data-tone="danger">
+      No role
+    </span>
+  );
+}
+
 function StatusSwitch({ user, lock, onChange }: { user: User; lock: string | null; onChange: (u: User, next: boolean) => void }) {
   return (
     <Tip tip={lock}>
@@ -358,7 +389,7 @@ function StatusSwitch({ user, lock, onChange }: { user: User; lock: string | nul
 }
 
 function GrantsCell({ row }: { row: Row }) {
-  if (!row.live.length) return <span className="faint text-sm">—</span>;
+  if (!row.live.length) return <span className="adm-cell-sub">—</span>;
   return (
     <span className="row adm-gap-6">
       <span className="adm-grant-count" title={`${row.live.length} active direct grants`}>
@@ -366,13 +397,13 @@ function GrantsCell({ row }: { row: Row }) {
         {row.live.length}
       </span>
       {row.expiring > 0 && (
-        <span className="badge badge--warning" title={`${row.expiring} expiring within 7 days`}>
+        <span className="neo-chip neo-chip--sm" data-tone="warning" title={`${row.expiring} expiring within 7 days`}>
           <Hourglass aria-hidden="true" />
           Expiring
         </span>
       )}
       {row.permanent > 0 && (
-        <span className="badge badge--muted" title={`${row.permanent} never expire`}>
+        <span className="neo-chip neo-chip--sm" data-tone="slate" title={`${row.permanent} never expire`}>
           Permanent
         </span>
       )}

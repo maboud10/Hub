@@ -4,25 +4,28 @@ import {
   Activity,
   AppWindow,
   Award,
+  Ban,
+  Database,
   Download,
   Fingerprint,
   KeyRound,
   Newspaper,
   RotateCcw,
   ScrollText,
-  Search,
+  ShieldAlert,
   ShieldHalf,
   UserCog,
   type LucideIcon,
 } from 'lucide-react';
+import { NeoEmpty, NeoKpi, NeoKpis, NeoPanel, NeoSearch, NeoTabs } from '@/components/neo';
 import { useHub } from '@/store/hub';
 import { useNow } from '@/hooks/useNow';
 import { toast } from '@/store/toast';
-import { EmptyState } from '@/components/ui/primitives';
 import { downloadCsv } from '@/lib/csv';
 import { formatDate, formatDateTime, formatTime, pluralize, relativeTime, todayKey } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import type { AuditEntry, AuditSeverity } from '@/types';
+import { useAdminChrome } from './chrome';
 import {
   Actor,
   DAY,
@@ -150,6 +153,7 @@ export function AuditTab() {
       last24: audit.filter((e) => e.at >= now - DAY).length,
       denied7: audit.filter((e) => e.outcome === 'denied' && e.at >= now - 7 * DAY).length,
       critical7: audit.filter((e) => e.severity === 'critical' && e.at >= now - 7 * DAY).length,
+      actors7: new Set(audit.filter((e) => e.at >= now - 7 * DAY).map((e) => e.actorId)).size,
     }),
     [audit, now],
   );
@@ -182,125 +186,37 @@ export function AuditTab() {
     toast.success(`Exported ${pluralize(filtered.length, 'event')}`, hasFilters ? 'Only events matching your filters were included.' : undefined);
   };
 
-  return (
-    <div className="adm-panel">
-      <section className="card adm-audit-head" aria-label="Audit summary">
-        <div className="adm-audit-head__stats">
-          <div className="adm-sumstat adm-tone--accent">
-            <span className="adm-sumstat__value">{audit.length}</span>
-            <span className="adm-micro">Events retained</span>
-          </div>
-          <div className="adm-sumstat adm-tone--info">
-            <span className="adm-sumstat__value">{stats.last24}</span>
-            <span className="adm-micro">Last 24h</span>
-          </div>
-          <div className={cx('adm-sumstat', stats.denied7 ? 'adm-tone--danger' : 'adm-tone--muted')}>
-            <span className="adm-sumstat__value">{stats.denied7}</span>
-            <span className="adm-micro">Denied · 7d</span>
-          </div>
-          <div className={cx('adm-sumstat', stats.critical7 ? 'adm-tone--danger' : 'adm-tone--muted')}>
-            <span className="adm-sumstat__value">{stats.critical7}</span>
-            <span className="adm-micro">Critical · 7d</span>
-          </div>
-        </div>
-        <div className="adm-histo-wrap">
-          <div className="row row--between">
-            <span className="adm-micro">Activity · {HISTO_DAYS} days</span>
-            <span className="adm-micro faint">{pluralize(histo.total, 'event')}</span>
-          </div>
-          <div className="adm-histo" role="img" aria-label={`Matching audit events over the last ${HISTO_DAYS} days: ${histo.total}`}>
-            {histo.buckets.map((b, i) => (
-              <div
-                key={b.t}
-                className="adm-histo__col"
-                data-tip={`${formatDate(b.t, { weekday: 'short', day: 'numeric', month: 'short' })} · ${pluralize(b.total, 'event')}`}
-                style={{ '--i': i } as CSSProperties}
-              >
-                <span className="adm-histo__stack" style={{ height: `${(b.total / histo.max) * 100}%` }}>
-                  {b.critical > 0 && <i className="is-critical" style={{ flexGrow: b.critical }} />}
-                  {b.warning > 0 && <i className="is-warning" style={{ flexGrow: b.warning }} />}
-                  {b.info > 0 && <i className="is-info" style={{ flexGrow: b.info }} />}
-                </span>
-              </div>
-            ))}
-          </div>
-          <div className="row row--between text-xs faint">
-            <span>{formatDate(histo.buckets[0].t, { day: 'numeric', month: 'short' })}</span>
-            <span>Today</span>
-          </div>
-        </div>
-      </section>
-
-      <div className="adm-toolbar">
-        <label className="input-wrap adm-search">
-          <Search aria-hidden="true" />
-          <span className="sr-only">Search audit log</span>
-          <input
-            className="input"
-            type="search"
-            placeholder="Search action, target, detail or actor…"
-            value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              resetPage();
-            }}
-          />
-        </label>
-        <label className="adm-select-label">
-          <span className="sr-only">Filter by actor</span>
-          <select
-            className="select"
-            value={actor}
-            onChange={(e) => {
-              setActor(e.target.value);
-              resetPage();
-            }}
-          >
-            <option value="all">All actors</option>
-            {actors.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name} ({a.count})
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" className="btn" onClick={exportCsv} disabled={!filtered.length}>
-          <Download aria-hidden="true" /> Export CSV
-        </button>
-      </div>
-      <div className="adm-toolbar adm-toolbar--sub adm-audit-facets">
-        <div className="chips" role="group" aria-label="Filter by severity">
-          <FilterChip
-            active={severity === 'all'}
-            count={severityCounts.all}
-            onClick={() => {
-              setSeverity('all');
-              resetPage();
-            }}
-          >
-            All
-          </FilterChip>
-          {SEVERITIES.map((s) => (
-            <FilterChip
-              key={s}
-              active={severity === s}
-              count={severityCounts[s]}
-              onClick={() => {
-                setSeverity(s);
-                resetPage();
-              }}
-            >
-              <i className={cx('adm-sev-dot', toneClass(severityTone(s)))} aria-hidden="true" />
-              {SEVERITY_LABEL[s]}
-            </FilterChip>
-          ))}
-        </div>
-        <div className="chips" role="group" aria-label="Filter by outcome">
+  useAdminChrome({
+    toolbar: (
+      <>
+        <NeoTabs<SeverityFilter>
+          label="Filter by severity"
+          value={severity}
+          onChange={(v) => {
+            setSeverity(v);
+            resetPage();
+          }}
+          items={[
+            { value: 'all', label: 'All', count: severityCounts.all },
+            ...SEVERITIES.map((s) => ({
+              value: s,
+              label: (
+                <>
+                  <i className={cx('adm-sev-dot', toneClass(severityTone(s)))} aria-hidden="true" />
+                  {SEVERITY_LABEL[s]}
+                </>
+              ),
+              count: severityCounts[s],
+            })),
+          ]}
+        />
+        <div className="adm-chips" role="group" aria-label="Filter by outcome">
           {(['all', 'success', 'denied'] as const).map((o) => (
             <FilterChip
               key={o}
               active={outcome === o}
               count={outcomeCounts[o]}
+              icon={o === 'denied' ? Ban : undefined}
               onClick={() => {
                 setOutcome(o);
                 resetPage();
@@ -310,37 +226,133 @@ export function AuditTab() {
             </FilterChip>
           ))}
         </div>
-        <span className="spacer" />
+        <div className="grow" />
+        <NeoSearch
+          value={q}
+          onChange={(v) => {
+            setQ(v);
+            resetPage();
+          }}
+          placeholder="Search action, target, detail or actor…"
+          size="sm"
+          label="Search audit log"
+          className="adm-tool-search"
+        />
+        <select
+          className="neo-select neo-select--sm adm-tool-select"
+          value={actor}
+          onChange={(e) => {
+            setActor(e.target.value);
+            resetPage();
+          }}
+          aria-label="Filter by actor"
+        >
+          <option value="all">All actors</option>
+          {actors.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name} ({a.count})
+            </option>
+          ))}
+        </select>
         {hasFilters && (
-          <button type="button" className="btn btn--ghost btn--sm" onClick={clearFilters}>
-            Clear filters
+          <button type="button" className="neo-btn neo-btn--ghost neo-btn--sm" onClick={clearFilters}>
+            Clear
           </button>
         )}
-      </div>
+      </>
+    ),
+    actions: (
+      <button type="button" className="neo-btn neo-btn--plasma" onClick={exportCsv} disabled={!filtered.length} data-qa="adm-audit-export">
+        <Download /> <span className="neo-btn__label">Export CSV</span>
+      </button>
+    ),
+  });
+
+  return (
+    <div className="adm-view">
+      <NeoKpis label="Audit summary">
+        <NeoKpi icon={<Database />} label="Events retained" value={audit.length} sub={`${stats.actors7} actors in the last 7 days`} />
+        <NeoKpi icon={<Activity />} label="Last 24h" value={stats.last24} sub={stats.last24 ? 'Fresh activity on the trail' : 'Quiet day'} />
+        <NeoKpi
+          icon={<Ban />}
+          label="Denied · 7d"
+          value={stats.denied7}
+          sub={stats.denied7 ? 'Blocked by the policy engine' : 'Nobody hit a boundary'}
+          tone={stats.denied7 ? 'danger' : undefined}
+          onClick={() => {
+            setOutcome((o) => (o === 'denied' ? 'all' : 'denied'));
+            resetPage();
+          }}
+          title="Toggle the denied filter"
+        />
+        <NeoKpi
+          icon={<ShieldAlert />}
+          label="Critical · 7d"
+          value={stats.critical7}
+          sub={stats.critical7 ? 'Escalation or self-approval attempts' : 'No critical events'}
+          tone={stats.critical7 ? 'danger' : undefined}
+          onClick={() => {
+            setSeverity((s) => (s === 'critical' ? 'all' : 'critical'));
+            resetPage();
+          }}
+          title="Toggle the critical filter"
+        />
+      </NeoKpis>
+
+      <NeoPanel
+        hud="Activity"
+        title={`Last ${HISTO_DAYS} days`}
+        actions={<span className="adm-toolbar-hint">{pluralize(histo.total, hasFilters ? 'matching event' : 'event')}</span>}
+        className="adm-histo-panel"
+      >
+        <div className="adm-histo" role="img" aria-label={`Matching audit events over the last ${HISTO_DAYS} days: ${histo.total}`}>
+          {histo.buckets.map((b, i) => (
+            <div
+              key={b.t}
+              className="adm-histo__col"
+              data-tip={`${formatDate(b.t, { weekday: 'short', day: 'numeric', month: 'short' })} · ${pluralize(b.total, 'event')}`}
+              style={{ '--i': i } as CSSProperties}
+            >
+              <span className="adm-histo__stack" style={{ height: `${(b.total / histo.max) * 100}%` }}>
+                {b.critical > 0 && <i className="is-critical" style={{ flexGrow: b.critical }} />}
+                {b.warning > 0 && <i className="is-warning" style={{ flexGrow: b.warning }} />}
+                {b.info > 0 && <i className="is-info" style={{ flexGrow: b.info }} />}
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="adm-histo__axis">
+          <span>{formatDate(histo.buckets[0].t, { day: 'numeric', month: 'short' })}</span>
+          <span className="adm-histo__legend" aria-hidden="true">
+            <i className="is-info" /> Info <i className="is-warning" /> Warning <i className="is-critical" /> Critical
+          </span>
+          <span>Today</span>
+        </div>
+      </NeoPanel>
 
       {filtered.length === 0 ? (
-        <div className="card">
-          <EmptyState
+        <NeoPanel>
+          <NeoEmpty
             icon={<ScrollText />}
             title={hasFilters ? 'No events match' : 'No audit events yet'}
             action={
               hasFilters ? (
-                <button type="button" className="btn btn--sm" onClick={clearFilters}>
+                <button type="button" className="neo-btn neo-btn--soft" onClick={clearFilters}>
                   Clear filters
                 </button>
               ) : undefined
             }
           >
             {hasFilters ? 'Loosen the filters to see more of the trail.' : 'Security-relevant actions will be recorded here.'}
-          </EmptyState>
-        </div>
+          </NeoEmpty>
+        </NeoPanel>
       ) : (
         <>
           <div className="adm-timeline" aria-live="polite">
             {groups.map((g) => (
               <section key={g.key} className="adm-day" aria-label={g.label}>
                 <h3 className="adm-day__label">
-                  {g.label} <span className="count">{g.items.length}</span>
+                  {g.label} <span className="adm-day__count">{g.items.length}</span>
                 </h3>
                 <ol className="adm-tl">
                   {g.items.map((e) => {
@@ -366,7 +378,7 @@ export function AuditTab() {
                             <time dateTime={new Date(e.at).toISOString()} title={formatDateTime(e.at)}>
                               {formatTime(e.at)}
                             </time>
-                            <span className="faint adm-hide-sm">({relativeTime(e.at, now)})</span>
+                            <span className="neo-faint adm-hide-sm">({relativeTime(e.at, now)})</span>
                           </div>
                         </div>
                       </li>
@@ -377,12 +389,12 @@ export function AuditTab() {
             ))}
           </div>
           <div className="adm-load-more">
-            <span className="text-xs faint">
+            <span className="adm-toolbar-hint">
               Showing {visible.length} of {filtered.length}
             </span>
             {filtered.length > visible.length && (
-              <button type="button" className="btn btn--block" onClick={() => setLimit((n) => n + PAGE)}>
-                Load more <span className="faint">({Math.min(PAGE, filtered.length - visible.length)} of {filtered.length - visible.length})</span>
+              <button type="button" className="neo-btn neo-btn--soft neo-btn--block" onClick={() => setLimit((n) => n + PAGE)}>
+                Load more <span className="neo-faint">({Math.min(PAGE, filtered.length - visible.length)} of {filtered.length - visible.length})</span>
               </button>
             )}
           </div>

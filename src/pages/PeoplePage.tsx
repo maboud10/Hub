@@ -1,19 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { LayoutGrid, LayoutList, RotateCcw, Search, SearchX, X } from 'lucide-react';
+import { LayoutGrid, LayoutList, MapPin, RotateCcw, SearchX, UserRound, Users } from 'lucide-react';
 import type { Department, Presence, User } from '@/types';
 import { useHub } from '@/store/hub';
 import { useCan, useSessionUser } from '@/store/selectors';
 import { useUI } from '@/store/ui';
 import { toast } from '@/store/toast';
 import { useLaunchApp } from '@/components/apps/useLaunchApp';
-import { EmptyState, PRESENCE_LABEL, Segmented } from '@/components/ui/primitives';
+import { PRESENCE_LABEL } from '@/components/ui/primitives';
+import { NeoEmpty, NeoPage, NeoPanel, NeoSearch, NeoTabs } from '@/components/neo';
 import { useNow } from '@/hooks/useNow';
 import { firstName, formatTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import { PersonCard } from './people/PersonCard';
 import { ProfileSheet } from './people/ProfileSheet';
-import { PRESENCE_ORDER, isVisibleTo, matchesTokens, searchTokens, tzOffsetMinutes } from './people/peopleUtils';
+import { DEPARTMENT_ICON, PRESENCE_ORDER, isVisibleTo, matchesTokens, searchTokens, tzOffsetMinutes } from './people/peopleUtils';
 
 type View = 'grid' | 'list';
 type PresenceFilter = 'all' | Presence;
@@ -43,6 +44,7 @@ export function PeoplePage() {
 
   const [query, setQuery] = useState(() => params.get('q') ?? '');
   const [dept, setDept] = useState<Department | 'all'>('all');
+  const [loc, setLoc] = useState<string>('all');
   const [presence, setPresence] = useState<PresenceFilter>('all');
   const [view, setViewState] = useState<View>(readView);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -86,32 +88,54 @@ export function PeoplePage() {
     let all = 0;
     for (const u of bySearch) {
       if (presence !== 'all' && u.presence !== presence) continue;
+      if (loc !== 'all' && u.location !== loc) continue;
       counts.set(u.department, (counts.get(u.department) ?? 0) + 1);
       all += 1;
     }
     return { all, list: [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0])) };
-  }, [visible, bySearch, presence]);
+  }, [visible, bySearch, presence, loc]);
+
+  const locFacets = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const u of visible) counts.set(u.location, 0);
+    let all = 0;
+    for (const u of bySearch) {
+      if (dept !== 'all' && u.department !== dept) continue;
+      if (presence !== 'all' && u.presence !== presence) continue;
+      counts.set(u.location, (counts.get(u.location) ?? 0) + 1);
+      all += 1;
+    }
+    return { all, list: [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0])) };
+  }, [visible, bySearch, dept, presence]);
 
   const presenceFacets = useMemo(() => {
     const counts = EMPTY_COUNTS();
     let all = 0;
     for (const u of bySearch) {
       if (dept !== 'all' && u.department !== dept) continue;
+      if (loc !== 'all' && u.location !== loc) continue;
       counts[u.presence] += 1;
       all += 1;
     }
     return { all, counts };
-  }, [bySearch, dept]);
+  }, [bySearch, dept, loc]);
 
   const results = useMemo(
-    () => bySearch.filter((u) => (dept === 'all' || u.department === dept) && (presence === 'all' || u.presence === presence)),
-    [bySearch, dept, presence],
+    () =>
+      bySearch.filter(
+        (u) =>
+          (dept === 'all' || u.department === dept) &&
+          (loc === 'all' || u.location === loc) &&
+          (presence === 'all' || u.presence === presence),
+      ),
+    [bySearch, dept, loc, presence],
   );
 
-  const filtersActive = tokens.length > 0 || dept !== 'all' || presence !== 'all';
+  const filtersActive = tokens.length > 0 || dept !== 'all' || loc !== 'all' || presence !== 'all';
   const clearFilters = () => {
     setQuery('');
     setDept('all');
+    setLoc('all');
     setPresence('all');
     searchRef.current?.focus();
   };
@@ -196,45 +220,171 @@ export function PeoplePage() {
 
   const handlers = { onOpen: openProfile, onMessage, onKudos, onEditSelf };
   const activeTotal = Math.max(1, totals.active);
+  const DeptActiveIcon = dept !== 'all' ? DEPARTMENT_ICON[dept] : Users;
+  const panelTitle = query.trim()
+    ? `Matches for “${query.trim()}”`
+    : dept !== 'all'
+      ? dept
+      : loc !== 'all'
+        ? loc
+        : presence !== 'all'
+          ? `${PRESENCE_LABEL[presence]} now`
+          : 'Everyone';
 
   return (
-    <div className="page ppl-page">
-      <header className="page-head ppl-head">
-        <div className="ppl-head__intro">
-          <div className="eyebrow">Directory</div>
-          <h1 className="page-title">People</h1>
-          <p className="page-sub ppl-head__counts">
-            <span>
-              <strong>{totals.active}</strong> colleagues
-            </span>
-            <span className="faint" aria-hidden="true">
-              ·
-            </span>
-            <span className="ppl-online">
-              <span className="dot dot--online dot--pulse" aria-hidden="true" />
-              <strong>{totals.byPresence.online}</strong> online now
-            </span>
-            {canManage && totals.inactive > 0 && (
-              <>
-                <span className="faint" aria-hidden="true">
-                  ·
-                </span>
-                <span className="faint">{totals.inactive} deactivated</span>
-              </>
-            )}
-          </p>
-        </div>
+    <NeoPage
+      app="people"
+      className="ppl-page"
+      icon={<Users />}
+      eyebrow="Hub · Directory"
+      title="People"
+      sub={
+        <span className="ppl-head__counts">
+          <span>
+            <b className="neo-tint">{totals.active}</b> colleagues
+          </span>
+          <span aria-hidden="true">·</span>
+          <span className="ppl-online">
+            <span className="dot dot--online dot--pulse" aria-hidden="true" />
+            <b>{totals.byPresence.online}</b> online now
+          </span>
+          {canManage && totals.inactive > 0 && (
+            <>
+              <span aria-hidden="true">·</span>
+              <span>{totals.inactive} deactivated</span>
+            </>
+          )}
+        </span>
+      }
+      center={
+        <NeoSearch
+          className="ppl-search"
+          inputRef={searchRef}
+          value={query}
+          onChange={setQuery}
+          placeholder="Search name, title, skill, location…"
+          label="Search people"
+        />
+      }
+      actions={
+        <>
+          {me && (
+            <button type="button" className="neo-btn neo-btn--soft" onClick={() => openProfile(me.id)}>
+              <UserRound /> <span className="neo-btn__label">My card</span>
+            </button>
+          )}
+          <NeoTabs<View>
+            label="Layout"
+            className="ppl-layout"
+            value={view}
+            onChange={setView}
+            items={[
+              { value: 'grid', label: <span className="neo-sr">Grid</span>, icon: <LayoutGrid />, title: 'Grid view' },
+              { value: 'list', label: <span className="neo-sr">List</span>, icon: <LayoutList />, title: 'List view' },
+            ]}
+          />
+        </>
+      }
+      toolbar={
+        <>
+          <div className="ppl-toolbar__row">
+            <div className="ppl-filter-chips" role="group" aria-label="Departments">
+              <button
+                type="button"
+                className="neo-chip"
+                data-tone={dept === 'all' ? 'app' : 'slate'}
+                aria-pressed={dept === 'all'}
+                onClick={() => setDept('all')}
+              >
+                All <span className="ppl-chip__n">{deptFacets.all}</span>
+              </button>
+              {deptFacets.list.map(([d, n]) => {
+                const Icon = DEPARTMENT_ICON[d];
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    className={cx('neo-chip', n === 0 && dept !== d && 'ppl-chip--empty')}
+                    data-tone={dept === d ? 'app' : 'slate'}
+                    aria-pressed={dept === d}
+                    onClick={() => setDept(dept === d ? 'all' : d)}
+                  >
+                    <Icon aria-hidden="true" /> {d} <span className="ppl-chip__n">{n}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-        <div
-          className="ppl-spectrum glass"
-          role="img"
+          <div className="ppl-toolbar__row ppl-toolbar__row--sub">
+            <div className="ppl-filter-chips" role="group" aria-label="Availability status">
+              <button
+                type="button"
+                className="neo-chip"
+                data-tone={presence === 'all' ? 'app' : 'slate'}
+                aria-pressed={presence === 'all'}
+                onClick={() => setPresence('all')}
+              >
+                Anyone <span className="ppl-chip__n">{presenceFacets.all}</span>
+              </button>
+              {PRESENCE_ORDER.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={cx('neo-chip', presenceFacets.counts[p] === 0 && presence !== p && 'ppl-chip--empty')}
+                  data-tone={presence === p ? 'app' : 'slate'}
+                  aria-pressed={presence === p}
+                  onClick={() => setPresence(presence === p ? 'all' : p)}
+                >
+                  <span className={`dot dot--${p}`} aria-hidden="true" />
+                  {PRESENCE_LABEL[p]} <span className="ppl-chip__n">{presenceFacets.counts[p]}</span>
+                </button>
+              ))}
+            </div>
+            <div className="ppl-toolbar__tools">
+              <div className="ppl-loc-wrap">
+                <MapPin aria-hidden="true" />
+                <select
+                  className="neo-select neo-select--sm ppl-loc-select"
+                  value={loc}
+                  onChange={(e) => setLoc(e.target.value)}
+                  aria-label="Filter by location"
+                >
+                  <option value="all">All locations ({locFacets.all})</option>
+                  {locFacets.list.map(([city, n]) => (
+                    <option key={city} value={city}>
+                      {city} ({n})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {filtersActive && (
+                <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs ppl-clear" onClick={clearFilters}>
+                  <RotateCcw /> Reset
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      }
+    >
+      <div className="neo-stack">
+        {/* ── Live presence spectrum strip ── */}
+        <section
+          className="neo-panel ppl-spectrum"
           aria-label={`Live presence: ${PRESENCE_ORDER.map((p) => `${totals.byPresence[p]} ${PRESENCE_LABEL[p].toLowerCase()}`).join(', ')}`}
         >
           <div className="ppl-spectrum__head">
-            <span className="stat-label">Live presence</span>
-            <span className="mono faint text-xs">{formatTime(now, me?.timezone)}</span>
+            <div className="ppl-spectrum__titles">
+              <span className="neo-hud neo-hud--tint">Live presence</span>
+              <span className="ppl-spectrum__summary">
+                <strong>{totals.byPresence.online + totals.byPresence.focus + totals.byPresence.meeting}</strong> active right now across{' '}
+                <strong>{locFacets.list.length}</strong> hubs
+              </span>
+            </div>
+            <span className="neo-mono neo-faint text-xs">{formatTime(now, me?.timezone)} local</span>
           </div>
-          <div className="ppl-spectrum__bar">
+          <div className="ppl-spectrum__bar" role="presentation">
             {PRESENCE_ORDER.map((p) =>
               totals.byPresence[p] > 0 ? (
                 <span
@@ -248,148 +398,71 @@ export function PeoplePage() {
           </div>
           <div className="ppl-spectrum__legend">
             {PRESENCE_ORDER.map((p) => (
-              <span key={p} className={cx('ppl-spectrum__item', totals.byPresence[p] === 0 && 'is-zero')} title={PRESENCE_LABEL[p]}>
-                <span className={`dot dot--${p}`} />
-                <span className="mono">{totals.byPresence[p]}</span>
-                <span className="ppl-spectrum__name">{PRESENCE_LABEL[p]}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      </header>
-
-      {/* ── Toolbar ── */}
-      <div className="ppl-toolbar">
-        <div className="input-wrap ppl-search">
-          <Search aria-hidden="true" />
-          <input
-            ref={searchRef}
-            className="input"
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape' && query) {
-                e.stopPropagation();
-                setQuery('');
-              }
-            }}
-            placeholder="Search name, title, skill, location…"
-            aria-label="Search people"
-            autoComplete="off"
-            spellCheck={false}
-          />
-          {query && (
-            <button type="button" className="icon-btn input-trail" onClick={() => setQuery('')} aria-label="Clear search">
-              <X />
-            </button>
-          )}
-        </div>
-        <Segmented<View>
-          label="Layout"
-          value={view}
-          onChange={setView}
-          options={[
-            { value: 'grid', label: <span className="ppl-seg-label">Grid</span>, icon: <LayoutGrid />, title: 'Grid view' },
-            { value: 'list', label: <span className="ppl-seg-label">List</span>, icon: <LayoutList />, title: 'List view' },
-          ]}
-        />
-      </div>
-
-      <div className="ppl-filters">
-        <div className="ppl-filter">
-          <span className="ppl-filter__label" id="ppl-dept-label">
-            Team
-          </span>
-          <div className="chips" role="group" aria-labelledby="ppl-dept-label">
-            <button type="button" className={cx('chip', dept === 'all' && 'is-active')} aria-pressed={dept === 'all'} onClick={() => setDept('all')}>
-              All <span className="count">{deptFacets.all}</span>
-            </button>
-            {deptFacets.list.map(([d, n]) => (
-              <button
-                key={d}
-                type="button"
-                className={cx('chip', dept === d && 'is-active', n === 0 && 'ppl-chip--empty')}
-                aria-pressed={dept === d}
-                onClick={() => setDept(dept === d ? 'all' : d)}
-              >
-                {d} <span className="count">{n}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="ppl-filter">
-          <span className="ppl-filter__label" id="ppl-presence-label">
-            Status
-          </span>
-          <div className="chips" role="group" aria-labelledby="ppl-presence-label">
-            <button
-              type="button"
-              className={cx('chip', presence === 'all' && 'is-active')}
-              aria-pressed={presence === 'all'}
-              onClick={() => setPresence('all')}
-            >
-              Anyone <span className="count">{presenceFacets.all}</span>
-            </button>
-            {PRESENCE_ORDER.map((p) => (
               <button
                 key={p}
                 type="button"
-                className={cx('chip', presence === p && 'is-active', presenceFacets.counts[p] === 0 && 'ppl-chip--empty')}
+                className={cx('ppl-spectrum__item', totals.byPresence[p] === 0 && 'is-zero', presence === p && 'is-active')}
                 aria-pressed={presence === p}
                 onClick={() => setPresence(presence === p ? 'all' : p)}
+                title={`Filter by ${PRESENCE_LABEL[p]}`}
               >
-                <span className={`dot dot--${p}`} aria-hidden="true" />
-                {PRESENCE_LABEL[p]} <span className="count">{presenceFacets.counts[p]}</span>
+                <span className={`dot dot--${p}`} />
+                <span className="mono">{totals.byPresence[p]}</span>
+                <span className="ppl-spectrum__name">{PRESENCE_LABEL[p]}</span>
               </button>
             ))}
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div className="ppl-results-head">
-        <span className="mono faint text-xs" aria-live="polite">
-          {filtersActive ? `${results.length} of ${visible.length} shown` : `${visible.length} people`}
-        </span>
-        {filtersActive && (
-          <button type="button" className="btn btn--ghost btn--sm ppl-clear" onClick={clearFilters}>
-            <RotateCcw /> Reset filters
-          </button>
-        )}
+        {/* ── Directory results ── */}
+        <NeoPanel
+          className="ppl-panel"
+          icon={<DeptActiveIcon />}
+          hud={filtersActive ? `${results.length} of ${visible.length} shown` : 'Company directory'}
+          title={panelTitle}
+          actions={
+            <div className="ppl-panel__actions">
+              {filtersActive && (
+                <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={clearFilters}>
+                  <RotateCcw /> Reset
+                </button>
+              )}
+              <span className="neo-count">{results.length}</span>
+            </div>
+          }
+        >
+          {results.length === 0 ? (
+            <NeoEmpty
+              icon={<SearchX />}
+              title="No one matches that"
+              action={
+                <button type="button" className="neo-btn neo-btn--soft" onClick={clearFilters}>
+                  <RotateCcw /> Clear search &amp; filters
+                </button>
+              }
+            >
+              {query ? `Nobody matches “${query.trim()}”` : 'Nobody matches these filters'}
+              {' — try a name, a skill like “React”, a city, or a different team.'}
+            </NeoEmpty>
+          ) : (
+            <ul className={cx('neo-stagger', view === 'grid' ? 'neo-grid ppl-grid' : 'ppl-list')} style={{ '--min': '272px' } as CSSProperties}>
+              {results.map((u, i) => (
+                <li key={u.id} style={{ '--i': i } as CSSProperties}>
+                  <PersonCard
+                    user={u}
+                    variant={view}
+                    now={now}
+                    viewerOffset={viewerOffset}
+                    isSelf={u.id === me?.id}
+                    canKudos={canKudos}
+                    {...handlers}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </NeoPanel>
       </div>
-
-      {results.length === 0 ? (
-        <div className="card ppl-empty">
-          <EmptyState
-            icon={<SearchX />}
-            title="No one matches that"
-            action={
-              <button type="button" className="btn" onClick={clearFilters}>
-                <RotateCcw /> Clear search &amp; filters
-              </button>
-            }
-          >
-            {query ? `Nobody matches “${query.trim()}”` : 'Nobody matches these filters'}
-            {' — try a name, a skill like “React”, a city, or a different team.'}
-          </EmptyState>
-        </div>
-      ) : (
-        <ul className={cx('stagger', view === 'grid' ? 'grid-auto ppl-grid' : 'ppl-list')} style={{ '--min': '272px' } as CSSProperties}>
-          {results.map((u, i) => (
-            <li key={u.id} style={{ '--i': i } as CSSProperties}>
-              <PersonCard
-                user={u}
-                variant={view}
-                now={now}
-                viewerOffset={viewerOffset}
-                isSelf={u.id === me?.id}
-                canKudos={canKudos}
-                {...handlers}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
 
       <ProfileSheet
         userId={displayId}
@@ -402,6 +475,6 @@ export function PeoplePage() {
         onKudos={onKudos}
         onEditSelf={onEditSelf}
       />
-    </div>
+    </NeoPage>
   );
 }

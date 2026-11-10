@@ -13,6 +13,8 @@ export interface AdminTabDef {
   label: string;
   /** Compact label (scope pills, palette chips). */
   short: string;
+  /** NEO rail label (≤ 9 chars). */
+  rail: string;
   description: string;
   icon: LucideIcon;
   /** Permission required to see the tab and open its route. */
@@ -24,6 +26,7 @@ export const ADMIN_TABS: AdminTabDef[] = [
     id: 'overview',
     label: 'Overview',
     short: 'Analytics',
+    rail: 'Overview',
     description: 'KPIs, access coverage and security insights',
     icon: Gauge,
     perm: 'hub.analytics.view',
@@ -32,6 +35,7 @@ export const ADMIN_TABS: AdminTabDef[] = [
     id: 'requests',
     label: 'Requests',
     short: 'Requests',
+    rail: 'Requests',
     description: 'Approve or deny pending access requests',
     icon: Inbox,
     perm: 'hub.requests.review',
@@ -40,6 +44,7 @@ export const ADMIN_TABS: AdminTabDef[] = [
     id: 'users',
     label: 'Users',
     short: 'Users',
+    rail: 'People',
     description: 'Roles, direct grants and account status',
     icon: Users,
     perm: 'hub.users.manage',
@@ -48,6 +53,7 @@ export const ADMIN_TABS: AdminTabDef[] = [
     id: 'roles',
     label: 'Roles & Permissions',
     short: 'Roles',
+    rail: 'Roles',
     description: 'Role catalog and the permission matrix',
     icon: ShieldHalf,
     perm: 'hub.roles.manage',
@@ -56,6 +62,7 @@ export const ADMIN_TABS: AdminTabDef[] = [
     id: 'apps',
     label: 'App Catalog',
     short: 'Apps',
+    rail: 'Apps',
     description: 'Register apps, status, discoverability and access',
     icon: AppWindow,
     perm: 'hub.apps.manage',
@@ -64,6 +71,7 @@ export const ADMIN_TABS: AdminTabDef[] = [
     id: 'audit',
     label: 'Audit Log',
     short: 'Audit',
+    rail: 'Audit',
     description: 'Security trail with filters and CSV export',
     icon: ScrollText,
     perm: 'hub.audit.view',

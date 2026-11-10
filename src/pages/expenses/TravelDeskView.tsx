@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import {
-  AlertTriangle,
   ArrowRight,
   Building2,
   CheckCircle2,
@@ -11,10 +10,11 @@ import {
   Hotel,
   Leaf,
   Plane,
-  Plus,
-  ShieldCheck,
   Sparkles,
+  TriangleAlert,
+  Users,
 } from 'lucide-react';
+import { Bar, Chip, NeoEmpty, NeoPanel, NeoTabs, type NeoTabItem } from '@/components/neo';
 import { cx } from '@/lib/cx';
 import { addDaysISO, daysBetween, formatRange, todayISO } from '@/hr/calendar';
 import { canDecideTrip, canSeeTrip } from '@/expenses/access';
@@ -34,9 +34,20 @@ import type { CabinClass, TravelRequest, TripPurpose } from '@/expenses/types';
 import { useHub } from '@/store/hub';
 import { useSessionUser } from '@/store/selectors';
 import { Modal } from '@/components/ui/Modal';
-import { Avatar, EmptyState, Switch } from '@/components/ui/primitives';
+import { Avatar, Switch } from '@/components/ui/primitives';
 import { toast } from '@/store/toast';
+import { readTripDraft, TRIP_DRAFT_KEYS, type TripDraft } from './nova';
 import { formatAed, TripStatusBadge, VirtualCorporateCard } from './shared';
+
+const CABIN_LABEL: Record<CabinClass, string> = {
+  economy: 'Economy',
+  'premium-economy': 'Premium economy',
+  business: 'Business',
+};
+
+/** Benchmark airfare for a cabin (business ≈ 2.6×, premium ≈ 1.45× economy). */
+const cabinFare = (economyAed: number, cabin: CabinClass) =>
+  cabin === 'business' ? Math.round(economyAed * 2.6) : cabin === 'premium-economy' ? Math.round(economyAed * 1.45) : economyAed;
 
 export function TravelDeskView() {
   const me = useSessionUser();
@@ -101,6 +112,11 @@ export function TravelDeskView() {
   }, [trips, usersById, viewer, me?.id]);
 
   const displayedTrips = scope === 'mine' ? myTrips : teamTrips;
+  const showTeamTab = teamTrips.length > 0 || caps.canApprove || caps.canAudit;
+  const scopeTabs: NeoTabItem<'mine' | 'team'>[] = [
+    { value: 'mine', label: 'My trips', icon: <Plane />, count: myTrips.length },
+    ...(showTeamTab ? [{ value: 'team' as const, label: 'Team & visible', icon: <Users />, count: teamTrips.length }] : []),
+  ];
 
   // ── Request Travel Modal State ──
   const defaultOrigin = useMemo(
@@ -123,22 +139,58 @@ export function TravelDeskView() {
   const [perDiemRateAed, setPerDiemRateAed] = useState(initialPreset.perDiemAed);
   const [estOtherAed, setEstOtherAed] = useState(320);
   const [needsVisa, setNeedsVisa] = useState(Boolean(initialPreset.visaHint));
+  const [novaDrafted, setNovaDrafted] = useState(false);
 
   const tripDays = useMemo(() => {
     if (!depDate || !retDate || retDate < depDate) return 1;
     return Math.max(1, daysBetween(depDate, retDate) + 1);
   }, [depDate, retDate]);
 
-  const applyPreset = (p: DestinationPreset) => {
-    const nights = Math.max(1, tripDays - 1);
+  const applyPreset = (p: DestinationPreset, nights = Math.max(1, tripDays - 1), cabin = cabinClass) => {
     setDestCity(p.city);
     setDestCountry(p.country);
     setFlightHours(p.flightHoursFromDubai);
     setPerDiemRateAed(p.perDiemAed);
-    setEstFlightAed(cabinClass === 'business' ? Math.round(p.typicalFlightAed * 2.6) : p.typicalFlightAed);
+    setEstFlightAed(cabinFare(p.typicalFlightAed, cabin));
     setEstHotelAed(p.typicalHotelNightAed * nights);
     setNeedsVisa(Boolean(p.visaHint));
   };
+
+  // Nova hand-off: ?new=1&dest=London&depart=…&ret=…&purpose=…&title=…&why=…&cabin=…
+  const appliedDraft = useRef('');
+  useEffect(() => {
+    const draft: Partial<TripDraft> | null = readTripDraft(searchParams);
+    if (!draft) return;
+    const key = searchParams.toString();
+    if (appliedDraft.current === key) return;
+    appliedDraft.current = key;
+
+    const dep = draft.departureDate ?? depDate;
+    const ret = draft.returnDate && draft.returnDate >= dep ? draft.returnDate : addDaysISO(dep, 3);
+    const cabin = draft.cabin ?? cabinClass;
+    setDepDate(dep);
+    setRetDate(ret);
+    setCabinClass(cabin);
+    if (draft.city) {
+      const preset = DESTINATION_PRESETS.find((p) => p.city.toLowerCase() === draft.city?.toLowerCase());
+      if (preset) applyPreset(preset, Math.max(1, daysBetween(dep, ret)), cabin);
+      else {
+        setDestCity(draft.city);
+        setDestCountry(draft.country ?? '');
+      }
+    }
+    if (draft.purpose) setPurpose(draft.purpose);
+    if (draft.title) setTitle(draft.title);
+    if (draft.justification) setJustification(draft.justification);
+    setNovaDrafted(true);
+    setNewOpen(true);
+
+    const next = new URLSearchParams(searchParams);
+    for (const k of TRIP_DRAFT_KEYS) next.delete(k);
+    next.set('new', '1');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const activePreset = useMemo(
     () => DESTINATION_PRESETS.find((p) => p.city.toLowerCase() === destCity.trim().toLowerCase()),
@@ -182,6 +234,7 @@ export function TravelDeskView() {
     if (toast.result(res, 'Travel request submitted')) {
       setTitle('');
       setJustification('');
+      setNovaDrafted(false);
       setScope('mine');
       closeNewModal();
     }
@@ -221,92 +274,67 @@ export function TravelDeskView() {
     }
   };
 
+  const quarter = `Q${Math.floor(new Date().getMonth() / 3) + 1}`;
+
   return (
-    <div className="stack stack--lg" style={{ minWidth: 0 }}>
-      {/* Department Quarterly Travel Budget Meter */}
-      <section className="ex-budget-card">
-        <div className="row row--between row--wrap" style={{ gap: 12 }}>
-          <div>
-            <div className="row" style={{ gap: 8 }}>
-              <Building2 style={{ width: 17, height: 17, color: 'var(--ex-ink)' }} />
-              <h2 className="section-title" style={{ fontSize: 16 }}>
-                {budget.dept} Quarterly Travel Budget
-              </h2>
-              <span className="badge badge--info mono">{budget.pct}% utilized</span>
-            </div>
-            <p className="text-xs muted" style={{ marginTop: 3 }}>
-              Pre-approved, booked, and completed trips count against your department’s quarterly travel envelope.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="btn ex-btn-teal"
-            onClick={() => setNewOpen(true)}
-          >
-            <Plus /> Request New Trip
-          </button>
-        </div>
-
-        <div className="ex-meter-track">
-          <div
-            className={cx('ex-meter-fill', budget.pct >= 85 && 'ex-meter-fill--high')}
-            style={{ width: `${budget.pct}%` }}
-          />
-        </div>
-
-        <div className="row row--between row--wrap text-xs muted" style={{ gap: 10 }}>
+    <div className="neo-stack">
+      {/* Department Quarterly Travel Budget */}
+      <NeoPanel
+        hud={`${quarter} travel pool`}
+        title={`${budget.dept} travel budget`}
+        icon={<Building2 />}
+        actions={
+          <Chip tone={budget.pct >= 85 ? 'warning' : 'app'} size="sm">
+            {budget.pct}% committed
+          </Chip>
+        }
+      >
+        <Bar
+          value={budget.pct / 100}
+          height={8}
+          fill={budget.pct >= 85 ? 'linear-gradient(90deg, #f59e0b, #ef4444)' : undefined}
+          label={`${budget.pct}% of the ${budget.dept} travel pool committed`}
+        />
+        <div className="ex-budget-row">
           <span>
-            Committed spend: <b className="mono" style={{ color: 'var(--text)' }}>{formatAed(budget.committedAed)}</b>
+            Committed <b className="neo-mono">{formatAed(budget.committedAed)}</b>
           </span>
           <span>
-            Remaining headroom: <b className="mono" style={{ color: 'var(--ex-ink)' }}>{formatAed(budget.remainingAed)}</b>{' '}
-            of {formatAed(budget.budgetAed)}
+            Headroom <b className="neo-mono neo-tint">{formatAed(budget.remainingAed)}</b> of {formatAed(budget.budgetAed)}
           </span>
         </div>
-      </section>
+        <p className="ex-hint">Pre-approved, booked and completed trips count against your department’s quarterly envelope.</p>
+      </NeoPanel>
 
-      {/* Scope Filter Bar */}
-      <div className="row row--between row--wrap" style={{ gap: 12 }}>
-        <div className="chips" role="tablist" aria-label="Trip scope">
-          <button
-            type="button"
-            className={cx('chip', scope === 'mine' && 'is-active')}
-            onClick={() => setScope('mine')}
-          >
-            <Plane /> My Trips <span className="count">{myTrips.length}</span>
-          </button>
-          {(teamTrips.length > 0 || caps.canApprove || caps.canAudit) && (
-            <button
-              type="button"
-              className={cx('chip', scope === 'team' && 'is-active')}
-              onClick={() => setScope('team')}
-            >
-              <ShieldCheck /> Team &amp; Visible Trips <span className="count">{teamTrips.length}</span>
-            </button>
-          )}
+      {/* Scope switcher */}
+      {scopeTabs.length > 1 && (
+        <div className="ex-toolbar">
+          <NeoTabs value={scope} onChange={setScope} items={scopeTabs} label="Trip scope" />
         </div>
-      </div>
+      )}
 
       {/* Trips Grid */}
       {displayedTrips.length === 0 ? (
-        <EmptyState
-          icon={<Plane />}
-          title={scope === 'mine' ? 'No trips requested yet' : 'No team trips to display'}
-          action={
-            scope === 'mine' ? (
-              <button type="button" className="btn ex-btn-teal" onClick={() => setNewOpen(true)}>
-                <Plus /> Request Travel Pre-Approval
-              </button>
-            ) : undefined
-          }
-        >
-          {scope === 'mine'
-            ? 'Choose a destination preset to benchmark flights, hotel nights, statutory per diem, and CO₂ in seconds.'
-            : 'Direct reports’ and company travel requests appear here once submitted.'}
-        </EmptyState>
+        <NeoPanel>
+          <NeoEmpty
+            icon={<Plane />}
+            title={scope === 'mine' ? 'No trips requested yet' : 'No team trips to show'}
+            action={
+              scope === 'mine' ? (
+                <button type="button" className="neo-btn neo-btn--plasma" onClick={() => setNewOpen(true)}>
+                  <Plane /> Request travel pre-approval
+                </button>
+              ) : undefined
+            }
+          >
+            {scope === 'mine'
+              ? 'Pick a destination preset to benchmark flights, hotel nights, statutory per diem and CO₂ in seconds.'
+              : 'Direct reports’ and company travel requests appear here once submitted.'}
+          </NeoEmpty>
+        </NeoPanel>
       ) : (
-        <div className="ex-trips-grid">
-          {displayedTrips.map((trip) => {
+        <div className="ex-trips neo-stagger">
+          {displayedTrips.map((trip, i) => {
             const reqUser = usersById.get(trip.userId);
             const preset = DESTINATION_PRESETS.find(
               (p) => p.city.toLowerCase() === trip.destinationCity.toLowerCase(),
@@ -316,73 +344,72 @@ export function TravelDeskView() {
             const canDecide = canDecideTrip(viewer, trip, reqUser).ok;
 
             return (
-              <article key={trip.id} className="ex-trip-card">
+              <article key={trip.id} className="ex-trip" style={{ ['--i' as string]: i }}>
                 {/* Top Header */}
-                <div className="row row--between row--wrap" style={{ gap: 8 }}>
-                  <div className="row" style={{ gap: 8, minWidth: 0 }}>
-                    {reqUser && <Avatar user={reqUser} size={28} />}
-                    <div style={{ minWidth: 0 }}>
-                      <div className="text-xs mono muted">{trip.reference}</div>
-                      {reqUser && scope === 'team' && (
-                        <div className="text-xs" style={{ fontWeight: 600 }}>
-                          {reqUser.name} · {trip.department}
-                        </div>
-                      )}
-                    </div>
+                <header className="ex-trip__head">
+                  {reqUser && <Avatar user={reqUser} size={30} />}
+                  <div className="ex-trip__who">
+                    <span className="ex-trip__ref neo-mono">{trip.reference}</span>
+                    {reqUser && scope === 'team' && (
+                      <span className="ex-trip__name">
+                        {reqUser.name} · {trip.department}
+                      </span>
+                    )}
                   </div>
-                  <div className="row row--wrap" style={{ gap: 6 }}>
-                    <span className="badge badge--muted mono" title="Estimated roundtrip carbon footprint">
-                      <Leaf /> {trip.co2Kg.toLocaleString()} kg CO₂
-                    </span>
-                    <TripStatusBadge status={trip.status} />
+                  <div className="ex-chips ex-trip__chips">
+                    <Chip size="sm" icon={<Leaf />} title="Estimated roundtrip carbon footprint">
+                      {trip.co2Kg.toLocaleString()} kg CO₂
+                    </Chip>
+                    <TripStatusBadge status={trip.status} size="sm" />
                   </div>
-                </div>
+                </header>
 
-                {/* Origin -> Destination Banner */}
-                <div className="ex-route-banner">
-                  <div style={{ minWidth: 0 }}>
-                    <div className="ex-route-city">
-                      {trip.originCity} <span style={{ color: 'var(--ex-ink)' }}>→</span> {trip.destinationCity}
-                    </div>
-                    <div className="text-xs muted">
-                      {trip.destinationCountry} · {formatRange(trip.departureDate, trip.returnDate)} ({trip.days}d ·{' '}
-                      {trip.cabinClass})
-                    </div>
+                {/* Origin → Destination */}
+                <div className="ex-route">
+                  <div className="ex-route__leg">
+                    <span className="ex-route__city">{trip.originCity}</span>
+                    <span className="ex-route__arc" aria-hidden="true">
+                      <Plane />
+                    </span>
+                    <span className="ex-route__city ex-route__city--to">{trip.destinationCity}</span>
                   </div>
-                  <div style={{ textAlign: 'right', flex: 'none' }}>
-                    <div className="text-xs muted">Est. Total</div>
-                    <div className="mono" style={{ fontWeight: 700, fontSize: 15, color: 'var(--ex-ink)' }}>
-                      {formatAed(trip.totalEstimatedAed)}
-                    </div>
+                  <div className="ex-route__foot">
+                    <span className="ex-route__meta">
+                      {trip.destinationCountry} · {formatRange(trip.departureDate, trip.returnDate)} · {trip.days}d · {CABIN_LABEL[trip.cabinClass]}
+                    </span>
+                    <span className="ex-route__total">
+                      <span className="neo-hud">Est. total</span>
+                      <b className="neo-num">{formatAed(trip.totalEstimatedAed)}</b>
+                    </span>
                   </div>
                 </div>
 
                 {/* Title & Purpose */}
-                <div>
-                  <div style={{ fontWeight: 650, fontSize: 14.5 }}>{trip.title}</div>
-                  <div className="text-xs muted" style={{ marginTop: 3 }}>
-                    <span className="badge badge--muted" style={{ marginRight: 6 }}>
+                <div className="ex-trip__title">
+                  <b>{trip.title}</b>
+                  <div className="ex-trip__why">
+                    <Chip size="sm" tone="app">
                       {TRIP_PURPOSE_META[trip.purpose]?.label ?? trip.purpose}
-                    </span>
-                    {trip.businessJustification}
+                    </Chip>
+                    <span>{trip.businessJustification}</span>
                   </div>
                 </div>
 
                 {/* Estimated AED Breakdown */}
-                <div className="ex-breakdown-strip">
-                  <div className="ex-breakdown-cell">
+                <div className="ex-breakdown">
+                  <div>
                     <span>Flights</span>
                     <b>{formatAed(trip.estimatedFlightAed)}</b>
                   </div>
-                  <div className="ex-breakdown-cell">
+                  <div>
                     <span>Hotel</span>
                     <b>{formatAed(trip.estimatedHotelAed)}</b>
                   </div>
-                  <div className="ex-breakdown-cell">
-                    <span>Per Diem ({trip.days}d)</span>
+                  <div>
+                    <span>Per diem · {trip.days}d</span>
                     <b>{formatAed(trip.estimatedPerDiemAed)}</b>
                   </div>
-                  <div className="ex-breakdown-cell">
+                  <div>
                     <span>Other</span>
                     <b>{formatAed(trip.estimatedOtherAed)}</b>
                   </div>
@@ -390,10 +417,10 @@ export function TravelDeskView() {
 
                 {/* Policy Flags */}
                 {trip.policyFlags.length > 0 && (
-                  <div className="ex-policy-box">
-                    {trip.policyFlags.map((f, i) => (
-                      <div key={i} className="row" style={{ gap: 6, alignItems: 'flex-start' }}>
-                        <AlertTriangle style={{ width: 14, height: 14, color: 'var(--warning)', flex: 'none', marginTop: 2 }} />
+                  <div className="ex-callout" data-tone="warning">
+                    {trip.policyFlags.map((f, idx) => (
+                      <div key={idx} className="ex-callout__row">
+                        <TriangleAlert />
                         <span>{f}</span>
                       </div>
                     ))}
@@ -402,20 +429,13 @@ export function TravelDeskView() {
 
                 {/* Booked Flight PNR & Hotel Confirmation */}
                 {trip.itinerary && (
-                  <div className="ex-itinerary-box">
-                    <div className="row" style={{ gap: 7, minWidth: 0 }}>
-                      <Plane style={{ width: 14, height: 14, color: 'var(--ex-ink)', flex: 'none' }} />
-                      <span className="truncate">
-                        <b>{trip.itinerary.airline}</b> · PNR{' '}
-                        <code className="mono">{trip.itinerary.flightBookingRef}</code>
-                      </span>
-                    </div>
-                    <div className="row" style={{ gap: 7, minWidth: 0 }}>
-                      <Hotel style={{ width: 14, height: 14, color: 'var(--ex-ink)', flex: 'none' }} />
-                      <span className="truncate">
-                        {trip.itinerary.hotelName} (<code className="mono">{trip.itinerary.hotelConfirmation}</code>)
-                      </span>
-                    </div>
+                  <div className="ex-itin">
+                    <span className="truncate">
+                      <Plane /> <b>{trip.itinerary.airline}</b> · PNR <code className="neo-mono">{trip.itinerary.flightBookingRef}</code>
+                    </span>
+                    <span className="truncate">
+                      <Hotel /> {trip.itinerary.hotelName} · <code className="neo-mono">{trip.itinerary.hotelConfirmation}</code>
+                    </span>
                   </div>
                 )}
 
@@ -431,81 +451,81 @@ export function TravelDeskView() {
 
                 {/* Embassy NOC / Visa Letter Deep Link */}
                 {showVisaLink && (
-                  <Link to="/hr/documents?tab=letters" className="ex-visa-link">
-                    <FileText /> Get Embassy NOC / Visa Letter in HR Portal → <ExternalLink />
+                  <Link to="/hr/documents?tab=letters" className="ex-link">
+                    <FileText /> Embassy NOC / visa letter in HR Portal <ExternalLink />
                   </Link>
                 )}
 
                 {/* Decision Note if any */}
                 {trip.decisionNote && (
-                  <div className="text-xs muted">
-                    <b>Manager note:</b> “{trip.decisionNote}”
-                  </div>
+                  <p className="ex-quote">
+                    <b>Manager note</b> “{trip.decisionNote}”
+                  </p>
                 )}
 
                 {/* 1-Click Contextual Actions */}
-                <div className="row row--between row--wrap" style={{ gap: 8, marginTop: 'auto', paddingTop: 4 }}>
+                <div className="ex-trip__actions">
                   {trip.status === 'approved' && isMineOrAuditor && (
                     <button
                       type="button"
-                      className="btn btn--sm ex-btn-teal"
+                      className="neo-btn neo-btn--plasma neo-btn--sm"
                       onClick={() => setBookingTrip(trip)}
                     >
-                      <Plane /> Book Flight &amp; Hotel Itinerary
+                      <Plane /> Book flight & hotel
                     </button>
                   )}
 
                   {trip.status === 'booked' && isMineOrAuditor && (
-                    <div className="row row--wrap" style={{ gap: 8 }}>
+                    <>
                       <button
                         type="button"
-                        className="btn btn--sm"
+                        className="neo-btn neo-btn--sm"
                         onClick={() => {
                           const res = completeTrip(trip.id);
                           toast.result(res, 'Trip marked completed');
                         }}
                       >
-                        <CheckCircle2 /> Mark Trip Completed
+                        <CheckCircle2 /> Mark completed
                       </button>
                       {trip.userId === me?.id && (
                         <button
                           type="button"
-                          className="btn btn--sm ex-btn-teal"
+                          className="neo-btn neo-btn--plasma neo-btn--sm"
                           onClick={() => navigate(`/expenses/reports?tripId=${trip.id}`)}
                         >
-                          <FileSpreadsheet /> Create Expense Report
+                          <FileSpreadsheet /> Expense report
                         </button>
                       )}
-                    </div>
+                    </>
                   )}
 
                   {trip.status === 'completed' && trip.userId === me?.id && !trip.linkedReportId && (
                     <button
                       type="button"
-                      className="btn btn--sm ex-btn-teal"
+                      className="neo-btn neo-btn--plasma neo-btn--sm"
                       onClick={() => navigate(`/expenses/reports?tripId=${trip.id}`)}
                     >
-                      <FileSpreadsheet /> Create Expense Report for Trip
+                      <FileSpreadsheet /> Expense this trip
                     </button>
                   )}
 
                   {trip.linkedReportId && (
                     <button
                       type="button"
-                      className="btn btn--sm btn--ghost"
+                      className="neo-btn neo-btn--ghost neo-btn--sm"
                       onClick={() => navigate('/expenses/reports')}
                     >
-                      View Linked Expense Report <ArrowRight />
+                      Linked report <ArrowRight />
                     </button>
                   )}
 
                   {canDecide && (
                     <button
                       type="button"
-                      className="btn btn--sm ex-btn-teal"
+                      className="neo-btn neo-btn--soft neo-btn--sm"
                       onClick={() => navigate('/expenses/approvals')}
                     >
-                      Review Pre-Approval <ArrowRight />
+                      Review pre-approval <ArrowRight />
                     </button>
                   )}
                 </div>
@@ -520,40 +540,57 @@ export function TravelDeskView() {
         open={newOpen}
         onClose={closeNewModal}
         width={680}
-        icon={<Plane style={{ width: 20, height: 20, color: 'var(--ex-ink)' }} />}
-        title="Request Business Travel Pre-Approval"
-        subtitle="Select a destination hub preset to benchmark flights, hotel nights, statutory per diem & CO₂."
+        className="ex-modal"
+        icon={
+          <span className="ex-modal__icon" aria-hidden="true">
+            <Plane />
+          </span>
+        }
+        title="Request travel pre-approval"
+        subtitle="Pick a destination preset to benchmark flights, hotel nights, statutory per diem & CO₂."
         footer={
           <>
-            <button type="button" className="btn" onClick={closeNewModal}>
+            <button type="button" className="neo-btn" onClick={closeNewModal}>
               Cancel
             </button>
-            <button type="button" className="btn ex-btn-teal" onClick={handleCreateTrip}>
-              <Plane /> Submit for Pre-Approval ({formatAed(totalEstAed)})
+            <button type="button" className="neo-btn neo-btn--plasma" onClick={handleCreateTrip}>
+              <Plane /> Submit for pre-approval · {formatAed(totalEstAed)}
             </button>
           </>
         }
       >
         <div className="stack">
+          {novaDrafted && (
+            <div className="ex-callout" data-tone="app">
+              <div className="ex-callout__row">
+                <Sparkles />
+                <span>
+                  <b>Drafted by Nova</b> — destination, dates, purpose and justification are filled in from your note. Check the estimate, then submit.
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Interactive Destination Preset Picker */}
           <div className="field">
             <span className="field-label">
-              <Sparkles style={{ width: 13, height: 13, display: 'inline', marginRight: 5, color: 'var(--ex-ink)' }} />
-              1-Click Destination Benchmark Presets
+              <Sparkles className="ex-inline-icon" />
+              One-click destination benchmarks
             </span>
-            <div className="ex-preset-grid">
+            <div className="ex-presets">
               {DESTINATION_PRESETS.map((p) => {
                 const active = p.city.toLowerCase() === destCity.trim().toLowerCase();
                 return (
                   <button
                     key={p.city}
                     type="button"
-                    className={cx('ex-preset-btn', active && 'is-active')}
+                    className={cx('ex-preset', active && 'is-active')}
+                    aria-pressed={active}
                     onClick={() => applyPreset(p)}
                   >
                     <b>{p.city}</b>
                     <span>
-                      {p.currency} · PD {formatAed(p.perDiemAed)}/d
+                      {p.currency} · {formatAed(p.perDiemAed)}/d
                     </span>
                   </button>
                 );
@@ -563,7 +600,7 @@ export function TravelDeskView() {
 
           <div className="ex-form-grid">
             <label className="field">
-              <span className="field-label">Origin City</span>
+              <span className="field-label">Origin city</span>
               <input
                 className="input"
                 value={originCity}
@@ -572,7 +609,7 @@ export function TravelDeskView() {
               />
             </label>
             <label className="field">
-              <span className="field-label">Destination City &amp; Country</span>
+              <span className="field-label">Destination city & country</span>
               <div className="row" style={{ gap: 8 }}>
                 <input
                   className="input"
@@ -592,7 +629,7 @@ export function TravelDeskView() {
 
           <div className="ex-form-grid">
             <label className="field">
-              <span className="field-label">Departure Date</span>
+              <span className="field-label">Departure date</span>
               <input
                 type="date"
                 className="input"
@@ -605,7 +642,7 @@ export function TravelDeskView() {
               />
             </label>
             <label className="field">
-              <span className="field-label">Return Date ({tripDays}d)</span>
+              <span className="field-label">Return date ({tripDays}d)</span>
               <input
                 type="date"
                 className="input"
@@ -618,7 +655,7 @@ export function TravelDeskView() {
 
           <div className="ex-form-grid">
             <label className="field">
-              <span className="field-label">Trip Purpose</span>
+              <span className="field-label">Trip purpose</span>
               <select
                 className="select"
                 value={purpose}
@@ -632,33 +669,25 @@ export function TravelDeskView() {
               </select>
             </label>
             <label className="field">
-              <span className="field-label">Cabin Class ({flightHours}h flight)</span>
+              <span className="field-label">Cabin class ({flightHours}h flight)</span>
               <select
                 className="select"
                 value={cabinClass}
                 onChange={(e) => {
                   const nextCabin = e.target.value as CabinClass;
                   setCabinClass(nextCabin);
-                  if (activePreset) {
-                    setEstFlightAed(
-                      nextCabin === 'business'
-                        ? Math.round(activePreset.typicalFlightAed * 2.6)
-                        : nextCabin === 'premium-economy'
-                          ? Math.round(activePreset.typicalFlightAed * 1.45)
-                          : activePreset.typicalFlightAed,
-                    );
-                  }
+                  if (activePreset) setEstFlightAed(cabinFare(activePreset.typicalFlightAed, nextCabin));
                 }}
               >
-                <option value="economy">Economy Standard</option>
-                <option value="premium-economy">Premium Economy (6h+)</option>
-                <option value="business">Business Class (VP / 6h+ policy)</option>
+                <option value="economy">Economy standard</option>
+                <option value="premium-economy">Premium economy (6h+)</option>
+                <option value="business">Business class (VP / 6h+ policy)</option>
               </select>
             </label>
           </div>
 
           <label className="field">
-            <span className="field-label">Trip Title</span>
+            <span className="field-label">Trip title</span>
             <input
               className="input"
               value={title}
@@ -668,7 +697,7 @@ export function TravelDeskView() {
           </label>
 
           <label className="field">
-            <span className="field-label">Business Justification &amp; Expected Outcome</span>
+            <span className="field-label">Business justification & expected outcome</span>
             <textarea
               className="textarea"
               style={{ minHeight: 74 }}
@@ -681,7 +710,7 @@ export function TravelDeskView() {
           {/* Estimated Cost & Per-Diem Inputs */}
           <div className="ex-form-grid">
             <label className="field">
-              <span className="field-label">Est. Flights (AED)</span>
+              <span className="field-label">Est. flights (AED)</span>
               <input
                 type="number"
                 min={0}
@@ -691,7 +720,7 @@ export function TravelDeskView() {
               />
             </label>
             <label className="field">
-              <span className="field-label">Est. Hotel Total (AED)</span>
+              <span className="field-label">Est. hotel total (AED)</span>
               <input
                 type="number"
                 min={0}
@@ -701,7 +730,7 @@ export function TravelDeskView() {
               />
             </label>
             <label className="field">
-              <span className="field-label">Per Diem Rate (AED/day × {tripDays}d = {formatAed(estPerDiemAed)})</span>
+              <span className="field-label">Per diem (AED/day × {tripDays}d = {formatAed(estPerDiemAed)})</span>
               <input
                 type="number"
                 min={0}
@@ -711,7 +740,7 @@ export function TravelDeskView() {
               />
             </label>
             <label className="field">
-              <span className="field-label">Ground / Visa / Other (AED)</span>
+              <span className="field-label">Ground / visa / other (AED)</span>
               <input
                 type="number"
                 min={0}
@@ -722,39 +751,39 @@ export function TravelDeskView() {
             </label>
           </div>
 
-          <div className="row row--between row--wrap" style={{ gap: 10 }}>
+          <div className="ex-switch-row">
             <div className="row" style={{ gap: 10 }}>
               <Switch
                 checked={needsVisa}
                 onChange={setNeedsVisa}
                 label="Embassy NOC / Business Visa letter needed"
               />
-              <span className="text-sm">Embassy NOC / Visa invitation letter needed</span>
+              <span className="text-sm">Embassy NOC / visa invitation letter needed</span>
             </div>
-            <span className="badge badge--muted mono">
-              <Leaf /> ~{estCo2Kg.toLocaleString()} kg CO₂ · {flightHours}h flight
-            </span>
+            <Chip size="sm" icon={<Leaf />}>
+              ~{estCo2Kg.toLocaleString()} kg CO₂ · {flightHours}h flight
+            </Chip>
           </div>
 
           {needsVisa && (
-            <Link to="/hr/documents?tab=letters" onClick={closeNewModal} className="ex-visa-link">
-              <FileText /> Instant Embassy NOC Letter available in HR Portal → <ExternalLink />
+            <Link to="/hr/documents?tab=letters" onClick={closeNewModal} className="ex-link">
+              <FileText /> Instant embassy NOC letter in HR Portal <ExternalLink />
             </Link>
           )}
 
           {/* Live Policy Preview */}
-          <div className={cx('ex-policy-box', livePolicyFlags.length === 0 && 'ex-policy-box--ok')}>
+          <div className="ex-callout" data-tone={livePolicyFlags.length === 0 ? 'success' : 'warning'}>
             {livePolicyFlags.length === 0 ? (
-              <div className="row" style={{ gap: 8 }}>
-                <CheckCircle2 style={{ width: 16, height: 16, color: 'var(--success)', flex: 'none' }} />
+              <div className="ex-callout__row">
+                <CheckCircle2 />
                 <span>
-                  <b>100% Within Helix Travel Policy</b> — Advance booking window, cabin class, and budget threshold verified.
+                  <b>Within Helix travel policy</b> — booking window, cabin class and budget threshold verified.
                 </span>
               </div>
             ) : (
               livePolicyFlags.map((flag, idx) => (
-                <div key={idx} className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
-                  <AlertTriangle style={{ width: 15, height: 15, color: 'var(--warning)', flex: 'none', marginTop: 2 }} />
+                <div key={idx} className="ex-callout__row">
+                  <TriangleAlert />
                   <span>{flag}</span>
                 </div>
               ))
@@ -768,20 +797,25 @@ export function TravelDeskView() {
         open={Boolean(bookingTrip)}
         onClose={closeBookingModal}
         width={520}
-        icon={<Hotel style={{ width: 20, height: 20, color: 'var(--ex-ink)' }} />}
-        title={bookingTrip ? `Confirm Itinerary · ${bookingTrip.destinationCity}` : 'Book Itinerary'}
+        className="ex-modal"
+        icon={
+          <span className="ex-modal__icon" aria-hidden="true">
+            <Hotel />
+          </span>
+        }
+        title={bookingTrip ? `Confirm itinerary · ${bookingTrip.destinationCity}` : 'Book itinerary'}
         subtitle={
           bookingTrip
-            ? `${bookingTrip.reference} · ${formatRange(bookingTrip.departureDate, bookingTrip.returnDate)} · Activates Duty-of-Care & Virtual Card`
+            ? `${bookingTrip.reference} · ${formatRange(bookingTrip.departureDate, bookingTrip.returnDate)} · activates duty-of-care & virtual card`
             : undefined
         }
         footer={
           <>
-            <button type="button" className="btn" onClick={closeBookingModal}>
+            <button type="button" className="neo-btn" onClick={closeBookingModal}>
               Cancel
             </button>
-            <button type="button" className="btn ex-btn-teal" onClick={handleConfirmBooking}>
-              <CheckCircle2 /> Confirm PNR &amp; Hotel
+            <button type="button" className="neo-btn neo-btn--plasma" onClick={handleConfirmBooking}>
+              <CheckCircle2 /> Confirm PNR & hotel
             </button>
           </>
         }
@@ -789,7 +823,7 @@ export function TravelDeskView() {
         <div className="stack">
           <div className="ex-form-grid">
             <label className="field">
-              <span className="field-label">Airline &amp; Flight #</span>
+              <span className="field-label">Airline & flight #</span>
               <input
                 className="input"
                 value={airline}
@@ -798,7 +832,7 @@ export function TravelDeskView() {
               />
             </label>
             <label className="field">
-              <span className="field-label">Airline PNR Reference</span>
+              <span className="field-label">Airline PNR reference</span>
               <input
                 className="input mono"
                 value={pnr}
@@ -810,7 +844,7 @@ export function TravelDeskView() {
 
           <div className="ex-form-grid">
             <label className="field">
-              <span className="field-label">Hotel Property</span>
+              <span className="field-label">Hotel property</span>
               <input
                 className="input"
                 value={hotelName}
@@ -819,7 +853,7 @@ export function TravelDeskView() {
               />
             </label>
             <label className="field">
-              <span className="field-label">Hotel Confirmation #</span>
+              <span className="field-label">Hotel confirmation #</span>
               <input
                 className="input mono"
                 value={hotelConf}

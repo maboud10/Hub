@@ -101,6 +101,13 @@ export const HUB_PERMISSIONS: PermissionDef[] = [
     sensitive: true,
   },
   {
+    id: 'performance.manage',
+    label: 'Run performance cycles & calibration',
+    description: 'Launch quarterly check-in cycles, edit review templates, calibrate ratings across the org, release reviews and see performance insights.',
+    category: 'People',
+    sensitive: true,
+  },
+  {
     id: 'helpdesk.manage',
     label: 'Manage IT Helpdesk & device fleet',
     description: 'Triage all IT tickets, manage hardware inventory and asset tags, assign devices to users and run remote MDM actions.',

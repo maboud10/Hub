@@ -25,6 +25,7 @@ const ProjectsPage = lazy(() => import('@/pages/projects/ProjectsPage').then((m)
 const DrivePage = lazy(() => import('@/pages/drive/DrivePage').then((m) => ({ default: m.DrivePage })));
 const ChatPage = lazy(() => import('@/pages/chat/ChatPage').then((m) => ({ default: m.ChatPage })));
 const HelpdeskPage = lazy(() => import('@/pages/helpdesk/HelpdeskPage').then((m) => ({ default: m.HelpdeskPage })));
+const PerformancePage = lazy(() => import('@/pages/performance/PerformancePage').then((m) => ({ default: m.PerformancePage })));
 
 function TravelRedirect() {
   const loc = useLocation();
@@ -149,6 +150,14 @@ export default function App() {
             element={
               <RequirePermission perm="app:helpdesk" area="IT Helpdesk">
                 <HelpdeskPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="performance/*"
+            element={
+              <RequirePermission perm="app:performance" area="Performance & OKRs">
+                <PerformancePage />
               </RequirePermission>
             }
           />

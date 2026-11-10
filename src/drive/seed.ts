@@ -1,310 +1,1102 @@
 /**
- * Demo data for Helix Drive: a company library, six team drives with
- * role/department/permission-based membership, personal drives, nested
- * folders with inherited or broken permissions, sensitivity labels with DLP,
- * time-boxed shares, link sharing, versions, comments and pending access
- * requests — relative to "now".
+ * Helix Drive demo seed — generated relative to `now` so "2h ago", "expires in 45d" and
+ * "older than 90 days" stay meaningful. IDs referenced by other code (keep exactly):
+ *   drives  drv-company drv-eng drv-design drv-people drv-fin drv-sec drv-sales · my-<userId>
+ *   items   df-prism-spec (u-mei, Design, Internal; u-alex has a pending editor request)
+ *           fo-prism-fe   (drv-eng; shared by u-omar with u-alex as editor for 45 days)
  */
 import type { Department } from '@/types';
-import { DRIVE_DATA_VERSION, GB, MB } from './constants';
-import type { DriveData, DriveItem, DriveRole, DriveShare, FilePreview, ItemKind, LinkAccess, Principal, RetentionPolicy, Sensitivity, SharedDrive } from './types';
+import { SEED_USERS } from '@/data/users';
+import type { AccessRequest, Activity, Content, Drive, DriveData, Hold, Item, ItemKind, Level, LinkSetting, Principal, Sensitivity, Share, Slide, Thread, Version } from './types';
+import { DAY, HOUR, defaultPolicy, hashStr } from './meta';
 
-const DAY = 86_400_000;
-const HOUR = 3_600_000;
+export const DRIVE_DATA_VERSION = 3;
+export const personalDriveId = (userId: string) => `my-${userId}`;
 
-interface FileSeed {
+const MB = 1024 * 1024;
+const KB = 1024;
+
+/* ------------------------------------------------------------------ */
+/* Long-form content                                                   */
+/* ------------------------------------------------------------------ */
+
+const PRISM_SECTIONS = [
+  `# Prism v4 Component Spec
+
+Owner: **Mei Tanaka** · Status: In review · Reviewers: Hana Park, Omar Khalid, Aisha Bello
+
+> Prism v4 is the single source of truth for how Helix products look and behave — web, iOS and Android.
+
+## Goals
+- One token source for web, iOS and Android
+- AA contrast in both themes, AAA for body text
+- Ship 14 core components by end of quarter
+- Zero hard-coded colours in product code`,
+  `## Tokens
+Prism v4 moves from 212 hard-coded colours to **48 semantic tokens**. Components read tokens only — never raw hex.
+
+| Token | Dark | Light | Usage |
+| surface/1 | #0B1020 | #FFFFFF | App background |
+| surface/2 | #121833 | #F6F7FB | Cards, sheets |
+| ink/1 | #E9ECF8 | #0B1020 | Primary text |
+| plasma/1 | #FBBF24 | #B45309 | Focus, selection, primary CTA |
+| danger/1 | #FB7185 | #BE123C | Destructive actions |`,
+  `## Components
+1. Button — primary, soft, ghost, danger; 3 sizes; loading state
+2. Input — text, search, number; inline validation
+3. Select & Combobox — async options, multi-select chips
+4. Date picker — range + presets
+5. Tabs — sliding ink indicator
+6. Toast — success, error, undo action
+
+### Button
+- Height 38 (md), 32 (sm), 46 (lg); radius 12
+- Primary uses the plasma gradient with a 700ms sheen on hover
+- Loading replaces the label with a 3-dot indicator; width never changes`,
+  `## Accessibility
+- [x] Contrast pairs verified for all 48 tokens
+- [x] Focus ring: 3px plasma with 1px inner offset (updated after review)
+- [ ] Screen-reader sweep on Select and Date picker
+- [ ] Reduced-motion variants for every transition`,
+  `## Motion
+Durations: **120ms** (fast), **200ms** (base), **320ms** (slow). Easing: \`cubic-bezier(.2,.8,.2,1)\`.
+Nothing animates longer than 480ms. Respect *prefers-reduced-motion* everywhere.`,
+  `## Decisions
+- Tokens are generated from \`tokens.json\` — designers never hand-edit platform files
+- Dark theme is the default; light theme ships at parity, not later
+- Icons: Lucide, 1.75px stroke, 16/20/24 sizes only`,
+  `## Appendix — token migration
+Engineering notes for migrating the frontend kit live here. Pending: mapping table from v3 colours to v4 tokens (Alex Rivera).`,
+];
+
+const RFC_TEXT = `# RFC-0042: Global rate limiting
+
+Author: **Priya Raman** · Reviewers: Lucas Meyer, Omar Khalid · Status: Approved
+
+## Summary
+Introduce a tenant-aware, globally consistent rate limiter in front of the public API, replacing three per-service limiters.
+
+## Motivation
+- Sep 17 latency spike: one tenant's batch job consumed 41% of API capacity
+- Three limiters disagree; customers see inconsistent 429s
+- No per-tenant visibility for Customer Success
+
+## Design
+1. Token bucket per tenant × endpoint class (read, write, bulk)
+2. Buckets are CRDT counters replicated across regions
+3. Limits live in config; hot-reloaded within 10s
+4. Every 429 carries \`Retry-After\` and a docs link
+
+## Failure modes
+- Regional failover: worst case 2× burst for ~30s while counters converge
+- Config store down: last known limits stay in effect
+
+## Rollout
+- [x] Shadow mode in staging
+- [x] Shadow mode in production (2 weeks)
+- [ ] Enforce for bulk endpoints
+- [ ] Enforce for all endpoints`;
+
+const MIGRATION_TEXT = `# Token migration plan
+
+Owner: **Omar Khalid** · Contributors: Alex Rivera, Priya Raman
+
+## Scope
+Migrate the Prism frontend kit from v3 colours to v4 semantic tokens without visual regressions.
+
+## Plan
+1. Generate \`tokens.json\` from the Design source of truth
+2. Codemod hard-coded hex values to tokens (212 → 48)
+3. Visual regression run on 340 Storybook stories
+4. Ship behind \`prism-v4\` flag, then remove v3
+
+## Risks
+- Third-party widgets with inline styles
+- Charts use their own palette — needs a mapping
+
+## Status
+- [x] Token generator
+- [x] Codemod dry run — 1,846 replacements
+- [ ] Accessibility audit sign-off
+- [ ] Remove v3 palette`;
+
+const HANDBOOK_TEXT = `# Helix Employee Handbook 2026
+
+Welcome to Helix. This handbook explains how we work, what you can expect from us, and what we expect from each other.
+
+## How we work
+- Default to open: share early, write things down, decide in the open
+- Async first: meetings need an agenda and an owner
+- Customers feel every decision — design for them
+
+## Time off
+- 25 days annual leave plus public holidays in your location
+- **16 weeks** fully paid parental leave from January 2026
+- Wellness days: 4 per year, no questions asked
+
+## Working hours & locations
+Core collaboration hours are 10:00–15:00 in your local time zone. Hubs: Dubai, London, Singapore, Bengaluru, Berlin.
+
+## Security basics
+- MFA on every account — no exceptions
+- Label documents before sharing; Confidential stays need-to-know
+- Report anything suspicious in IT Helpdesk within an hour`;
+
+const PM_SSO_TEXT = `# Postmortem — SSO outage (Nov 2)
+
+Severity: **SEV-1** · Duration: 47 minutes · Incident lead: Ethan Brooks
+
+## Impact
+Employees could not sign in to NEXUS, Pulse Chat and Drive between 09:12 and 09:59 GST. Existing sessions were unaffected.
+
+## Timeline
+- 09:12 IdP certificate rotation completes; SAML assertions start failing
+- 09:18 Alert fires: sign-in error rate 92%
+- 09:31 Root cause identified: SCIM retry storm saturating the IdP
+- 09:59 Old certificate re-pinned; sign-ins recover
+
+## Root cause
+Certificate rotation triggered a full SCIM resync. Retries had no jitter and overwhelmed the identity provider.
+
+## Action items
+1. Add jitter + backoff to SCIM retries — Ethan Brooks — Nov 20
+2. Stage certificate rotations with a 24h overlap — Layla Haddad — Nov 15
+3. Synthetic sign-in probe every minute from 3 regions — Lucas Meyer — Nov 12`;
+
+const ONBOARDING_ENG_TEXT = `# Engineering onboarding — first 30 days
+
+## Week 1
+- Laptop, MFA and access requests (Helpdesk handles most of it)
+- Read the Platform architecture overview and RFC-0042
+- Pair with your onboarding buddy on one small change
+
+## Week 2–3
+- Own a starter ticket end-to-end, including the deploy
+- Shadow one on-call shift
+
+## Week 4
+- Present what you learned in the Friday demo
+- Write down one thing we should improve in this guide`;
+
+const SEC_REVIEW_TEXT = `# Prism security review
+
+Classification: **Confidential** · Reviewer: Ethan Brooks
+
+## Findings
+1. Rich text component allowed \`javascript:\` URLs in links — fixed in 4.0.2
+2. Tooltip rendered unsanitised HTML from props — **open**
+3. File picker exposes full local paths in error messages — open
+
+## Next steps
+Fix #2 before the v4 GA. Do not share outside the Prism core team until resolved.`;
+
+const OFFER_TEXT = `# Offer of employment — Data Engineer
+
+Candidate: **Kwame Mensah** · Location: Accra (remote) · Start date: see HR Portal
+
+## Compensation
+- Base salary: USD 96,000 per year
+- Sign-on bonus: USD 8,000
+- Equity: 2,400 RSUs vesting over 4 years
+
+## Benefits
+Private health cover, 25 days annual leave, learning budget USD 2,000.
+
+> This offer is confidential and intended only for the named candidate.`;
+
+const AUP_TEXT = `# Acceptable Use Policy
+
+Applies to every Helix employee, contractor and partner using company systems.
+
+## You must
+- Use MFA on every Helix account
+- Store company data only in approved tools (Drive, Pulse Chat, Projects)
+- Label files with the right sensitivity before sharing
+
+## You must not
+- Share Confidential or Restricted files with personal accounts
+- Install unapproved browser extensions on company devices
+- Disable endpoint protection
+
+## Reporting
+Report lost devices or suspected phishing in IT Helpdesk immediately.`;
+
+const MEI_NOTES = `# 1:1 notes — Omar
+
+## This week
+- Prism v4 review went well; Aisha worried about the 14-component scope
+- Want to pair Alex with Priya on the token migration
+
+## Career
+- Interested in leading the design system guild next half
+- Ask about the Copenhagen design conference budget`;
+
+const ALEX_NOTES = `# Prism migration notes
+
+- Codemod handles 1,846 replacements; 23 need manual review
+- Charts palette mapping drafted in the a11y sheet
+- Need edit access to the Prism spec to add the appendix`;
+
+const BUTTON_TSX = `import { forwardRef, type ButtonHTMLAttributes } from 'react';
+import { cx } from '../utils/cx';
+import { Spinner } from './Spinner';
+
+export type ButtonVariant = 'primary' | 'soft' | 'ghost' | 'danger';
+export type ButtonSize = 'sm' | 'md' | 'lg';
+
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  loading?: boolean;
+}
+
+/** Prism v4 button — reads semantic tokens only. */
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { variant = 'primary', size = 'md', loading = false, disabled, children, className, ...rest },
+  ref,
+) {
+  return (
+    <button
+      ref={ref}
+      className={cx('prism-btn', \`prism-btn--\${variant}\`, \`prism-btn--\${size}\`, className)}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...rest}
+    >
+      {loading ? <Spinner size={size} /> : children}
+    </button>
+  );
+});`;
+
+const TOKENS_JSON = `{
+  "$schema": "https://prism.helix.co/tokens.schema.json",
+  "version": "4.0.0",
+  "color": {
+    "surface": { "1": { "dark": "#0B1020", "light": "#FFFFFF" }, "2": { "dark": "#121833", "light": "#F6F7FB" } },
+    "ink": { "1": { "dark": "#E9ECF8", "light": "#0B1020" }, "2": { "dark": "#AEB6D6", "light": "#3B4566" } },
+    "plasma": { "1": { "dark": "#FBBF24", "light": "#B45309" }, "2": { "dark": "#F97316", "light": "#C2410C" } },
+    "danger": { "1": { "dark": "#FB7185", "light": "#BE123C" } }
+  },
+  "radius": { "sm": 8, "md": 12, "lg": 18 },
+  "motion": { "fast": 120, "base": 200, "slow": 320 }
+}`;
+
+const README_MD = `# Prism frontend kit
+
+React components for Prism v4. Every component reads semantic tokens from \`tokens.json\`.
+
+## Getting started
+\`\`\`
+pnpm install
+pnpm storybook
+\`\`\`
+
+## Contributing
+- One component per folder, with stories and tests
+- Run \`pnpm test:a11y\` before opening a PR
+- Never hard-code colours — add a token instead`;
+
+const DEPLOY_SH = `#!/usr/bin/env bash
+# Platform deploy — canary first, then progressive rollout.
+set -euo pipefail
+
+SERVICE="\${1:?usage: deploy.sh <service> <version>}"
+VERSION="\${2:?usage: deploy.sh <service> <version>}"
+
+echo "Deploying \${SERVICE}@\${VERSION} to canary"
+kubectl -n platform set image deploy/"\${SERVICE}" app="registry.helix.co/\${SERVICE}:\${VERSION}"
+kubectl -n platform rollout status deploy/"\${SERVICE}" --timeout=300s
+
+for pct in 10 25 50 100; do
+  echo "Shifting \${pct}% of traffic"
+  ./scripts/shift-traffic.sh "\${SERVICE}" "\${pct}"
+  sleep 120
+done
+echo "Done"`;
+
+/* ------------------------------------------------------------------ */
+/* Sheets & decks                                                      */
+/* ------------------------------------------------------------------ */
+
+const BUDGET_ROWS: string[][] = [
+  ['Cost center', 'Q1', 'Q2', 'Q3', 'Q4', 'FY2027', 'FY2026', 'Δ %'],
+  ['Engineering', '1240000', '1265000', '1410000', '1330000', '=SUM(B2:E2)', '4720000', '=ROUND((F2-G2)/G2*100,1)'],
+  ['Design', '310000', '315000', '322000', '330000', '=SUM(B3:E3)', '1180000', '=ROUND((F3-G3)/G3*100,1)'],
+  ['Product', '280000', '284000', '290000', '296000', '=SUM(B4:E4)', '1090000', '=ROUND((F4-G4)/G4*100,1)'],
+  ['Sales', '520000', '560000', '590000', '640000', '=SUM(B5:E5)', '2050000', '=ROUND((F5-G5)/G5*100,1)'],
+  ['Customer Success', '210000', '214000', '220000', '226000', '=SUM(B6:E6)', '820000', '=ROUND((F6-G6)/G6*100,1)'],
+  ['People Ops', '180000', '182000', '185000', '190000', '=SUM(B7:E7)', '700000', '=ROUND((F7-G7)/G7*100,1)'],
+  ['IT & Security', '260000', '262000', '268000', '275000', '=SUM(B8:E8)', '990000', '=ROUND((F8-G8)/G8*100,1)'],
+  ['Operations', '150000', '152000', '155000', '158000', '=SUM(B9:E9)', '600000', '=ROUND((F9-G9)/G9*100,1)'],
+  ['Total', '=SUM(B2:B9)', '=SUM(C2:C9)', '=SUM(D2:D9)', '=SUM(E2:E9)', '=SUM(F2:F9)', '=SUM(G2:G9)', '=ROUND((F10-G10)/G10*100,1)'],
+];
+
+function payrollRows(month: number): string[][] {
+  const rows: string[][] = [['Employee ID', 'Name', 'Department', 'Base (AED)', 'Allowances', 'Deductions', 'Net pay', 'Bank']];
+  SEED_USERS.filter((u) => u.active && !u.roleIds.includes('contractor')).forEach((u, i) => {
+    const h = hashStr(u.id);
+    const base = 18000 + (h % 40) * 1000;
+    const allow = 2500 + (h % 9) * 250 + month * 10;
+    const ded = 600 + (h % 5) * 120;
+    rows.push([u.employeeId, u.name, u.department, String(base), String(allow), String(ded), `=D${i + 2}+E${i + 2}-F${i + 2}`, `AE•• •••• ${String(1000 + (h % 9000))}`]);
+  });
+  const n = rows.length;
+  rows.push(['', 'Total', '', `=SUM(D2:D${n})`, `=SUM(E2:E${n})`, `=SUM(F2:F${n})`, `=SUM(G2:G${n})`, '']);
+  return rows;
+}
+
+const CAPACITY_ROWS: string[][] = [
+  ['Service', 'Current RPS', 'Peak RPS', 'Headroom %', 'Nodes', 'Target nodes'],
+  ['api-gateway', '18400', '31000', '=ROUND((C2-B2)/C2*100,0)', '24', '=ROUND(C2/1100,0)'],
+  ['auth', '6200', '9800', '=ROUND((C3-B3)/C3*100,0)', '8', '=ROUND(C3/1100,0)'],
+  ['drive-sync', '9100', '14500', '=ROUND((C4-B4)/C4*100,0)', '12', '=ROUND(C4/1100,0)'],
+  ['chat-realtime', '22800', '30500', '=ROUND((C5-B5)/C5*100,0)', '26', '=ROUND(C5/1100,0)'],
+  ['search', '4100', '7600', '=ROUND((C6-B6)/C6*100,0)', '6', '=ROUND(C6/1100,0)'],
+  ['Total', '=SUM(B2:B6)', '=SUM(C2:C6)', '=ROUND((C7-B7)/C7*100,0)', '=SUM(E2:E6)', '=SUM(F2:F6)'],
+];
+
+const A11Y_ROWS: string[][] = [
+  ['Component', 'Contrast', 'Keyboard', 'Screen reader', 'Focus visible', 'Status'],
+  ['Button', 'Pass', 'Pass', 'Pass', 'Pass', 'Done'],
+  ['Input', 'Pass', 'Pass', 'Pass', 'Pass', 'Done'],
+  ['Select', 'Pass', 'Pass', 'Fail — no live region', 'Pass', 'Blocked'],
+  ['Date picker', 'Pass', 'Partial', 'Not tested', 'Pass', 'In progress'],
+  ['Tabs', 'Pass', 'Pass', 'Pass', 'Pass', 'Done'],
+  ['Toast', 'Pass', 'n/a', 'Pass', 'n/a', 'Done'],
+  ['Charts', 'Fail — 2.9:1', 'n/a', 'Partial', 'n/a', 'Mapping needed'],
+];
+
+const PRICING_ROWS: string[][] = [
+  ['Tier', 'List price (USD/seat)', 'Max discount', 'Floor price', 'Approver'],
+  ['Starter', '12', '10%', '=B2*(1-C2)', 'AE'],
+  ['Growth', '24', '15%', '=B3*(1-C3)', 'Sales manager'],
+  ['Business', '39', '20%', '=B4*(1-C4)', 'Head of Sales'],
+  ['Enterprise', '62', '35%', '=B5*(1-C5)', 'CFO'],
+];
+
+const RENEWAL_ROWS: string[][] = [
+  ['Account', 'ARR (USD)', 'Renewal', 'Health', 'Owner', 'Risk'],
+  ['Nimbus Logistics', '184000', 'Dec 14', 'Green', 'Yusuf Demir', 'Low'],
+  ['Aster Health', '96000', 'Dec 2', 'Amber', 'Yusuf Demir', 'Medium'],
+  ['Orbital Foods', '240000', 'Jan 9', 'Green', 'Noah Kim', 'Low'],
+  ['Kite Mobility', '58000', 'Nov 28', 'Red', 'Noah Kim', 'High'],
+  ['Total', '=SUM(B2:B5)', '', '', '', ''],
+];
+
+const CLOUD_ROWS: string[][] = [
+  ['Team', 'Compute', 'Storage', 'Network', 'Total'],
+  ['Platform', '42000', '9800', '6100', '=SUM(B2:D2)'],
+  ['Data', '31000', '22400', '2900', '=SUM(B3:D3)'],
+  ['Product apps', '18500', '4100', '3300', '=SUM(B4:D4)'],
+  ['Security', '6200', '1800', '700', '=SUM(B5:D5)'],
+  ['Total', '=SUM(B2:B5)', '=SUM(C2:C5)', '=SUM(D2:D5)', '=SUM(E2:E5)'],
+];
+
+const ONCALL_ROWS: string[][] = [
+  ['Week', 'Primary', 'Secondary', 'Escalation'],
+  ['Nov 3', 'Lucas Meyer', 'Priya Raman', 'Omar Khalid'],
+  ['Nov 10', 'Kwame Mensah', 'Lucas Meyer', 'Omar Khalid'],
+  ['Nov 17', 'Priya Raman', 'Ethan Brooks', 'Omar Khalid'],
+  ['Nov 24', 'Lucas Meyer', 'Kwame Mensah', 'Layla Haddad'],
+];
+
+const HOLIDAY_ROWS: string[][] = [
+  ['Date', 'Holiday', 'UAE', 'UK', 'Singapore'],
+  ['Dec 2', 'National Day', 'Yes', '—', '—'],
+  ['Dec 25', 'Christmas Day', '—', 'Yes', 'Yes'],
+  ['Dec 26', 'Boxing Day', '—', 'Yes', '—'],
+  ['Jan 1', 'New Year’s Day', 'Yes', 'Yes', 'Yes'],
+  ['Jan 29', 'Lunar New Year', '—', '—', 'Yes'],
+  ['Mar 20', 'Eid al-Fitr (est.)', 'Yes', '—', 'Yes'],
+];
+
+const ALLHANDS_SLIDES: Slide[] = [
+  { kind: 'title', title: 'Q4 kickoff', body: ['All-hands · Helix'] },
+  { kind: 'stat', title: 'Revenue run-rate', stat: '$48.2M', body: ['+31% year over year'] },
+  { kind: 'bullets', title: 'Q4 priorities', body: ['Ship Prism v4 across all apps', 'Global rate limiting in production', 'MFA everywhere by December 15'] },
+  { kind: 'quote', title: '“The best onboarding I’ve had in 10 years.”', body: ['— New hire survey, October'] },
+  { kind: 'bullets', title: 'Thank you', body: ['Questions in #all-hands', 'Recording in the Helix Library'] },
+];
+const ROADMAP_SLIDES: Slide[] = [
+  { kind: 'title', title: 'Engineering roadmap 2027', body: ['Platform · Product · Data'] },
+  { kind: 'bullets', title: 'H1 — Foundations', body: ['Global rate limiting (RFC-0042)', 'Kubernetes 1.31 upgrade', 'Prism v4 in every app'] },
+  { kind: 'bullets', title: 'H2 — Scale', body: ['Multi-region active-active for Drive', 'Search re-architecture', 'Self-serve data platform'] },
+  { kind: 'stat', title: 'Reliability target', stat: '99.95%', body: ['Up from 99.9% in 2026'] },
+];
+const BRAND_SLIDES: Slide[] = [
+  { kind: 'title', title: 'Brand Guidelines v3', body: ['Plasma, glass and clarity'] },
+  { kind: 'bullets', title: 'Voice', body: ['Clear before clever', 'Warm, never cute', 'Short sentences'] },
+  { kind: 'bullets', title: 'Colour', body: ['Plasma amber for focus and action', 'Deep navy surfaces', 'Never more than two accents per screen'] },
+  { kind: 'quote', title: '“Everything you need. Nothing you don’t.”', body: ['— Helix brand promise'] },
+];
+const PITCH_SLIDES: Slide[] = [
+  { kind: 'title', title: 'Helix', body: ['The employee hub teams actually use'] },
+  { kind: 'stat', title: 'Daily active usage', stat: '87%', body: ['of employees open NEXUS every workday'] },
+  { kind: 'bullets', title: 'Why Helix', body: ['One hub for apps, people and work', 'Governance that explains itself', 'Live in 30 days'] },
+];
+const BOARD_SLIDES: Slide[] = [
+  { kind: 'title', title: 'Board update — Q3 2026', body: ['Confidential · Finance'] },
+  { kind: 'stat', title: 'Gross margin', stat: '78.4%', body: ['+2.1 pts quarter over quarter'] },
+  { kind: 'bullets', title: 'Cash & runway', body: ['Cash: $61.3M', 'Burn: $1.9M / month', 'Runway: 32 months'] },
+  { kind: 'bullets', title: 'Asks', body: ['Approve FY2027 budget envelope', 'Approve GPU reservation (3-year)'] },
+];
+const STUDY_SLIDES: Slide[] = [
+  { kind: 'title', title: 'Onboarding usability study', body: ['Readout · 8 participants'] },
+  { kind: 'stat', title: 'Task success', stat: '62% → 91%', body: ['After the redesigned first-day checklist'] },
+  { kind: 'bullets', title: 'Top findings', body: ['People miss the access request step', 'Checklist progress motivates', 'Jargon in IT steps confuses new hires'] },
+  { kind: 'quote', title: '“I finally knew what to do on day one.”', body: ['— Participant 6'] },
+];
+const CRIT_SLIDES: Slide[] = [
+  { kind: 'title', title: 'Design crit — week 45', body: ['Onboarding v5 · Prism v4 tables'] },
+  { kind: 'bullets', title: 'For feedback', body: ['Empty states for new hires', 'Table density toggle', 'Mobile access request flow'] },
+];
+
+/* ------------------------------------------------------------------ */
+/* Seed builder                                                        */
+/* ------------------------------------------------------------------ */
+
+interface VSpec {
+  d: number;
+  by: string;
+  summary: string;
+  content?: Content;
+  size?: number;
+}
+
+interface Spec {
   id: string;
-  driveId: string;
-  parentId: string | null;
+  drive: string;
+  parent?: string | null;
   kind: ItemKind;
   name: string;
   owner: string;
+  /** days ago */
+  created: number;
+  /** days ago (defaults to the last version / created) */
+  updated?: number;
+  updatedBy?: string;
   size?: number;
-  sensitivity?: Sensitivity;
-  inherit?: boolean;
-  shares?: [Principal, DriveRole, { by?: string; expiresInDays?: number; note?: string }?][];
-  link?: LinkAccess;
-  linkRole?: DriveItem['linkRole'];
-  starredBy?: string[];
+  mime?: string;
+  label?: Sensitivity;
+  desc?: string;
   tags?: string[];
-  description?: string;
-  preview?: FilePreview;
-  versions?: [string, number, string?][];
-  comments?: [string, string, number, boolean?][];
-  modifiedDaysAgo?: number;
-  modifiedBy?: string;
-  createdDaysAgo?: number;
-  locked?: boolean;
-  retention?: RetentionPolicy;
-  views?: number;
-  openedBy?: Record<string, number>;
-  trashedDaysAgo?: number;
-  trashedBy?: string;
+  shares?: Share[];
+  link?: LinkSetting;
+  inherit?: boolean;
+  starred?: string[];
+  trashed?: { d: number; by: string };
+  hold?: Hold;
+  color?: string;
+  content?: Content;
+  versions?: VSpec[];
+  threads?: Thread[];
+  activity?: Omit<Activity, 'id'>[];
 }
 
-export const personalDriveId = (userId: string) => `drv-me-${userId}`;
+const DEFAULT_SIZE: Record<ItemKind, [number, number]> = {
+  folder: [0, 0],
+  doc: [38 * KB, 260 * KB],
+  sheet: [60 * KB, 1.8 * MB],
+  slides: [3 * MB, 28 * MB],
+  pdf: [240 * KB, 6 * MB],
+  image: [420 * KB, 5.5 * MB],
+  video: [120 * MB, 900 * MB],
+  audio: [8 * MB, 60 * MB],
+  code: [2 * KB, 18 * KB],
+  text: [1 * KB, 12 * KB],
+  archive: [12 * MB, 320 * MB],
+  other: [5 * MB, 90 * MB],
+};
 
 export function createDriveSeed(now = Date.now()): DriveData {
-  const ago = (days: number) => now - days * DAY;
-  let shareSeq = 0;
-  const share = (principal: Principal, role: DriveRole, by: string, extra: { expiresInDays?: number; note?: string } = {}): DriveShare => ({
-    id: `sh-${++shareSeq}`,
-    principal,
-    role,
-    grantedBy: by,
-    at: ago(30),
-    expiresAt: extra.expiresInDays !== undefined ? now + extra.expiresInDays * DAY : undefined,
-    note: extra.note,
+  let seq = 0;
+  const sid = (p: string) => `${p}-${(++seq).toString(36)}`;
+  const ago = (d: number) => now - d * DAY;
+  const userName = (id: string) => SEED_USERS.find((u) => u.id === id)?.name ?? id;
+  const U = (id: string): Principal => ({ type: 'user', id });
+  const R = (id: string): Principal => ({ type: 'role', id });
+  const D = (id: Department): Principal => ({ type: 'dept', id });
+  const ORG: Principal = { type: 'org' };
+  const share = (p: Principal, level: Level, by: string, atDaysAgo: number, expiresInDays: number | null = null): Share => ({
+    id: sid('sh'),
+    principal: p,
+    level,
+    by,
+    at: ago(atDaysAgo),
+    expiresAt: expiresInDays === null ? null : now + expiresInDays * DAY,
+  });
+  const RESTRICTED: LinkSetting = { scope: 'restricted', level: 'viewer' };
+  const pName = (p: Principal) => (p.type === 'user' ? userName(p.id) : p.type === 'role' ? `${p.id} role` : p.type === 'dept' ? `${p.id} department` : 'everyone at Helix');
+
+  /* ---------------- drives ---------------- */
+  const sharedDrive = (d: Omit<Drive, 'kind' | 'hold' | 'createdAt' | 'createdBy' | 'quota'> & { quota?: number; createdDaysAgo: number }): Drive => ({
+    kind: 'shared',
+    hold: null,
+    createdAt: ago(d.createdDaysAgo),
+    createdBy: 'u-layla',
+    quota: d.quota ?? 1024 ** 4,
+    id: d.id,
+    name: d.name,
+    description: d.description,
+    icon: d.icon,
+    color: d.color,
+    department: d.department,
+    members: d.members,
+    defaultLabel: d.defaultLabel,
   });
 
-  const team = (id: string, name: string, department: Department, o: { description: string; icon: string; color: string; managers: string[]; access: [Principal, DriveRole][]; quotaGb?: number; defaultSensitivity?: Sensitivity; minClearance?: number }): SharedDrive => ({
-    id,
-    name,
-    description: o.description,
-    icon: o.icon,
-    color: o.color,
-    kind: 'team',
-    department,
-    managerIds: o.managers,
-    access: o.access.map(([p, r]) => share(p, r, o.managers[0])),
-    quotaBytes: (o.quotaGb ?? 200) * GB,
-    defaultSensitivity: o.defaultSensitivity ?? 'internal',
-    minClearance: o.minClearance,
-    createdAt: ago(400),
-  });
-
-  const personal = (userId: string): SharedDrive => ({
-    id: personalDriveId(userId),
-    name: 'My Drive',
-    description: 'Your private space. Share files when you’re ready.',
-    icon: '🗂️',
-    color: '#60a5fa',
-    kind: 'personal',
-    ownerId: userId,
-    managerIds: [userId],
-    access: [],
-    quotaBytes: 50 * GB,
-    defaultSensitivity: 'internal',
-    createdAt: ago(300),
-  });
-
-  const drives: SharedDrive[] = [
-    {
+  const drives: Drive[] = [
+    sharedDrive({
       id: 'drv-company',
       name: 'Helix Library',
-      description: 'Brand assets, templates, policies and all-hands material for everyone.',
-      icon: '🏛️',
-      color: '#38bdf8',
-      kind: 'company',
-      managerIds: ['u-layla', 'u-sara'],
-      access: [share({ type: 'company' }, 'viewer', 'u-layla'), share({ type: 'role', id: 'people-ops' }, 'editor', 'u-layla'), share({ type: 'department', id: 'Marketing' }, 'editor', 'u-layla')],
-      quotaBytes: 500 * GB,
-      defaultSensitivity: 'internal',
-      createdAt: ago(500),
-    },
-    team('drv-eng', 'Engineering', 'Engineering', {
-      description: 'RFCs, runbooks, postmortems and the Prism frontend kit.',
-      icon: '🏗️',
-      color: '#a78bfa',
-      managers: ['u-omar'],
-      access: [
-        [{ type: 'department', id: 'Engineering' }, 'editor'],
-        [{ type: 'department', id: 'Product' }, 'commenter'],
-        [{ type: 'permission', id: 'hub.audit.view' }, 'viewer'],
-      ],
-      quotaGb: 400,
+      description: 'Handbooks, brand, all-hands and everything company-wide.',
+      icon: 'library',
+      color: '#fbbf24',
+      members: [share(ORG, 'viewer', 'u-layla', 700), share(R('people-ops'), 'editor', 'u-layla', 700), share(U('u-sofia'), 'editor', 'u-sara', 400), share(U('u-sara'), 'manager', 'u-layla', 700)],
+      defaultLabel: 'internal',
+      createdDaysAgo: 720,
     }),
-    team('drv-design', 'Design', 'Design', {
-      description: 'Prism design system, research and product design files.',
-      icon: '🎨',
+    sharedDrive({
+      id: 'drv-eng',
+      name: 'Engineering',
+      description: 'RFCs, runbooks, roadmaps and the Prism frontend kit.',
+      icon: 'code',
+      color: '#22d3ee',
+      department: 'Engineering',
+      members: [share(R('engineering'), 'editor', 'u-omar', 650), share(U('u-omar'), 'manager', 'u-layla', 650), share(U('u-priya'), 'manager', 'u-omar', 500)],
+      defaultLabel: 'internal',
+      createdDaysAgo: 650,
+    }),
+    sharedDrive({
+      id: 'drv-design',
+      name: 'Design',
+      description: 'Prism design system, research and crit decks.',
+      icon: 'palette',
       color: '#f472b6',
-      managers: ['u-mei'],
-      access: [
-        [{ type: 'department', id: 'Design' }, 'editor'],
-        [{ type: 'department', id: 'Engineering' }, 'commenter'],
-        [{ type: 'department', id: 'Product' }, 'commenter'],
-      ],
+      department: 'Design',
+      members: [share(D('Design'), 'editor', 'u-mei', 600), share(D('Product'), 'commenter', 'u-mei', 420), share(U('u-mei'), 'manager', 'u-layla', 600)],
+      defaultLabel: 'internal',
+      createdDaysAgo: 600,
+      quota: 512 * 1024 ** 3,
     }),
-    team('drv-people', 'People Ops', 'People Ops', {
-      description: 'Contracts, policies, onboarding plans and compensation letters.',
-      icon: '🤝',
-      color: '#c084fc',
-      managers: ['u-sara'],
-      access: [[{ type: 'role', id: 'people-ops' }, 'manager']],
-      defaultSensitivity: 'confidential',
-      minClearance: 2,
+    sharedDrive({
+      id: 'drv-people',
+      name: 'People Ops',
+      description: 'Offers, employee relations and survey results. Named people only.',
+      icon: 'heart',
+      color: '#a78bfa',
+      department: 'People Ops',
+      members: [share(U('u-sara'), 'manager', 'u-layla', 640), share(U('u-fatima'), 'editor', 'u-sara', 520)],
+      defaultLabel: 'restricted',
+      createdDaysAgo: 640,
+      quota: 256 * 1024 ** 3,
     }),
-    team('drv-finance', 'Finance', 'Finance', {
-      description: 'Close packs, payroll exports, budgets and statutory records.',
-      icon: '💸',
-      color: '#4ade80',
-      managers: ['u-grace'],
-      access: [
-        [{ type: 'role', id: 'finance' }, 'editor'],
-        [{ type: 'permission', id: 'hub.audit.view' }, 'viewer'],
-      ],
-      defaultSensitivity: 'confidential',
+    sharedDrive({
+      id: 'drv-fin',
+      name: 'Finance',
+      description: 'Budgets, payroll exports, board materials. Confidential by default.',
+      icon: 'landmark',
+      color: '#34d399',
+      department: 'Finance',
+      members: [share(D('Finance'), 'editor', 'u-grace', 610), share(U('u-grace'), 'manager', 'u-layla', 610)],
+      defaultLabel: 'confidential',
+      createdDaysAgo: 610,
+      quota: 256 * 1024 ** 3,
     }),
-    team('drv-sales', 'Sales & Success', 'Sales', {
-      description: 'Decks, pricing, MSAs and customer success playbooks.',
-      icon: '📈',
-      color: '#fb923c',
-      managers: ['u-aisha'],
-      access: [
-        [{ type: 'department', id: 'Sales' }, 'editor'],
-        [{ type: 'department', id: 'Customer Success' }, 'editor'],
-        [{ type: 'department', id: 'Marketing' }, 'commenter'],
-        [{ type: 'department', id: 'Product' }, 'commenter'],
-      ],
+    sharedDrive({
+      id: 'drv-sec',
+      name: 'IT & Security',
+      description: 'Postmortems, runbooks, security policies and audits.',
+      icon: 'shield',
+      color: '#fb7185',
+      department: 'IT & Security',
+      members: [share(D('IT & Security'), 'editor', 'u-layla', 630), share(R('engineering'), 'viewer', 'u-layla', 400), share(U('u-layla'), 'manager', 'u-layla', 630), share(U('u-ethan'), 'manager', 'u-layla', 380)],
+      defaultLabel: 'internal',
+      createdDaysAgo: 630,
+      quota: 256 * 1024 ** 3,
     }),
-    team('drv-it', 'IT & Security', 'IT & Security', {
-      description: 'Rollout plans, pen-test reports, device inventory and runbooks.',
-      icon: '🛡️',
-      color: '#2dd4bf',
-      managers: ['u-layla'],
-      access: [
-        [{ type: 'department', id: 'IT & Security' }, 'editor'],
-        [{ type: 'role', id: 'engineering' }, 'viewer'],
-      ],
-      defaultSensitivity: 'confidential',
+    sharedDrive({
+      id: 'drv-sales',
+      name: 'Sales & Success',
+      description: 'Pitch decks, pricing, renewals and case studies.',
+      icon: 'trending',
+      color: '#60a5fa',
+      department: 'Sales',
+      members: [share(D('Sales'), 'editor', 'u-aisha', 560), share(D('Customer Success'), 'editor', 'u-aisha', 560), share(R('manager'), 'viewer', 'u-aisha', 300), share(U('u-aisha'), 'manager', 'u-layla', 560), share(U('u-yusuf'), 'manager', 'u-aisha', 300)],
+      defaultLabel: 'internal',
+      createdDaysAgo: 560,
+      quota: 512 * 1024 ** 3,
     }),
-    ...['u-layla', 'u-sara', 'u-omar', 'u-daniel', 'u-mei', 'u-alex', 'u-kwame', 'u-grace', 'u-priya', 'u-aisha'].map(personal),
   ];
+  for (const u of SEED_USERS)
+    drives.push({
+      id: personalDriveId(u.id),
+      kind: 'personal',
+      name: 'My Drive',
+      description: 'Your private space. Share files when you’re ready.',
+      icon: 'user',
+      color: '#94a3b8',
+      ownerId: u.id,
+      members: [],
+      defaultLabel: 'internal',
+      quota: 30 * 1024 ** 3,
+      createdAt: Math.min(ago(30), new Date(u.startDate).getTime() || ago(300)),
+      createdBy: u.id,
+      hold: null,
+    });
+  const driveDefault = new Map(drives.map((d) => [d.id, d.defaultLabel]));
 
-  const md = (content: string): FilePreview => ({ type: 'markdown', content });
-  const table = (rows: string[][]): FilePreview => ({ type: 'table', rows });
-  const slides = (titles: string[]): FilePreview => ({ type: 'slides', slides: titles });
-  const image = (a: string, b: string): FilePreview => ({ type: 'image', gradient: [a, b] });
-  const code = (content: string, language = 'ts'): FilePreview => ({ type: 'code', content, language });
+  /* ---------------- items ---------------- */
+  const items: Item[] = [];
+  const contentSize = (c: Content | undefined, kind: ItemKind, id: string): number => {
+    if (c?.type === 'doc' || c?.type === 'code') return Math.max(1200, Math.round(c.text.length * (kind === 'doc' ? 9.5 : 1.02)));
+    const [lo, hi] = DEFAULT_SIZE[kind];
+    return Math.round(lo + (hashStr(id) % 1000) / 1000 * (hi - lo));
+  };
 
-  const items: DriveItem[] = [];
-  const F = (s: FileSeed) => {
-    const modifiedAt = ago(s.modifiedDaysAgo ?? 7);
-    const createdAt = ago(s.createdDaysAgo ?? (s.modifiedDaysAgo ?? 7) + 20);
-    const versions = (s.versions ?? [[s.owner, s.size ?? 1 * MB, 'Initial upload']]).map(([by, size, note], i) => ({ id: `${s.id}-v${i + 1}`, version: i + 1, at: createdAt + i * 3 * DAY, by, sizeBytes: size, note }));
-    items.push({
+  const mk = (s: Spec): Item => {
+    const size = s.size ?? contentSize(s.content, s.kind, s.id);
+    const versions: Version[] = [];
+    if (s.kind !== 'folder') {
+      const vs: VSpec[] = s.versions ?? [{ d: s.created, by: s.owner, summary: s.kind === 'doc' || s.kind === 'sheet' || s.kind === 'slides' ? 'Created' : 'Uploaded' }];
+      if (!s.versions && s.updated !== undefined && s.updated < s.created - 0.01) vs.push({ d: s.updated, by: s.updatedBy ?? s.owner, summary: 'Edited' });
+      vs.forEach((v, i) => {
+        const last = i === vs.length - 1;
+        versions.push({
+          id: sid('v'),
+          n: i + 1,
+          at: ago(v.d),
+          by: v.by,
+          size: v.size ?? Math.round(size * (last ? 1 : 0.55 + (0.4 * (i + 1)) / vs.length)),
+          summary: v.summary,
+          content: v.content ?? (last ? s.content : undefined),
+        });
+      });
+    }
+    const lastV = versions[versions.length - 1];
+    const updatedAt = s.updated !== undefined ? ago(s.updated) : lastV ? lastV.at : ago(s.created);
+    const activity: Activity[] = [];
+    activity.push({ id: sid('a'), at: ago(s.created), by: s.owner, verb: s.kind === 'folder' || s.kind === 'doc' || s.kind === 'sheet' || s.kind === 'slides' ? 'created' : 'uploaded' });
+    versions.slice(1).forEach((v) => activity.push({ id: sid('a'), at: v.at, by: v.by, verb: 'version', detail: `v${v.n} · ${v.summary}` }));
+    (s.shares ?? []).forEach((sh) => activity.push({ id: sid('a'), at: sh.at, by: sh.by, verb: 'shared', detail: `${pName(sh.principal)} as ${sh.level}${sh.expiresAt ? ' (time-boxed)' : ''}` }));
+    (s.threads ?? []).forEach((t) => activity.push({ id: sid('a'), at: t.at, by: t.by, verb: 'commented', detail: t.text.slice(0, 80) }));
+    if (s.link && s.link.scope !== 'restricted') activity.push({ id: sid('a'), at: s.link.at ?? ago(s.created), by: s.link.by ?? s.owner, verb: 'link', detail: s.link.scope === 'anyone' ? 'Anyone with the link can view' : 'Anyone at Helix with the link can view' });
+    (s.activity ?? []).forEach((a) => activity.push({ id: sid('a'), ...a }));
+    if (s.trashed) activity.push({ id: sid('a'), at: ago(s.trashed.d), by: s.trashed.by, verb: 'trashed' });
+    activity.sort((a, b) => b.at - a.at);
+    const item: Item = {
       id: s.id,
-      driveId: s.driveId,
-      parentId: s.parentId,
+      driveId: s.drive,
+      parentId: s.parent ?? null,
       kind: s.kind,
       name: s.name,
-      sizeBytes: s.kind === 'folder' ? 0 : (s.size ?? 1 * MB),
       ownerId: s.owner,
-      createdAt,
-      modifiedAt,
-      modifiedBy: s.modifiedBy ?? s.owner,
-      sensitivity: s.sensitivity ?? 'internal',
-      inheritPermissions: s.inherit ?? true,
-      shares: (s.shares ?? []).map(([p, r, x]) => share(p, r, x?.by ?? s.owner, { expiresInDays: x?.expiresInDays, note: x?.note })),
-      linkAccess: s.link ?? 'restricted',
-      linkRole: s.linkRole ?? 'viewer',
-      starredBy: s.starredBy ?? [],
-      trashed: s.trashedDaysAgo !== undefined,
-      trashedAt: s.trashedDaysAgo !== undefined ? ago(s.trashedDaysAgo) : undefined,
-      trashedBy: s.trashedBy,
+      createdAt: ago(s.created),
+      updatedAt,
+      updatedBy: s.updatedBy ?? lastV?.by ?? s.owner,
+      size: s.kind === 'folder' ? 0 : size,
+      mime: s.mime,
+      label: s.label ?? driveDefault.get(s.drive) ?? 'internal',
+      description: s.desc,
       tags: s.tags ?? [],
-      description: s.description,
-      preview: s.preview ?? (s.kind === 'folder' ? { type: 'none' } : md(`# ${s.name}\n\nPreview not available for this file type.`)),
+      shares: s.shares ?? [],
+      link: s.link ?? RESTRICTED,
+      inherit: s.inherit ?? true,
+      starredBy: s.starred ?? [],
+      trashed: s.trashed ? { at: ago(s.trashed.d), by: s.trashed.by } : null,
+      hold: s.hold ?? null,
+      color: s.color,
+      content: s.content,
       versions,
-      comments: (s.comments ?? []).map(([by, body, hoursAgo, resolved], i) => ({ id: `${s.id}-c${i + 1}`, authorId: by, body, at: now - hoursAgo * HOUR, resolved: Boolean(resolved) })),
-      activity: [
-        { id: `${s.id}-a1`, at: createdAt, actorId: s.owner, action: 'created' },
-        ...(s.modifiedBy && s.modifiedBy !== s.owner ? [{ id: `${s.id}-a2`, at: modifiedAt, actorId: s.modifiedBy, action: 'edited' }] : []),
-      ],
-      locked: s.locked,
-      retention: s.retention ?? 'none',
-      views: s.views ?? 12,
-      openedBy: s.openedBy ?? {},
-    });
+      threads: s.threads ?? [],
+      activity,
+    };
+    items.push(item);
+    return item;
   };
+  const folder = (id: string, drive: string, parent: string | null, name: string, owner: string, created: number, extra: Partial<Spec> = {}) =>
+    mk({ id, drive, parent, kind: 'folder', name, owner, created, ...extra });
+  const doc = (text: string): Content => ({ type: 'doc', text });
+  const sheet = (rows: string[][]): Content => ({ type: 'sheet', rows });
+  const deck = (slides: Slide[]): Content => ({ type: 'slides', slides });
+  const code = (lang: string, text: string): Content => ({ type: 'code', lang, text });
+  const thread = (by: string, d: number, text: string, replies: [string, number, string][] = [], resolved?: [string, number], quote?: string): Thread => ({
+    id: sid('t'),
+    by,
+    at: ago(d),
+    text,
+    quote,
+    replies: replies.map(([rb, rd, rt]) => ({ id: sid('c'), by: rb, at: ago(rd), text: rt })),
+    resolved: resolved ? { by: resolved[0], at: ago(resolved[1]) } : null,
+  });
 
-  // ───────────── Helix Library (company) ─────────────
-  F({ id: 'fo-brand', driveId: 'drv-company', parentId: null, kind: 'folder', name: 'Brand & templates', owner: 'u-sofia', sensitivity: 'public', modifiedDaysAgo: 3 });
-  F({ id: 'fo-policies', driveId: 'drv-company', parentId: null, kind: 'folder', name: 'Policies & handbook', owner: 'u-sara', modifiedDaysAgo: 9 });
-  F({ id: 'fo-allhands', driveId: 'drv-company', parentId: null, kind: 'folder', name: 'All-hands & events', owner: 'u-mateo', modifiedDaysAgo: 2 });
-  F({ id: 'df-logo', driveId: 'drv-company', parentId: 'fo-brand', kind: 'image', name: 'Helix logo — primary.png', owner: 'u-sofia', size: 2.4 * MB, sensitivity: 'public', link: 'anyone', preview: image('#38bdf8', '#a78bfa'), views: 412, starredBy: ['u-mei'], tags: ['brand'] });
-  F({ id: 'df-brandbook', driveId: 'drv-company', parentId: 'fo-brand', kind: 'pdf', name: 'Helix Brand Book 2026.pdf', owner: 'u-sofia', size: 18.2 * MB, sensitivity: 'public', link: 'company', preview: md('# Helix Brand Book 2026\n\n**Voice:** clear, warm, precise.\n\n## Colour\nPrimary cyan `#38bdf8`, violet `#a78bfa`, ink `#0b1220`.\n\n## Typography\nSpace Grotesk for display, Inter for body, JetBrains Mono for code.\n\n## Logo clear space\nKeep 1× the orb radius around the mark.'), views: 230 });
-  F({ id: 'df-deck-template', driveId: 'drv-company', parentId: 'fo-brand', kind: 'slides', name: 'Company deck template.slides', owner: 'u-sofia', size: 6.1 * MB, sensitivity: 'internal', preview: slides(['Title', 'Agenda', 'Section divider', 'Two-column', 'Metrics', 'Thank you']), views: 188 });
-  F({ id: 'df-handbook', driveId: 'drv-company', parentId: 'fo-policies', kind: 'pdf', name: 'Employee Handbook v7.pdf', owner: 'u-sara', size: 4.8 * MB, sensitivity: 'internal', locked: true, retention: '7y', preview: md('# Employee Handbook v7\n\n1. Our values\n2. Ways of working\n3. Time off & benefits (see HR Portal)\n4. Information security (passkeys mandatory from 15 Nov)\n5. Expenses & travel (see Spend & Mobility)\n\n_Locked: canonical copy. Propose changes in the Knowledge Base._'), views: 640, versions: [['u-sara', 4.1 * MB, 'v6'], ['u-sara', 4.8 * MB, 'v7 — passkeys policy']] });
-  F({ id: 'df-infosec', driveId: 'drv-company', parentId: 'fo-policies', kind: 'doc', name: 'Information Security Policy v3.doc', owner: 'u-layla', size: 0.6 * MB, sensitivity: 'internal', preview: md('# Information Security Policy v3\n\n- Passkeys replace passwords for all staff.\n- Managed devices only for Confidential data.\n- Report phishing within 1 hour via Incident Command.'), views: 301, modifiedDaysAgo: 4 });
-  F({ id: 'df-allhands-agenda', driveId: 'drv-company', parentId: 'fo-allhands', kind: 'doc', name: 'Q4 All-Hands Agenda.doc', owner: 'u-mateo', size: 0.3 * MB, sensitivity: 'internal', modifiedBy: 'u-sara', modifiedDaysAgo: 1, preview: md('# Q4 All-Hands · Dubai\n\n**Day 1**\n- 09:00 Welcome & FY26 review (Layla)\n- 10:00 Product keynote: Prism v4 (Mei)\n- 11:30 Four-eyes payroll, zero drama (Daniel)\n- 14:00 Team offsites\n\n**Day 2**\n- 09:30 FY27 kickoff\n- 11:00 Nova Docs in your workflow (Priya)\n- 13:00 Community track & awards'), comments: [['u-sofia', 'Can we add a 10-min brand refresh slot after the keynote?', 20], ['u-mateo', 'Added to day 1 at 10:45 👍', 6, true]], views: 96, starredBy: ['u-mateo', 'u-sara'] });
-  F({ id: 'df-offsite-photos', driveId: 'drv-company', parentId: 'fo-allhands', kind: 'image', name: 'Offsite 2025 — team photo.jpg', owner: 'u-mateo', size: 5.5 * MB, sensitivity: 'internal', preview: image('#fbbf24', '#f472b6'), views: 150 });
+  /* ======== Helix Library ======== */
+  folder('fo-handbook', 'drv-company', null, 'Employee Handbook', 'u-sara', 400);
+  mk({
+    id: 'df-handbook-2026',
+    drive: 'drv-company',
+    parent: 'fo-handbook',
+    kind: 'doc',
+    name: 'Helix Employee Handbook 2026',
+    owner: 'u-sara',
+    created: 60,
+    desc: 'How we work, time off, locations and security basics.',
+    tags: ['handbook', 'policy', 'onboarding'],
+    content: doc(HANDBOOK_TEXT),
+    versions: [
+      { d: 60, by: 'u-sara', summary: 'Imported 2025 handbook', content: doc(HANDBOOK_TEXT.replace('**16 weeks**', '12 weeks')) },
+      { d: 21, by: 'u-fatima', summary: 'Working hours & hubs section' },
+      { d: 4, by: 'u-sara', summary: 'Parental leave 12 → 16 weeks', content: doc(HANDBOOK_TEXT) },
+    ],
+    threads: [thread('u-fatima', 6, 'Parental leave still says 12 weeks — the new policy is 16 weeks from January.', [['u-sara', 5, 'Updating now, thanks!']], ['u-sara', 4], '12 weeks')],
+    starred: ['u-kwame'],
+  });
+  mk({ id: 'df-benefits-guide', drive: 'drv-company', parent: 'fo-handbook', kind: 'pdf', name: 'Benefits Guide — UAE & UK.pdf', owner: 'u-sara', created: 90, tags: ['benefits'], size: 3.4 * MB });
+  mk({ id: 'df-holiday-cal', drive: 'drv-company', parent: 'fo-handbook', kind: 'sheet', name: 'Public holidays 2026–27', owner: 'u-fatima', created: 45, updated: 12, content: sheet(HOLIDAY_ROWS), tags: ['calendar'] });
+  mk({ id: 'df-code-of-conduct', drive: 'drv-company', parent: 'fo-handbook', kind: 'pdf', name: 'Code of Conduct.pdf', owner: 'u-sara', created: 300, label: 'public', size: 1.1 * MB });
+  folder('fo-brand', 'drv-company', null, 'Brand & Press', 'u-sofia', 380, { color: '#fb923c' });
+  mk({
+    id: 'df-press-kit',
+    drive: 'drv-company',
+    parent: 'fo-brand',
+    kind: 'archive',
+    name: 'Helix press kit.zip',
+    owner: 'u-sofia',
+    created: 210,
+    label: 'public',
+    size: 148 * MB,
+    link: { scope: 'anyone', level: 'viewer', by: 'u-sofia', at: ago(200) },
+    content: {
+      type: 'archive',
+      entries: [
+        { path: 'logos/helix-plasma.svg', size: 18 * KB },
+        { path: 'logos/helix-mono.svg', size: 12 * KB },
+        { path: 'photos/dubai-office.jpg', size: 6.2 * MB },
+        { path: 'photos/leadership-team.jpg', size: 8.4 * MB },
+        { path: 'fact-sheet-2026.pdf', size: 920 * KB },
+        { path: 'boilerplate.txt', size: 2 * KB },
+      ],
+    },
+  });
+  mk({ id: 'df-logo-pack', drive: 'drv-company', parent: 'fo-brand', kind: 'image', name: 'Helix logo — plasma.png', owner: 'u-sofia', created: 190, label: 'public', content: { type: 'image', hue: 38, motif: 'orbit', w: 1600, h: 1600 } });
+  mk({ id: 'df-brand-guide', drive: 'drv-company', parent: 'fo-brand', kind: 'slides', name: 'Brand Guidelines v3', owner: 'u-sofia', created: 120, updated: 30, label: 'public', content: deck(BRAND_SLIDES), link: { scope: 'anyone', level: 'viewer', by: 'u-sofia', at: ago(30) }, tags: ['brand'] });
+  mk({ id: 'df-office-hero', drive: 'drv-company', parent: 'fo-brand', kind: 'image', name: 'Dubai office — hero.jpg', owner: 'u-mateo', created: 75, label: 'public', content: { type: 'image', hue: 205, motif: 'wave', w: 2400, h: 1350 } });
+  mk({ id: 'df-old-logo', drive: 'drv-company', parent: 'fo-brand', kind: 'image', name: 'Old logo — 2023.png', owner: 'u-sofia', created: 700, label: 'public', trashed: { d: 12, by: 'u-sofia' }, content: { type: 'image', hue: 260, motif: 'grid', w: 1200, h: 1200 } });
+  folder('fo-allhands', 'drv-company', null, 'All-hands', 'u-layla', 340);
+  mk({ id: 'df-allhands-oct', drive: 'drv-company', parent: 'fo-allhands', kind: 'video', name: 'All-hands — October.mp4', owner: 'u-layla', created: 9, size: 1.18 * 1024 * MB, content: { type: 'media', duration: 3540, hue: 32, chapters: ['Welcome', 'Q3 results', 'Prism v4 demo', 'People updates', 'Q&A'] } });
+  mk({ id: 'df-allhands-deck', drive: 'drv-company', parent: 'fo-allhands', kind: 'slides', name: 'All-hands — Q4 kickoff', owner: 'u-layla', created: 10, updated: 9, content: deck(ALLHANDS_SLIDES), starred: ['u-omar'] });
+  mk({ id: 'df-org-chart', drive: 'drv-company', parent: null, kind: 'pdf', name: 'Org chart — November.pdf', owner: 'u-sara', created: 5, size: 640 * KB });
+  mk({ id: 'df-it-policy', drive: 'drv-company', parent: null, kind: 'doc', name: 'Acceptable Use Policy', owner: 'u-layla', created: 150, updated: 20, content: doc(AUP_TEXT), tags: ['policy', 'security'] });
 
-  // ───────────── Engineering ─────────────
-  F({ id: 'fo-rfcs', driveId: 'drv-eng', parentId: null, kind: 'folder', name: 'Architecture & RFCs', owner: 'u-omar', modifiedDaysAgo: 5 });
-  F({ id: 'fo-runbooks', driveId: 'drv-eng', parentId: null, kind: 'folder', name: 'Runbooks & postmortems', owner: 'u-lucas', modifiedDaysAgo: 8 });
-  F({ id: 'fo-prism-fe', driveId: 'drv-eng', parentId: null, kind: 'folder', name: 'Prism frontend kit', owner: 'u-omar', description: 'Shared with Alex (contractor) for the token migration.', shares: [[{ type: 'user', id: 'u-alex' }, 'editor', { expiresInDays: 45, note: 'Contract ends mid-December' }]], modifiedDaysAgo: 2 });
-  F({ id: 'df-rfc-theming', driveId: 'drv-eng', parentId: 'fo-rfcs', kind: 'markdown', name: 'RFC-014 Theming API.md', owner: 'u-priya', size: 0.2 * MB, preview: md('# RFC-014 · Theming API\n\n**Status:** Accepted\n\n## Summary\nExpose semantic tokens via CSS custom properties with `data-theme` and `data-accent` attributes.\n\n## Decision\n- Tokens are the only styling contract between Prism and apps.\n- Light/dark are generated from one source of truth.'), views: 77, modifiedDaysAgo: 10, starredBy: ['u-omar'] });
-  F({ id: 'df-dr-runbook', driveId: 'drv-eng', parentId: 'fo-runbooks', kind: 'markdown', name: 'EU-Cell failover runbook.md', owner: 'u-lucas', size: 0.1 * MB, preview: md('# EU-Cell failover\n\n1. Confirm replica lag < 2s\n2. `helix-cli region evacuate eu-west-1 --dry-run`\n3. Promote replica, flip DNS weights 10→50→100\n4. Verify SLO dashboards, page on-call if error rate > 0.5%'), views: 64, modifiedDaysAgo: 8 });
-  F({ id: 'df-postmortem', driveId: 'drv-eng', parentId: 'fo-runbooks', kind: 'doc', name: 'Postmortem — 2026-10-03 queue backlog.doc', owner: 'u-lucas', size: 0.4 * MB, preview: md('# Postmortem · Queue backlog\n\n**Impact:** 41 min delayed notifications.\n**Root cause:** consumer autoscaler capped at 4 pods.\n**Actions:** raise cap, add backlog alert (done).'), views: 52, comments: [['u-omar', 'Great write-up. Let’s link this from the incident runbook.', 70, true]] });
-  F({ id: 'df-ui-tokens', driveId: 'drv-eng', parentId: 'fo-prism-fe', kind: 'code', name: 'ui-kit-tokens.ts', owner: 'u-alex', size: 0.05 * MB, modifiedDaysAgo: 1, preview: code("export const tokens = {\n  color: {\n    bg: 'var(--bg)',\n    surface: 'var(--surface)',\n    accent: 'var(--accent)',\n  },\n  radius: { sm: 6, md: 10, lg: 16 },\n} as const;"), versions: [['u-alex', 40_000, 'Scaffold'], ['u-alex', 52_000, 'Add radius scale']], views: 18 });
+  /* ======== Engineering ======== */
+  folder('fo-prism-fe', 'drv-eng', null, 'Prism frontend kit', 'u-omar', 120, {
+    color: '#fbbf24',
+    desc: 'React components, tokens and migration work for Prism v4.',
+    shares: [share(U('u-alex'), 'editor', 'u-omar', 3, 45)],
+    starred: ['u-omar', 'u-alex'],
+    tags: ['prism', 'frontend'],
+  });
+  mk({
+    id: 'df-prism-button',
+    drive: 'drv-eng',
+    parent: 'fo-prism-fe',
+    kind: 'code',
+    name: 'Button.tsx',
+    owner: 'u-priya',
+    created: 40,
+    content: code('tsx', BUTTON_TSX),
+    versions: [
+      { d: 40, by: 'u-priya', summary: 'Initial component' },
+      { d: 12, by: 'u-priya', summary: 'Loading state keeps width' },
+      { d: 1.2, by: 'u-alex', summary: 'Read tokens instead of hex', content: code('tsx', BUTTON_TSX) },
+    ],
+    tags: ['component'],
+  });
+  mk({ id: 'df-prism-tokens', drive: 'drv-eng', parent: 'fo-prism-fe', kind: 'code', name: 'tokens.json', owner: 'u-priya', created: 30, updated: 2, updatedBy: 'u-alex', content: code('json', TOKENS_JSON), tags: ['tokens'] });
+  mk({ id: 'df-prism-readme', drive: 'drv-eng', parent: 'fo-prism-fe', kind: 'text', name: 'README.md', owner: 'u-omar', created: 118, updated: 3, content: doc(README_MD) });
+  mk({
+    id: 'df-prism-migration',
+    drive: 'drv-eng',
+    parent: 'fo-prism-fe',
+    kind: 'doc',
+    name: 'Token migration plan',
+    owner: 'u-omar',
+    created: 18,
+    content: doc(MIGRATION_TEXT),
+    versions: [
+      { d: 18, by: 'u-omar', summary: 'Plan outline' },
+      { d: 7, by: 'u-priya', summary: 'Codemod numbers' },
+      { d: 0.9, by: 'u-alex', summary: 'Status checklist', content: doc(MIGRATION_TEXT) },
+    ],
+    threads: [thread('u-alex', 1, 'Draft mapping for the 48 tokens is in the a11y sheet — I need edit access to the spec to add the appendix.', [['u-omar', 0.8, 'Requesting it from Mei is the right move — she owns the spec.']])],
+    tags: ['prism', 'migration'],
+  });
+  mk({ id: 'df-prism-a11y', drive: 'drv-eng', parent: 'fo-prism-fe', kind: 'sheet', name: 'Accessibility audit — Prism v4', owner: 'u-alex', created: 2.5, updated: 0.3, content: sheet(A11Y_ROWS), tags: ['a11y'] });
+  mk({ id: 'df-prism-storybook', drive: 'drv-eng', parent: 'fo-prism-fe', kind: 'image', name: 'Storybook — button states.png', owner: 'u-alex', created: 1.5, content: { type: 'image', hue: 44, motif: 'grid', w: 1920, h: 1080 } });
+  mk({
+    id: 'df-prism-secreview',
+    drive: 'drv-eng',
+    parent: 'fo-prism-fe',
+    kind: 'doc',
+    name: 'Prism security review',
+    owner: 'u-ethan',
+    created: 6,
+    label: 'confidential',
+    content: doc(SEC_REVIEW_TEXT),
+    tags: ['security', 'prism'],
+  });
+  folder('fo-prism-icons', 'drv-eng', 'fo-prism-fe', 'Icons', 'u-priya', 50);
+  mk({
+    id: 'df-prism-iconset',
+    drive: 'drv-eng',
+    parent: 'fo-prism-icons',
+    kind: 'archive',
+    name: 'prism-icons-v4.zip',
+    owner: 'u-priya',
+    created: 22,
+    size: 18 * MB,
+    content: { type: 'archive', entries: [{ path: 'svg/arrow-right.svg', size: 1 * KB }, { path: 'svg/check.svg', size: 1 * KB }, { path: 'svg/folder-open.svg', size: 2 * KB }, { path: 'react/index.ts', size: 14 * KB }, { path: 'LICENSE', size: 1 * KB }] },
+  });
+  folder('fo-platform', 'drv-eng', null, 'Platform', 'u-omar', 500);
+  mk({
+    id: 'df-rfc-ratelimit',
+    drive: 'drv-eng',
+    parent: 'fo-platform',
+    kind: 'doc',
+    name: 'RFC-0042: Global rate limiting',
+    owner: 'u-priya',
+    created: 34,
+    content: doc(RFC_TEXT),
+    versions: [
+      { d: 34, by: 'u-priya', summary: 'Draft' },
+      { d: 27, by: 'u-priya', summary: 'Design section' },
+      { d: 19, by: 'u-lucas', summary: 'Failure modes' },
+      { d: 11, by: 'u-priya', summary: 'Rollout plan' },
+      { d: 2, by: 'u-omar', summary: 'Marked approved', content: doc(RFC_TEXT) },
+    ],
+    threads: [
+      thread('u-lucas', 20, 'Token bucket per tenant looks right. What happens on regional failover — do buckets reset?', [['u-priya', 19, 'They’re CRDT counters replicated across regions; worst case 2× burst for ~30s. Added to Failure modes.']], ['u-lucas', 18]),
+      thread('u-omar', 2, 'Approved from my side. @Priya Raman please book the design review with SRE.', [['u-priya', 1.5, 'Booked for Thursday.']]),
+    ],
+    starred: ['u-omar', 'u-lucas'],
+    tags: ['rfc', 'api', 'reliability'],
+  });
+  mk({ id: 'df-k8s-runbook', drive: 'drv-eng', parent: 'fo-platform', kind: 'doc', name: 'Kubernetes 1.31 upgrade runbook', owner: 'u-lucas', created: 16, updated: 3, tags: ['runbook', 'kubernetes'] });
+  mk({ id: 'df-capacity-q4', drive: 'drv-eng', parent: 'fo-platform', kind: 'sheet', name: 'Capacity plan — Q4', owner: 'u-lucas', created: 25, updated: 1.1, content: sheet(CAPACITY_ROWS), tags: ['capacity'] });
+  mk({ id: 'df-deploy-sh', drive: 'drv-eng', parent: 'fo-platform', kind: 'code', name: 'deploy.sh', owner: 'u-lucas', created: 200, updated: 14, content: code('shell', DEPLOY_SH) });
+  mk({ id: 'df-arch-diagram', drive: 'drv-eng', parent: 'fo-platform', kind: 'image', name: 'Platform architecture.png', owner: 'u-priya', created: 80, content: { type: 'image', hue: 190, motif: 'mesh', w: 2400, h: 1500 } });
+  mk({ id: 'df-draft-rfc', drive: 'drv-eng', parent: 'fo-platform', kind: 'doc', name: 'RFC-0039 (superseded)', owner: 'u-priya', created: 70, trashed: { d: 5, by: 'u-priya' } });
+  folder('fo-eng-onboarding', 'drv-eng', null, 'Onboarding', 'u-omar', 300);
+  mk({ id: 'df-eng-onboarding', drive: 'drv-eng', parent: 'fo-eng-onboarding', kind: 'doc', name: 'Engineering onboarding — first 30 days', owner: 'u-omar', created: 90, updated: 26, content: doc(ONBOARDING_ENG_TEXT), starred: ['u-kwame'], tags: ['onboarding'] });
+  mk({ id: 'df-dev-setup', drive: 'drv-eng', parent: 'fo-eng-onboarding', kind: 'video', name: 'Dev environment setup.mp4', owner: 'u-priya', created: 88, size: 412 * MB, content: { type: 'media', duration: 1260, hue: 188 } });
+  mk({
+    id: 'df-eng-roadmap',
+    drive: 'drv-eng',
+    parent: null,
+    kind: 'slides',
+    name: 'Engineering roadmap 2027',
+    owner: 'u-omar',
+    created: 14,
+    updated: 0.2,
+    content: deck(ROADMAP_SLIDES),
+    shares: [share(U('u-hana'), 'viewer', 'u-omar', 6)],
+    starred: ['u-omar'],
+    tags: ['roadmap', 'planning'],
+  });
+  mk({ id: 'df-oncall', drive: 'drv-eng', parent: null, kind: 'sheet', name: 'On-call rotation — November', owner: 'u-lucas', created: 8, content: sheet(ONCALL_ROWS) });
+  mk({ id: 'df-postgres-tuning', drive: 'drv-eng', parent: null, kind: 'pdf', name: 'Postgres tuning notes.pdf', owner: 'u-kwame', created: 4, size: 2.2 * MB, tags: ['database'] });
 
-  // ───────────── Design ─────────────
-  F({ id: 'fo-prism', driveId: 'drv-design', parentId: null, kind: 'folder', name: 'Prism v4', owner: 'u-mei', modifiedDaysAgo: 1, starredBy: ['u-mei', 'u-hana'] });
-  F({ id: 'fo-research', driveId: 'drv-design', parentId: null, kind: 'folder', name: 'User research (recordings)', owner: 'u-hana', sensitivity: 'confidential', inherit: false, shares: [[{ type: 'department', id: 'Design' }, 'editor'], [{ type: 'user', id: 'u-aisha' }, 'viewer']], description: 'Participant recordings — consent limits access to Design + the PM sponsor.', modifiedDaysAgo: 6 });
-  F({ id: 'df-prism-tokens', driveId: 'drv-design', parentId: 'fo-prism', kind: 'sheet', name: 'Prism v4 — Token Sheet.sheet', owner: 'u-mei', size: 0.9 * MB, modifiedDaysAgo: 0.2, modifiedBy: 'u-hana', preview: table([['Token', 'Light', 'Dark', 'Contrast'], ['--bg', '#f7f9fc', '#0b1220', '—'], ['--surface', '#ffffff', '#111a2b', '—'], ['--text', '#0b1220', '#e6edf7', '15.2:1'], ['--accent', '#0284c7', '#38bdf8', '4.9:1'], ['--warning', '#b45309', '#fbbf24', '4.6:1 ⚠']]), comments: [['u-hana', 'Warning hue needs +4% luminance in dark to clear AA on surface-2.', 5], ['u-alex', 'Can I get editor on this? I need to add the engineering alias column.', 3]], versions: [['u-mei', 0.6 * MB, 'Initial scale'], ['u-mei', 0.8 * MB, 'Semantic aliases'], ['u-hana', 0.9 * MB, 'Contrast column']], views: 143, starredBy: ['u-mei', 'u-omar'], openedBy: { 'u-mei': 22, 'u-hana': 9, 'u-omar': 4, 'u-priya': 3 } });
-  F({ id: 'df-prism-spec', driveId: 'drv-design', parentId: 'fo-prism', kind: 'doc', name: 'Prism v4 Component Spec.doc', owner: 'u-mei', size: 2.2 * MB, modifiedDaysAgo: 2, preview: md('# Prism v4 · Component spec\n\n## Button\n- Sizes: sm / md / lg · min touch target 44px\n- States: default, hover, active, focus-visible, disabled, loading\n\n## Input\n- Label always visible; helper + error text slots\n\n## Navigation rail\n- Collapses to icon rail < 1100px, bottom bar < 640px'), views: 88, openedBy: { 'u-mei': 10, 'u-hana': 6 } });
-  F({ id: 'df-prism-moodboard', driveId: 'drv-design', parentId: 'fo-prism', kind: 'image', name: 'Prism v4 moodboard.png', owner: 'u-mei', size: 9.3 * MB, link: 'company', preview: image('#f472b6', '#38bdf8'), views: 210 });
-  F({ id: 'df-usability', driveId: 'drv-design', parentId: 'fo-research', kind: 'doc', name: 'Onboarding redesign — usability study.doc', owner: 'u-hana', size: 1.1 * MB, sensitivity: 'confidential', preview: md('# Usability study · Onboarding redesign\n\n6 participants · 45 min sessions\n\n**Top finding:** 5/6 missed the benefits deadline banner.\n**Recommendation:** move deadline into the hero next-steps card (shipped in HR Portal).'), views: 31 });
-  F({ id: 'df-session-rec', driveId: 'drv-design', parentId: 'fo-research', kind: 'video', name: 'P3 session recording.mp4', owner: 'u-hana', size: 412 * MB, sensitivity: 'confidential', retention: '1y', views: 9 });
+  /* ======== Design ======== */
+  folder('fo-ds', 'drv-design', null, 'Design system', 'u-mei', 420, { color: '#fbbf24', tags: ['prism'] });
+  const prismVersions: VSpec[] = [
+    { d: 24, by: 'u-mei', summary: 'Outline & goals' },
+    { d: 19, by: 'u-mei', summary: 'Token table (48 semantic tokens)' },
+    { d: 14, by: 'u-hana', summary: 'Component list & Button spec' },
+    { d: 9, by: 'u-mei', summary: 'Accessibility checklist' },
+    { d: 5, by: 'u-mei', summary: 'Motion guidelines' },
+    { d: 1.6, by: 'u-mei', summary: 'Focus ring 2px → 3px after review' },
+    { d: 0.25, by: 'u-mei', summary: 'Decisions + migration appendix stub' },
+  ].map((v, i) => ({ ...v, content: doc(PRISM_SECTIONS.slice(0, i + 1).join('\n\n').replace(i < 5 ? '3px plasma with 1px inner offset (updated after review)' : '\u0000', '2px plasma outline')) }));
+  mk({
+    id: 'df-prism-spec',
+    drive: 'drv-design',
+    parent: 'fo-ds',
+    kind: 'doc',
+    name: 'Prism v4 Component Spec',
+    owner: 'u-mei',
+    created: 24,
+    label: 'internal',
+    desc: 'Tokens, components, accessibility and motion for Prism v4.',
+    tags: ['prism', 'design-system', 'spec'],
+    content: doc(PRISM_SECTIONS.join('\n\n')),
+    versions: prismVersions,
+    starred: ['u-mei', 'u-hana'],
+    threads: [
+      thread('u-hana', 2.2, 'The focus ring says 2px — on dark surfaces that’s hard to see at 125% zoom. Can we go 3px with a 1px inner offset?', [['u-mei', 1.6, 'Good catch — updated in v6. Hana, can you re-check during the screen-reader sweep?']], ['u-mei', 1.5], 'Focus ring'),
+      thread('u-aisha', 1.1, 'Is 14 realistic with the token migration in parallel? Growth needs Select + Date picker first.', [['u-mei', 0.9, '@Omar Khalid can Platform take the Date picker? Then 14 holds.']], undefined, 'Ship 14 core components by end of quarter'),
+      thread('u-omar', 0.3, 'Engineering notes for the token migration should live in the appendix — Alex will add them once access is sorted.'),
+    ],
+  });
+  mk({ id: 'df-ds-colors', drive: 'drv-design', parent: 'fo-ds', kind: 'image', name: 'Color tokens — dark.png', owner: 'u-mei', created: 18, content: { type: 'image', hue: 30, motif: 'grid', w: 1800, h: 1200 } });
+  mk({ id: 'df-ds-type', drive: 'drv-design', parent: 'fo-ds', kind: 'pdf', name: 'Type scale.pdf', owner: 'u-hana', created: 33, size: 860 * KB });
+  mk({ id: 'df-ds-figma', drive: 'drv-design', parent: 'fo-ds', kind: 'other', name: 'Prism v4.fig', owner: 'u-mei', created: 60, updated: 0.5, size: 84 * MB, tags: ['figma'] });
+  folder('fo-research', 'drv-design', null, 'Research', 'u-hana', 260);
+  mk({ id: 'df-onboarding-study', drive: 'drv-design', parent: 'fo-research', kind: 'slides', name: 'Onboarding usability study — readout', owner: 'u-hana', created: 11, updated: 3, content: deck(STUDY_SLIDES), shares: [share(U('u-sara'), 'viewer', 'u-hana', 3)], tags: ['research', 'onboarding'] });
+  mk({ id: 'df-interview-notes', drive: 'drv-design', parent: 'fo-research', kind: 'doc', name: 'Interview notes — new hires', owner: 'u-hana', created: 15, label: 'confidential', desc: 'Contains participant names and quotes.', tags: ['research', 'pii'] });
+  mk({ id: 'df-survey-results', drive: 'drv-design', parent: 'fo-research', kind: 'sheet', name: 'Onboarding survey responses', owner: 'u-hana', created: 13 });
+  mk({ id: 'df-session-rec', drive: 'drv-design', parent: 'fo-research', kind: 'video', name: 'Session 04 — recording.mp4', owner: 'u-hana', created: 12, label: 'confidential', size: 688 * MB, content: { type: 'media', duration: 2710, hue: 300 } });
+  mk({ id: 'df-onboarding-flow', drive: 'drv-design', parent: null, kind: 'image', name: 'Onboarding flow v5.png', owner: 'u-mei', created: 3, updated: 0.15, content: { type: 'image', hue: 18, motif: 'bloom', w: 2880, h: 1800 }, starred: ['u-mei'] });
+  mk({ id: 'df-moodboard', drive: 'drv-design', parent: null, kind: 'image', name: 'Moodboard — plasma.jpg', owner: 'u-mei', created: 28, content: { type: 'image', hue: 22, motif: 'mesh', w: 2400, h: 1600 } });
+  mk({ id: 'df-design-crit', drive: 'drv-design', parent: null, kind: 'slides', name: 'Design crit — week 45', owner: 'u-mei', created: 2, updated: 0.6, content: deck(CRIT_SLIDES) });
 
-  // ───────────── People Ops ─────────────
-  F({ id: 'fo-contracts', driveId: 'drv-people', parentId: null, kind: 'folder', name: 'Offer letters & contracts', owner: 'u-sara', sensitivity: 'restricted', inherit: false, shares: [[{ type: 'user', id: 'u-sara' }, 'manager'], [{ type: 'user', id: 'u-fatima' }, 'editor'], [{ type: 'user', id: 'u-layla' }, 'viewer']], retention: '7y', modifiedDaysAgo: 4 });
-  F({ id: 'fo-onboarding', driveId: 'drv-people', parentId: null, kind: 'folder', name: 'Onboarding plans', owner: 'u-sara', sensitivity: 'confidential', modifiedDaysAgo: 2 });
-  F({ id: 'fo-policy-drafts', driveId: 'drv-people', parentId: null, kind: 'folder', name: 'Policy drafts', owner: 'u-sara', sensitivity: 'confidential', modifiedDaysAgo: 12 });
-  F({ id: 'df-offer-kwame', driveId: 'drv-people', parentId: 'fo-contracts', kind: 'pdf', name: 'Offer — Kwame Mensah (signed).pdf', owner: 'u-sara', size: 0.7 * MB, sensitivity: 'restricted', retention: '7y', preview: md('# Offer letter\n\n**Candidate:** Kwame Mensah\n**Role:** Data Engineer · Engineering\n**Base:** AED 336,000 / year\n**Start:** per HR Portal journey j-2\n\n_Signed electronically._'), views: 6, modifiedDaysAgo: 28 });
-  F({ id: 'df-offer-salma', driveId: 'drv-people', parentId: 'fo-contracts', kind: 'pdf', name: 'Offer — Salma Darwish (accepted).pdf', owner: 'u-fatima', size: 0.7 * MB, sensitivity: 'restricted', retention: '7y', preview: md('# Offer letter\n\n**Candidate:** Salma Darwish\n**Role:** Senior Frontend Engineer\n\n_Accepted — onboarding journey j-1 created._'), views: 4, modifiedDaysAgo: 5 });
-  F({ id: 'df-onboard-plan', driveId: 'drv-people', parentId: 'fo-onboarding', kind: 'doc', name: 'Kwame · 30-60-90 Plan.doc', owner: 'u-sara', size: 0.3 * MB, sensitivity: 'confidential', shares: [[{ type: 'user', id: 'u-omar' }, 'editor'], [{ type: 'user', id: 'u-kwame' }, 'commenter'], [{ type: 'user', id: 'u-priya' }, 'commenter', { note: 'Buddy' }]], modifiedBy: 'u-omar', modifiedDaysAgo: 2, preview: md('# Kwame Mensah · 30-60-90\n\n**Day 30:** required Academy trainings, starter dbt task shipped ✅, IP agreement signed.\n**Day 60:** own the payroll accrual model end-to-end.\n**Day 90:** growth plan & review with Omar.'), comments: [['u-kwame', 'Starter task shipped — freshness tests are green!', 40, true], ['u-omar', 'Adding the accrual model as the day-60 goal.', 30]], views: 27, openedBy: { 'u-kwame': 7, 'u-omar': 5, 'u-sara': 3 } });
-  F({ id: 'df-policy-pto', driveId: 'drv-people', parentId: 'fo-policy-drafts', kind: 'doc', name: 'Draft — Work-from-anywhere policy v2.doc', owner: 'u-sara', size: 0.2 * MB, sensitivity: 'confidential', preview: md('# Work-from-anywhere v2 (draft)\n\n- Up to 30 days/year in approved countries\n- Manager approval in HR Portal\n- Security: managed device + passkeys'), views: 14 });
+  /* ======== People Ops (Restricted) ======== */
+  folder('fo-offers', 'drv-people', null, 'Offer letters', 'u-fatima', 300);
+  mk({ id: 'df-offer-kwame', drive: 'drv-people', parent: 'fo-offers', kind: 'doc', name: 'Offer — Kwame Mensah (Data Engineer)', owner: 'u-fatima', created: 40, content: doc(OFFER_TEXT), tags: ['offer'] });
+  mk({ id: 'df-offer-template', drive: 'drv-people', parent: 'fo-offers', kind: 'doc', name: 'Offer letter template — UAE', owner: 'u-sara', created: 220, updated: 50, label: 'confidential', tags: ['template'] });
+  mk({ id: 'df-offer-backend', drive: 'drv-people', parent: 'fo-offers', kind: 'doc', name: 'Offer — Senior Backend Engineer (draft)', owner: 'u-fatima', created: 3, tags: ['offer', 'draft'] });
+  folder('fo-er-cases', 'drv-people', null, 'Employee relations — 2026', 'u-sara', 95, {
+    hold: { by: 'u-layla', at: ago(30), reason: 'Case ER-2026-14 — preserve until counsel release' },
+    desc: 'Legal hold: nothing in this folder can be deleted.',
+  });
+  mk({ id: 'df-er-notes', drive: 'drv-people', parent: 'fo-er-cases', kind: 'doc', name: 'Case ER-2026-14 — notes', owner: 'u-sara', created: 60, updated: 31 });
+  mk({ id: 'df-er-timeline', drive: 'drv-people', parent: 'fo-er-cases', kind: 'sheet', name: 'Case ER-2026-14 — timeline', owner: 'u-sara', created: 58, updated: 31 });
+  mk({ id: 'df-engagement-q3', drive: 'drv-people', parent: null, kind: 'slides', name: 'Engagement survey — Q3 results', owner: 'u-sara', created: 20, label: 'confidential', shares: [share(R('manager'), 'viewer', 'u-sara', 18)] });
+  mk({ id: 'df-comp-bands', drive: 'drv-people', parent: null, kind: 'sheet', name: 'Compensation bands 2026', owner: 'u-sara', created: 130, updated: 40, shares: [share(U('u-grace'), 'viewer', 'u-sara', 9, 21)], tags: ['compensation'] });
+  mk({ id: 'df-headcount', drive: 'drv-people', parent: null, kind: 'sheet', name: 'Headcount plan 2027', owner: 'u-sara', created: 16, label: 'confidential', shares: [share(U('u-omar'), 'viewer', 'u-sara', 4, 10), share(U('u-aisha'), 'viewer', 'u-sara', 4, 10)] });
 
-  // ───────────── Finance ─────────────
-  F({ id: 'fo-close', driveId: 'drv-finance', parentId: null, kind: 'folder', name: 'Month-end close', owner: 'u-grace', sensitivity: 'confidential', modifiedDaysAgo: 3 });
-  F({ id: 'fo-payroll-exports', driveId: 'drv-finance', parentId: null, kind: 'folder', name: 'Payroll exports', owner: 'u-grace', sensitivity: 'confidential', inherit: false, shares: [[{ type: 'permission', id: 'app:payroll' }, 'editor', { note: 'Anyone with Payroll Console access' }]], description: 'Only people with Payroll Console access can open this folder.', retention: '7y', modifiedDaysAgo: 1 });
-  F({ id: 'fo-budgets', driveId: 'drv-finance', parentId: null, kind: 'folder', name: 'Budgets FY27', owner: 'u-daniel', sensitivity: 'confidential', modifiedDaysAgo: 6 });
-  F({ id: 'df-close-checklist', driveId: 'drv-finance', parentId: 'fo-close', kind: 'sheet', name: 'Month-End Close Checklist.sheet', owner: 'u-daniel', size: 0.5 * MB, sensitivity: 'confidential', modifiedDaysAgo: 1, preview: table([['Step', 'Owner', 'Day', 'Automated', 'Status'], ['AP/AR cut-off', 'Daniel', 'D0', 'No', 'Done'], ['Bank reconciliation', 'Daniel', 'D1', 'Yes (WPS match)', 'Done'], ['Payroll accruals', 'Kwame', 'D1', 'dbt model', 'In progress'], ['Controller review', 'Grace', 'D2', 'Four-eyes', 'Pending'], ['Management P&L', 'Daniel', 'D3', 'Template', 'Planned']]), comments: [['u-grace', 'Reviewing today — the automated bank match is a big win.', 18]], views: 44, starredBy: ['u-daniel', 'u-grace'], openedBy: { 'u-daniel': 14, 'u-grace': 6, 'u-kwame': 2 } });
-  F({ id: 'df-wps-sif', driveId: 'drv-finance', parentId: 'fo-payroll-exports', kind: 'other', name: 'WPS-HX-last-month.sif', owner: 'u-daniel', size: 0.02 * MB, sensitivity: 'confidential', retention: '7y', preview: code('EDR,00000000000034,302620121,AE470260001015884990034,...\nSCR,0000849201441,026,...', 'text'), views: 8, modifiedDaysAgo: 10 });
-  F({ id: 'df-payroll-register', driveId: 'drv-finance', parentId: 'fo-payroll-exports', kind: 'sheet', name: 'Payroll register — last month.sheet', owner: 'u-daniel', size: 0.8 * MB, sensitivity: 'confidential', retention: '7y', preview: table([['Employee', 'Dept', 'Net (AED)', 'Bank'], ['Layla Haddad', 'IT & Security', '69,000', 'Emirates NBD'], ['Omar Khalid', 'Engineering', '56,500', 'ADCB'], ['…', '', '', '']]), views: 11, modifiedDaysAgo: 10 });
-  F({ id: 'df-exec-comp', driveId: 'drv-finance', parentId: null, kind: 'sheet', name: 'Executive compensation bands.sheet', owner: 'u-grace', size: 0.3 * MB, sensitivity: 'restricted', inherit: false, shares: [[{ type: 'user', id: 'u-layla' }, 'viewer']], retention: 'legal_hold', preview: table([['Band', 'Min', 'Mid', 'Max'], ['M4', '45,000', '58,000', '72,000']]), views: 3, modifiedDaysAgo: 15 });
-  F({ id: 'df-budget-fy27', driveId: 'drv-finance', parentId: 'fo-budgets', kind: 'sheet', name: 'FY27 budget model v3.sheet', owner: 'u-daniel', size: 3.1 * MB, sensitivity: 'confidential', preview: table([['Dept', 'FY26', 'FY27 ask', 'Δ'], ['Engineering', '12.4M', '14.1M', '+14%'], ['Sales', '6.2M', '8.0M', '+29%'], ['People Ops', '2.1M', '2.3M', '+10%']]), versions: [['u-daniel', 2.4 * MB, 'v1'], ['u-daniel', 2.9 * MB, 'v2 — GCC uplift'], ['u-grace', 3.1 * MB, 'v3 — controller review']], views: 29, modifiedBy: 'u-grace', modifiedDaysAgo: 6 });
+  /* ======== Finance (Confidential) ======== */
+  folder('fo-payroll', 'drv-fin', null, 'Payroll', 'u-grace', 400, { desc: 'Monthly exports are Restricted — named people only.' });
+  mk({ id: 'df-payroll-oct', drive: 'drv-fin', parent: 'fo-payroll', kind: 'sheet', name: 'Payroll export — October 2026', owner: 'u-grace', created: 6, label: 'restricted', content: sheet(payrollRows(10)), shares: [share(U('u-daniel'), 'viewer', 'u-grace', 5, 20)], tags: ['payroll', 'wps'] });
+  mk({ id: 'df-payroll-sep', drive: 'drv-fin', parent: 'fo-payroll', kind: 'sheet', name: 'Payroll export — September 2026', owner: 'u-grace', created: 36, label: 'restricted', content: sheet(payrollRows(9)), tags: ['payroll'] });
+  mk({ id: 'df-wps-sif', drive: 'drv-fin', parent: 'fo-payroll', kind: 'code', name: 'WPS_2026_10.sif', owner: 'u-grace', created: 5, label: 'restricted', content: code('text', 'SCR,HELIX0001,AE070331234567890123456,2026-10-28,0830,10,2026,16,512340.00,AED\nEDR,HX-0007,AE070331234567890123456,2026-10-01,2026-10-31,31,42500.00,0.00,0\nEDR,HX-0021,AE070331234567890123987,2026-10-01,2026-10-31,31,36250.00,0.00,0') });
+  folder('fo-budgets', 'drv-fin', null, 'Budgets', 'u-daniel', 380);
+  mk({
+    id: 'df-budget-2027',
+    drive: 'drv-fin',
+    parent: 'fo-budgets',
+    kind: 'sheet',
+    name: 'FY2027 budget — master',
+    owner: 'u-daniel',
+    created: 26,
+    content: sheet(BUDGET_ROWS),
+    versions: [
+      { d: 26, by: 'u-daniel', summary: 'Department envelopes' },
+      { d: 15, by: 'u-grace', summary: 'Sales headcount ramp' },
+      { d: 3, by: 'u-daniel', summary: 'GPU reservation in Engineering Q3' },
+    ],
+    threads: [thread('u-grace', 2.5, 'Engineering Q3 jump — is that the GPU reservation? Please add a note column.', [['u-daniel', 2, 'Yes — 3-year commit, saves 31%. Note added.']])],
+    starred: ['u-daniel', 'u-grace'],
+    tags: ['budget', 'fy2027'],
+  });
+  mk({ id: 'df-opex-q3', drive: 'drv-fin', parent: 'fo-budgets', kind: 'sheet', name: 'Opex variance — Q3', owner: 'u-daniel', created: 31, updated: 8, tags: ['variance'] });
+  mk({ id: 'df-cloud-costs', drive: 'drv-fin', parent: 'fo-budgets', kind: 'sheet', name: 'Cloud cost allocation', owner: 'u-daniel', created: 20, updated: 1.4, content: sheet(CLOUD_ROWS), shares: [share(U('u-omar'), 'editor', 'u-daniel', 19)], tags: ['finops', 'cloud'] });
+  mk({ id: 'df-board-deck', drive: 'drv-fin', parent: null, kind: 'slides', name: 'Board deck — Q3 2026', owner: 'u-grace', created: 33, updated: 29, content: deck(BOARD_SLIDES), tags: ['board'] });
+  mk({ id: 'df-audit-letter', drive: 'drv-fin', parent: null, kind: 'pdf', name: 'External audit — management letter.pdf', owner: 'u-grace', created: 48, size: 1.9 * MB, tags: ['audit'] });
+  mk({ id: 'df-vendor-contracts', drive: 'drv-fin', parent: null, kind: 'archive', name: 'Vendor contracts 2026.zip', owner: 'u-grace', created: 70, size: 96 * MB });
 
-  // ───────────── Sales & Success ─────────────
-  F({ id: 'fo-decks', driveId: 'drv-sales', parentId: null, kind: 'folder', name: 'Decks & proposals', owner: 'u-aisha', modifiedDaysAgo: 2 });
-  F({ id: 'fo-msas', driveId: 'drv-sales', parentId: null, kind: 'folder', name: 'Signed MSAs', owner: 'u-aisha', sensitivity: 'confidential', inherit: false, shares: [[{ type: 'user', id: 'u-aisha' }, 'manager'], [{ type: 'user', id: 'u-noah' }, 'editor'], [{ type: 'role', id: 'finance' }, 'viewer']], retention: '7y', modifiedDaysAgo: 14 });
-  F({ id: 'df-gcc-deck', driveId: 'drv-sales', parentId: 'fo-decks', kind: 'slides', name: 'GCC Enterprise Expansion Deck.slides', owner: 'u-aisha', size: 14.6 * MB, modifiedDaysAgo: 2, modifiedBy: 'u-noah', preview: slides(['GCC enterprise expansion', 'Why now: data residency', 'Localized offer', 'Partner channel (KSA SI)', 'Advisory board outcomes', 'Pricing guardrails', 'Ask']), comments: [['u-daniel', 'Slide 6: multi-year discount needs the Finance guardrail language before external use.', 26], ['u-noah', 'Updated — awaiting your approval in Projects (GCC-5).', 9]], views: 58, starredBy: ['u-aisha', 'u-noah'], openedBy: { 'u-aisha': 11, 'u-noah': 9, 'u-daniel': 2 } });
-  F({ id: 'df-pricing', driveId: 'drv-sales', parentId: 'fo-decks', kind: 'doc', name: 'Pricing playbook.doc', owner: 'u-aisha', size: 0.4 * MB, preview: md('# Pricing playbook\n\n- Enterprise: per-seat + platform fee\n- Multi-year: max 12% (Finance approval above)\n- Data residency add-on: +8%'), views: 73 });
-  F({ id: 'df-msa-rajhi', driveId: 'drv-sales', parentId: 'fo-msas', kind: 'pdf', name: 'MSA — Al Rajhi (executed).pdf', owner: 'u-noah', size: 1.9 * MB, sensitivity: 'confidential', retention: '7y', views: 7, modifiedDaysAgo: 14 });
+  /* ======== IT & Security ======== */
+  folder('fo-incidents', 'drv-sec', null, 'Incident postmortems', 'u-ethan', 360, { label: 'confidential' });
+  mk({ id: 'df-pm-0917', drive: 'drv-sec', parent: 'fo-incidents', kind: 'doc', name: 'Postmortem — API latency spike (Sep 17)', owner: 'u-lucas', created: 48, updated: 44, label: 'confidential', tags: ['postmortem', 'api'] });
+  mk({
+    id: 'df-pm-1102',
+    drive: 'drv-sec',
+    parent: 'fo-incidents',
+    kind: 'doc',
+    name: 'Postmortem — SSO outage (Nov 2)',
+    owner: 'u-ethan',
+    created: 3,
+    updated: 0.4,
+    label: 'confidential',
+    content: doc(PM_SSO_TEXT),
+    threads: [thread('u-layla', 1, 'Action item 1 needs a date before we close this.', [['u-ethan', 0.4, 'Added — SCIM retry hardening by Nov 20.']])],
+    tags: ['postmortem', 'sso', 'sev-1'],
+  });
+  mk({ id: 'df-pm-template', drive: 'drv-sec', parent: 'fo-incidents', kind: 'doc', name: 'Postmortem template', owner: 'u-ethan', created: 340, label: 'internal' });
+  folder('fo-runbooks', 'drv-sec', null, 'Runbooks', 'u-layla', 320);
+  mk({ id: 'df-mfa-rollout', drive: 'drv-sec', parent: 'fo-runbooks', kind: 'doc', name: 'MFA rollout plan', owner: 'u-layla', created: 21, updated: 1, starred: ['u-layla'], tags: ['mfa', 'rollout'] });
+  mk({ id: 'df-laptop-std', drive: 'drv-sec', parent: 'fo-runbooks', kind: 'pdf', name: 'Laptop security baseline.pdf', owner: 'u-ethan', created: 140, size: 780 * KB });
+  mk({ id: 'df-phishing-sim', drive: 'drv-sec', parent: 'fo-runbooks', kind: 'sheet', name: 'Phishing simulation results — Q3', owner: 'u-ethan', created: 29, label: 'confidential' });
+  mk({
+    id: 'df-pentest-q3',
+    drive: 'drv-sec',
+    parent: null,
+    kind: 'pdf',
+    name: 'Pen-test report — Q3 2026.pdf',
+    owner: 'u-ethan',
+    created: 38,
+    label: 'restricted',
+    size: 4.6 * MB,
+    shares: [share(U('u-lucas'), 'viewer', 'u-ethan', 42, -12), share(U('u-priya'), 'viewer', 'u-ethan', 37), share(U('u-omar'), 'viewer', 'u-ethan', 16, 14)],
+    starred: ['u-layla'],
+    tags: ['pentest', 'audit'],
+    content: {
+      type: 'pdf',
+      pages: [
+        { heading: 'Executive summary', body: ['External penetration test of NEXUS, Drive and Pulse Chat, 14–25 September 2026.', '2 high, 5 medium and 9 low findings. No critical issues. Both highs are fixed and verified.'] },
+        { heading: 'High findings', body: ['H-1 Stored XSS in rich-text tooltips (fixed 4.0.2).', 'H-2 Missing rate limit on password reset (fixed via RFC-0042 shadow limits).'] },
+        { heading: 'Remediation plan', body: ['Medium findings to close by December 1.', 'Retest scheduled for the first week of January.'] },
+      ],
+    },
+  });
+  mk({ id: 'df-sec-policy', drive: 'drv-sec', parent: null, kind: 'pdf', name: 'Information security policy.pdf', owner: 'u-layla', created: 260, link: { scope: 'org', level: 'viewer', by: 'u-layla', at: ago(250) }, size: 1.3 * MB });
+  mk({ id: 'df-access-review', drive: 'drv-sec', parent: null, kind: 'sheet', name: 'Quarterly access review', owner: 'u-layla', created: 10, label: 'confidential', tags: ['iam', 'audit'] });
 
-  // ───────────── IT & Security ─────────────
-  F({ id: 'fo-rollouts', driveId: 'drv-it', parentId: null, kind: 'folder', name: 'Rollouts', owner: 'u-layla', modifiedDaysAgo: 1 });
-  F({ id: 'fo-pentest', driveId: 'drv-it', parentId: null, kind: 'folder', name: 'Pen-test reports', owner: 'u-layla', sensitivity: 'restricted', inherit: false, shares: [[{ type: 'user', id: 'u-ethan' }, 'editor']], retention: '7y', modifiedDaysAgo: 20 });
-  F({ id: 'df-mfa-plan', driveId: 'drv-it', parentId: 'fo-rollouts', kind: 'doc', name: 'Passkeys & MFA Rollout Plan.doc', owner: 'u-layla', size: 0.6 * MB, sensitivity: 'internal', shares: [[{ type: 'user', id: 'u-omar' }, 'editor'], [{ type: 'user', id: 'u-sara' }, 'commenter']], modifiedBy: 'u-ethan', modifiedDaysAgo: 1, preview: md('# Passkeys & MFA rollout\n\n**Enforcement:** 15 November\n\n| Wave | Scope | Status |\n|---|---|---|\n| Pilot | IT & Eng leads | ✅ 100% |\n| 1 | Dubai office | 68% |\n| 2 | London, Berlin, remote | Planned |\n\n**Exceptions:** 14 legacy VPN service accounts — decision needed (MFA-4).'), comments: [['u-omar', 'Engineering will nudge the remaining 11 this week.', 5]], views: 120, starredBy: ['u-layla', 'u-ethan'], openedBy: { 'u-layla': 16, 'u-ethan': 12, 'u-omar': 5 } });
-  F({ id: 'df-device-inv', driveId: 'drv-it', parentId: 'fo-rollouts', kind: 'sheet', name: 'Managed device inventory.sheet', owner: 'u-ethan', size: 1.2 * MB, sensitivity: 'confidential', preview: table([['Owner', 'Device', 'OS', 'Passkey', 'Compliant'], ['Mei Tanaka', 'MacBook Pro 14', 'macOS 15', 'Yes', '✅'], ['Alex Rivera', 'Personal laptop', 'Windows 11', 'No', '⚠️']]), views: 34 });
-  F({ id: 'df-pentest-q3', driveId: 'drv-it', parentId: 'fo-pentest', kind: 'pdf', name: 'External pen-test Q3 — findings.pdf', owner: 'u-layla', size: 3.4 * MB, sensitivity: 'restricted', retention: '7y', preview: md('# Pen-test Q3\n\n2 high (fixed), 5 medium (3 fixed), 9 low.'), views: 5, modifiedDaysAgo: 20 });
+  /* ======== Sales & Success ======== */
+  mk({ id: 'df-pitch-2025', drive: 'drv-sales', parent: null, kind: 'slides', name: 'Helix pitch deck 2025', owner: 'u-noah', created: 160, updated: 140, content: deck(PITCH_SLIDES), link: { scope: 'anyone', level: 'viewer', by: 'u-noah', at: ago(140) }, tags: ['pitch'] });
+  mk({ id: 'df-pricing', drive: 'drv-sales', parent: null, kind: 'sheet', name: 'Pricing & discount matrix — Q4', owner: 'u-noah', created: 62, updated: 9, label: 'confidential', content: sheet(PRICING_ROWS), shares: [share(ORG, 'viewer', 'u-noah', 60)], tags: ['pricing'] });
+  folder('fo-case-studies', 'drv-sales', null, 'Case studies', 'u-yusuf', 240);
+  mk({ id: 'df-case-aster', drive: 'drv-sales', parent: 'fo-case-studies', kind: 'pdf', name: 'Case study — Aster Health.pdf', owner: 'u-yusuf', created: 55, label: 'public', size: 2.8 * MB });
+  mk({ id: 'df-case-nimbus', drive: 'drv-sales', parent: 'fo-case-studies', kind: 'doc', name: 'Case study draft — Nimbus Logistics', owner: 'u-yusuf', created: 7, updated: 2 });
+  folder('fo-renewals', 'drv-sales', null, 'Renewals', 'u-yusuf', 200);
+  mk({ id: 'df-renewals-q4', drive: 'drv-sales', parent: 'fo-renewals', kind: 'sheet', name: 'Renewals pipeline — Q4', owner: 'u-yusuf', created: 30, updated: 0.7, label: 'confidential', content: sheet(RENEWAL_ROWS) });
+  mk({ id: 'df-qbr-nimbus', drive: 'drv-sales', parent: 'fo-renewals', kind: 'slides', name: 'QBR — Nimbus Logistics', owner: 'u-yusuf', created: 9 });
+  mk({ id: 'df-call-rec', drive: 'drv-sales', parent: 'fo-renewals', kind: 'audio', name: 'Discovery call — Aster Health.m4a', owner: 'u-noah', created: 4, label: 'confidential', size: 38 * MB, content: { type: 'media', duration: 2280, hue: 170 } });
 
-  // ───────────── Personal drives ─────────────
-  F({ id: 'df-mei-sketches', driveId: personalDriveId('u-mei'), parentId: null, kind: 'image', name: 'Nav rail sketches.png', owner: 'u-mei', size: 3.2 * MB, preview: image('#f472b6', '#fbbf24'), views: 3, modifiedDaysAgo: 1 });
-  F({ id: 'df-mei-notes', driveId: personalDriveId('u-mei'), parentId: null, kind: 'doc', name: '1:1 notes with Omar.doc', owner: 'u-mei', size: 0.1 * MB, sensitivity: 'confidential', shares: [[{ type: 'user', id: 'u-omar' }, 'commenter']], preview: md('# 1:1 notes\n\n- Prism GA risks: contrast audit, Alex capacity\n- Growth: lead design for Spend & Mobility v2'), views: 4, modifiedDaysAgo: 3 });
-  F({ id: 'df-daniel-notes', driveId: personalDriveId('u-daniel'), parentId: null, kind: 'doc', name: 'Close automation notes.doc', owner: 'u-daniel', size: 0.1 * MB, shares: [[{ type: 'user', id: 'u-grace' }, 'editor']], preview: md('# Close automation\n\n- WPS ↔ bank statement match: 100% last run\n- Next: T&E card feed'), views: 6, modifiedDaysAgo: 2 });
-  F({ id: 'df-alex-timesheet', driveId: personalDriveId('u-alex'), parentId: null, kind: 'sheet', name: 'Timesheet — November.sheet', owner: 'u-alex', size: 0.1 * MB, shares: [[{ type: 'user', id: 'u-omar' }, 'viewer']], preview: table([['Week', 'Hours', 'Project'], ['W45', '38', 'Prism v4'], ['W46', '—', '']]), views: 2, modifiedDaysAgo: 1 });
-  F({ id: 'df-omar-roadmap', driveId: personalDriveId('u-omar'), parentId: null, kind: 'slides', name: 'Platform roadmap H1 (draft).slides', owner: 'u-omar', size: 4.4 * MB, sensitivity: 'confidential', preview: slides(['Platform H1', 'EU-Cell learnings', 'Prism v4 rollout', 'Data platform', 'Hiring']), views: 5, modifiedDaysAgo: 4 });
-  F({ id: 'df-omar-old', driveId: personalDriveId('u-omar'), parentId: null, kind: 'doc', name: 'Old sprint notes (archive).doc', owner: 'u-omar', size: 0.2 * MB, preview: md('# Sprint notes (old)'), views: 1, modifiedDaysAgo: 60, trashedDaysAgo: 6, trashedBy: 'u-omar' });
-  F({ id: 'df-kwame-learning', driveId: personalDriveId('u-kwame'), parentId: null, kind: 'markdown', name: 'Learning log.md', owner: 'u-kwame', size: 0.02 * MB, preview: md('# Learning log\n\n- Week 1: Helix data platform tour\n- Week 3: Secure Engineering course (Academy)\n- Week 4: dbt accrual model kickoff'), views: 4, modifiedDaysAgo: 1 });
+  /* ======== Personal drives ======== */
+  const my = personalDriveId;
+  mk({ id: 'df-mei-portfolio', drive: my('u-mei'), kind: 'slides', name: 'Portfolio review 2026', owner: 'u-mei', created: 40, updated: 6 });
+  mk({ id: 'df-mei-notes', drive: my('u-mei'), kind: 'doc', name: '1:1 notes — Omar', owner: 'u-mei', created: 50, updated: 1, content: doc(MEI_NOTES), shares: [share(U('u-omar'), 'commenter', 'u-mei', 45)] });
+  mk({ id: 'df-mei-sketch', drive: my('u-mei'), kind: 'image', name: 'Nav sketches.png', owner: 'u-mei', created: 8, content: { type: 'image', hue: 12, motif: 'wave', w: 1600, h: 1200 } });
+  mk({ id: 'df-mei-proto', drive: my('u-mei'), kind: 'video', name: 'Onboarding prototype.mov', owner: 'u-mei', created: 4, size: 214 * MB, content: { type: 'media', duration: 96, hue: 24 } });
+  folder('fo-mei-inspo', my('u-mei'), null, 'Inspiration', 'u-mei', 120);
+  mk({ id: 'df-mei-inspo1', drive: my('u-mei'), parent: 'fo-mei-inspo', kind: 'image', name: 'Glass UI study.png', owner: 'u-mei', created: 35, content: { type: 'image', hue: 210, motif: 'bloom', w: 1440, h: 900 } });
+  mk({ id: 'df-mei-inspo2', drive: my('u-mei'), parent: 'fo-mei-inspo', kind: 'image', name: 'Aurora gradients.jpg', owner: 'u-mei', created: 33, content: { type: 'image', hue: 280, motif: 'mesh', w: 1920, h: 1280 } });
+  mk({ id: 'df-mei-old', drive: my('u-mei'), kind: 'slides', name: 'Portfolio 2025 (old)', owner: 'u-mei', created: 330, trashed: { d: 26, by: 'u-mei' } });
 
-  const requests: DriveData['requests'] = [
-    { id: 'dar-1', itemId: 'df-prism-spec', requesterId: 'u-alex', role: 'editor', message: 'Need to add engineering notes to the Button & Input sections for the token migration.', status: 'pending', createdAt: now - 3 * HOUR },
-    { id: 'dar-2', itemId: 'df-mfa-plan', requesterId: 'u-kwame', role: 'viewer', message: 'Preparing the data-platform wave — want to align dates.', status: 'pending', createdAt: now - 26 * HOUR },
-    { id: 'dar-3', itemId: 'df-budget-fy27', requesterId: 'u-aisha', role: 'commenter', message: 'GCC uplift assumptions review.', status: 'approved', decidedBy: 'u-grace', decidedAt: ago(4), createdAt: ago(5) },
+  mk({ id: 'df-omar-perf', drive: my('u-omar'), kind: 'doc', name: 'Team calibration notes — H2', owner: 'u-omar', created: 12, updated: 2, label: 'confidential' });
+  mk({ id: 'df-omar-hiring', drive: my('u-omar'), kind: 'sheet', name: 'Hiring plan — Platform', owner: 'u-omar', created: 22, updated: 5, shares: [share(U('u-aisha'), 'viewer', 'u-omar', 20)] });
+  mk({ id: 'df-omar-offsite', drive: my('u-omar'), kind: 'slides', name: 'Platform offsite agenda', owner: 'u-omar', created: 6, shares: [share(R('engineering'), 'viewer', 'u-omar', 5)] });
+
+  mk({ id: 'df-dan-forecast', drive: my('u-daniel'), kind: 'sheet', name: 'Forecast model v12', owner: 'u-daniel', created: 15, updated: 0.9, label: 'confidential', shares: [share(U('u-grace'), 'editor', 'u-daniel', 14)], tags: ['forecast'] });
+  mk({ id: 'df-dan-receipts', drive: my('u-daniel'), kind: 'archive', name: 'Receipts — October.zip', owner: 'u-daniel', created: 3, size: 22 * MB });
+  mk({ id: 'df-dan-old', drive: my('u-daniel'), kind: 'sheet', name: 'Forecast model v9', owner: 'u-daniel', created: 90, trashed: { d: 9, by: 'u-daniel' } });
+
+  mk({ id: 'df-alex-invoice', drive: my('u-alex'), kind: 'pdf', name: 'Invoice — October 2026.pdf', owner: 'u-alex', created: 5, size: 180 * KB });
+  mk({ id: 'df-alex-notes', drive: my('u-alex'), kind: 'doc', name: 'Prism migration notes', owner: 'u-alex', created: 3, updated: 0.4, content: doc(ALEX_NOTES), shares: [share(U('u-omar'), 'editor', 'u-alex', 2)] });
+
+  mk({ id: 'df-layla-board', drive: my('u-layla'), kind: 'slides', name: 'Security board update — Q4', owner: 'u-layla', created: 9, updated: 1.3, label: 'confidential' });
+  mk({ id: 'df-layla-vendors', drive: my('u-layla'), kind: 'sheet', name: 'Security vendor review', owner: 'u-layla', created: 24, label: 'confidential' });
+  mk({ id: 'df-priya-bench', drive: my('u-priya'), kind: 'sheet', name: 'Rate limiter benchmarks', owner: 'u-priya', created: 21, updated: 4, shares: [share(R('engineering'), 'viewer', 'u-priya', 20)] });
+  mk({ id: 'df-sara-comms', drive: my('u-sara'), kind: 'doc', name: 'Review cycle comms plan', owner: 'u-sara', created: 7, updated: 2 });
+
+  /* ---------------- requests ---------------- */
+  const requests: AccessRequest[] = [
+    { id: 'dr-alex-prism', itemId: 'df-prism-spec', requesterId: 'u-alex', level: 'editor', reason: 'Need to add engineering notes for the token migration.', at: now - 5 * HOUR, status: 'pending' },
+    { id: 'dr-mei-roadmap', itemId: 'df-eng-roadmap', requesterId: 'u-mei', level: 'viewer', reason: 'Aligning the design roadmap with platform milestones for 2027.', at: now - 26 * HOUR, status: 'pending' },
+    { id: 'dr-kwame-cloud', itemId: 'df-cloud-costs', requesterId: 'u-kwame', level: 'viewer', reason: 'Building the cost dashboard in BigQuery — need the allocation keys.', at: now - 3 * HOUR, status: 'pending' },
+    { id: 'dr-hana-roadmap', itemId: 'df-eng-roadmap', requesterId: 'u-hana', level: 'viewer', reason: 'Research planning for H1.', at: ago(7), status: 'approved', decidedBy: 'u-omar', decidedAt: ago(6), grantedLevel: 'viewer', expiresAt: null },
+    { id: 'dr-noah-board', itemId: 'df-board-deck', requesterId: 'u-noah', level: 'viewer', reason: 'Prep for the enterprise renewal conversation.', at: ago(12), status: 'denied', decidedBy: 'u-grace', decidedAt: ago(11), note: 'Board materials are limited to finance leadership — I’ll send you the public highlights.' },
   ];
 
-  const recents: DriveData['recents'] = {
-    'u-mei': [{ itemId: 'df-prism-tokens', at: now - 2 * HOUR }, { itemId: 'df-prism-spec', at: ago(1) }, { itemId: 'df-mei-sketches', at: ago(1) }],
-    'u-omar': [{ itemId: 'df-mfa-plan', at: now - 4 * HOUR }, { itemId: 'df-onboard-plan', at: ago(1) }, { itemId: 'df-rfc-theming', at: ago(2) }],
-    'u-daniel': [{ itemId: 'df-close-checklist', at: now - 1 * HOUR }, { itemId: 'df-payroll-register', at: ago(1) }, { itemId: 'df-gcc-deck', at: ago(2) }],
-    'u-layla': [{ itemId: 'df-mfa-plan', at: now - 1 * HOUR }, { itemId: 'df-device-inv', at: ago(1) }],
-    'u-sara': [{ itemId: 'df-allhands-agenda', at: now - 3 * HOUR }, { itemId: 'df-onboard-plan', at: ago(1) }, { itemId: 'df-handbook', at: ago(3) }],
-    'u-alex': [{ itemId: 'df-ui-tokens', at: now - 1 * HOUR }, { itemId: 'df-logo', at: ago(2) }],
-    'u-kwame': [{ itemId: 'df-onboard-plan', at: ago(1) }, { itemId: 'df-kwame-learning', at: now - 5 * HOUR }],
+  /* ---------------- recents ---------------- */
+  const r = (ids: [string, number][]) => ids.map(([id, h]) => ({ id, at: now - h * HOUR }));
+  const recents: Record<string, { id: string; at: number }[]> = {
+    'u-mei': r([['df-prism-spec', 0.3], ['df-onboarding-flow', 3], ['df-design-crit', 15], ['df-mei-notes', 26], ['df-onboarding-study', 52], ['df-moodboard', 80], ['df-mei-portfolio', 140]]),
+    'u-omar': r([['df-eng-roadmap', 0.5], ['df-rfc-ratelimit', 2], ['df-prism-migration', 6], ['df-capacity-q4', 20], ['df-cloud-costs', 33], ['df-pm-1102', 40], ['df-alex-notes', 50]]),
+    'u-alex': r([['df-prism-a11y', 0.4], ['df-prism-readme', 2.5], ['df-prism-button', 8], ['df-prism-migration', 22], ['df-prism-storybook', 36], ['df-alex-notes', 48]]),
+    'u-daniel': r([['df-budget-2027', 1], ['df-payroll-oct', 5], ['df-dan-forecast', 21], ['df-cloud-costs', 34], ['df-opex-q3', 70]]),
+    'u-layla': r([['df-pm-1102', 0.6], ['df-pentest-q3', 4], ['df-mfa-rollout', 23], ['df-layla-board', 30], ['df-access-review', 60]]),
   };
 
-  return { version: DRIVE_DATA_VERSION, drives, items, requests, recents };
+  return { version: DRIVE_DATA_VERSION, drives, items, requests, policy: defaultPolicy(), recents, prefs: {} };
 }

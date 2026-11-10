@@ -175,26 +175,29 @@ export function DurationPicker({
   );
 }
 
-const RISK: Record<RiskLevel, { cls: string; label: string; Icon: LucideIcon; hint: string }> = {
-  low: { cls: 'badge--success', label: 'Low risk', Icon: ShieldCheck, hint: 'Everyday app and a short window' },
-  medium: { cls: 'badge--warning', label: 'Medium risk', Icon: Shield, hint: 'Business data or a longer window' },
-  high: { cls: 'badge--danger', label: 'High risk', Icon: ShieldAlert, hint: 'Sensitive app, long window or low-clearance requester' },
+const RISK: Record<RiskLevel, { tone: ChipTone; label: string; Icon: LucideIcon; hint: string }> = {
+  low: { tone: 'success', label: 'Low risk', Icon: ShieldCheck, hint: 'Everyday app and a short window' },
+  medium: { tone: 'warning', label: 'Medium risk', Icon: Shield, hint: 'Business data or a longer window' },
+  high: { tone: 'danger', label: 'High risk', Icon: ShieldAlert, hint: 'Sensitive app, long window or low-clearance requester' },
 };
+
+/** NEO chip tones used by the admin badges (see `[data-tone]` in neo.css). */
+export type ChipTone = 'success' | 'warning' | 'danger' | 'blue' | 'slate' | 'app' | 'violet' | 'cyan';
 
 export function RiskBadge({ level }: { level: RiskLevel }) {
   const r = RISK[level];
   return (
-    <span className={cx('badge', r.cls)} title={r.hint}>
+    <span className="neo-chip" data-tone={r.tone} title={r.hint}>
       <r.Icon aria-hidden="true" />
       {r.label}
     </span>
   );
 }
 
-const SEVERITY: Record<AuditSeverity, { cls: string; label: string; tone: Tone; Icon: LucideIcon }> = {
-  info: { cls: 'badge--info', label: 'Info', tone: 'info', Icon: Info },
-  warning: { cls: 'badge--warning', label: 'Warning', tone: 'warning', Icon: TriangleAlert },
-  critical: { cls: 'badge--danger', label: 'Critical', tone: 'danger', Icon: ShieldAlert },
+const SEVERITY: Record<AuditSeverity, { chip: ChipTone; label: string; tone: Tone; Icon: LucideIcon }> = {
+  info: { chip: 'blue', label: 'Info', tone: 'info', Icon: Info },
+  warning: { chip: 'warning', label: 'Warning', tone: 'warning', Icon: TriangleAlert },
+  critical: { chip: 'danger', label: 'Critical', tone: 'danger', Icon: ShieldAlert },
 };
 
 export const severityTone = (s: AuditSeverity): Tone => SEVERITY[s].tone;
@@ -203,7 +206,7 @@ export const SEVERITY_LABEL: Record<AuditSeverity, string> = { info: 'Info', war
 export function SeverityBadge({ severity }: { severity: AuditSeverity }) {
   const s = SEVERITY[severity];
   return (
-    <span className={cx('badge', s.cls)}>
+    <span className="neo-chip" data-tone={s.chip}>
       <s.Icon aria-hidden="true" />
       {s.label}
     </span>
@@ -212,12 +215,12 @@ export function SeverityBadge({ severity }: { severity: AuditSeverity }) {
 
 export function OutcomeBadge({ outcome }: { outcome: AuditEntry['outcome'] }) {
   return outcome === 'denied' ? (
-    <span className="badge badge--danger">
+    <span className="neo-chip" data-tone="danger">
       <Ban aria-hidden="true" />
       Denied
     </span>
   ) : (
-    <span className="badge badge--success">
+    <span className="neo-chip" data-tone="success">
       <CircleCheck aria-hidden="true" />
       Success
     </span>
@@ -375,7 +378,7 @@ export function InlineConfirm({
   );
 }
 
-/** Facet chip with an optional count. */
+/** Facet chip (NEO pill) with an optional count. */
 export function FilterChip({
   active,
   onClick,
@@ -390,10 +393,10 @@ export function FilterChip({
   icon?: LucideIcon;
 }) {
   return (
-    <button type="button" className={cx('chip', active && 'is-active')} aria-pressed={active} onClick={onClick}>
+    <button type="button" className="neo-chip neo-chip--lg adm-fchip" data-tone={active ? 'app' : 'slate'} aria-pressed={active} onClick={onClick}>
       {Icon && <Icon aria-hidden="true" />}
       {children}
-      {count !== undefined && <span className="count">{count}</span>}
+      {count !== undefined && <span className="adm-fchip__count">{count}</span>}
     </button>
   );
 }

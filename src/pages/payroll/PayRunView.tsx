@@ -1,18 +1,20 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+/**
+ * Pay run — home of the Payday deck. A four-step payday stepper with stage
+ * actions, the gross → net composition, the four-eyes audit trail, the WPS
+ * bank file and the filterable employee pay register (payslip + one-off
+ * adjustment dialog). Period-level summaries live in the shell's HUD ribbon.
+ */
+import { useMemo, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { Link, useNavigate } from 'react-router';
 import {
   AlertTriangle,
   ArrowRight,
-  Award,
   Banknote,
-  Building2,
   Check,
-  CheckCircle2,
   Download,
   ExternalLink,
   FileCode2,
   FileSpreadsheet,
-  Receipt,
   RefreshCw,
   RotateCcw,
   Search,
@@ -20,9 +22,8 @@ import {
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
-  Sparkles,
   TrendingDown,
-  Users,
+  TrendingUp,
   Wallet,
 } from 'lucide-react';
 import { canCounterSignRun, canDisburseRun } from '@/payroll/access';
@@ -30,24 +31,51 @@ import { generatePayrollCsv, generateWpsSif } from '@/payroll/engine';
 import { useLivePayrollRuns, usePayrollCaps } from '@/payroll/selectors';
 import { usePayroll } from '@/payroll/store';
 import type { PayrollEmployeeLine, PayrollRun } from '@/payroll/types';
+import type { User } from '@/types';
 import { useExpenses } from '@/expenses/store';
 import { useHr } from '@/hr/store';
 import { useHub } from '@/store/hub';
 import { toast } from '@/store/toast';
-import { cx } from '@/lib/cx';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, pluralize, relativeTime } from '@/lib/format';
 import { Modal } from '@/components/ui/Modal';
-import { Avatar, EmptyState } from '@/components/ui/primitives';
+import { Avatar } from '@/components/ui/primitives';
+import { Bar, Chip, NeoEmpty, NeoHome, NeoPanel, NeoSearch, NeoTabs, Orb, type NeoTabItem, type Tone } from '@/components/neo';
 import {
   ALLOWANCE_LABELS,
+  compactAed,
   downloadTextFile,
   formatAed,
   formatMoney,
   RUN_STATUS_META,
+  shortPeriodLabel,
   WpsSifModal,
 } from './shared';
 
 type RegisterFilter = 'all' | 'variance' | 'bonus' | 'reimbursement';
+type StepState = 'done' | 'active' | 'todo';
+
+const STAGES: Array<{ step: 1 | 2 | 3 | 4; icon: ReactNode; title: string; desc: string }> = [
+  { step: 1, icon: <RefreshCw />, title: 'Draft & live sync', desc: 'HR comp, pro-rata, leave, T&E and bonuses' },
+  { step: 2, icon: <ShieldCheck />, title: 'Four-eyes sign-off', desc: 'Independent Finance or People Ops counter-sign' },
+  { step: 3, icon: <FileCode2 />, title: 'WPS bank file', desc: 'Inspect and export the Central Bank .SIF' },
+  { step: 4, icon: <Banknote />, title: 'Disbursed', desc: 'Batch settled, payslips live in HR Portal' },
+];
+
+const sumBy = <T,>(list: T[], pick: (x: T) => number) => list.reduce((s, x) => s + pick(x), 0);
+const pct = (part: number, whole: number) => (whole > 0 ? (part / whole) * 100 : 0);
+
+interface Breakdown {
+  adjustmentsAed: number;
+  pensionAed: number;
+  benefitsAed: number;
+  leaveAed: number;
+  debitsAed: number;
+  expenseCount: number;
+  hrClaimCount: number;
+  bonusCount: number;
+  banks: Array<{ name: string; count: number; netAed: number }>;
+  currencies: Array<{ code: string; count: number }>;
+}
 
 export function PayRunView() {
   const navigate = useNavigate();
@@ -94,14 +122,8 @@ export function PayRunView() {
     setAdjNote(line.manualAdjustmentNote ?? '');
   };
 
-  const counterSignGate = useMemo(
-    () => canCounterSignRun(caps.viewer, activeRun),
-    [caps.viewer, activeRun],
-  );
-  const disburseGate = useMemo(
-    () => canDisburseRun(caps.viewer, activeRun),
-    [caps.viewer, activeRun],
-  );
+  const counterSignGate = useMemo(() => canCounterSignRun(caps.viewer, activeRun), [caps.viewer, activeRun]);
+  const disburseGate = useMemo(() => canDisburseRun(caps.viewer, activeRun), [caps.viewer, activeRun]);
 
   const preparerUser = activeRun?.preparedBy ? userById.get(activeRun.preparedBy) : undefined;
   const approverUser = activeRun?.approvedBy ? userById.get(activeRun.approvedBy) : undefined;
@@ -145,48 +167,63 @@ export function PayRunView() {
     });
   }, [activeRun, filter, search, userById]);
 
+  const breakdown: Breakdown | null = useMemo(() => {
+    if (!activeRun) return null;
+    const lines = activeRun.lines;
+    const bankMap = new Map<string, { name: string; count: number; netAed: number }>();
+    const ccyMap = new Map<string, number>();
+    for (const l of lines) {
+      const bank = bankMap.get(l.bankName) ?? { name: l.bankName, count: 0, netAed: 0 };
+      bank.count += 1;
+      bank.netAed += l.netAed;
+      bankMap.set(l.bankName, bank);
+      ccyMap.set(l.localCurrency, (ccyMap.get(l.localCurrency) ?? 0) + 1);
+    }
+    return {
+      adjustmentsAed: Math.max(
+        0,
+        activeRun.totalGrossAed - activeRun.totalFixedAed - activeRun.totalVariableBonusesAed - activeRun.totalReimbursementsAed,
+      ),
+      pensionAed: sumBy(lines, (l) => l.pensionDeductionAed),
+      benefitsAed: sumBy(lines, (l) => l.benefitsDeductionAed),
+      leaveAed: sumBy(lines, (l) => l.unpaidLeaveDeductionAed),
+      debitsAed: sumBy(lines, (l) => Math.max(0, -l.manualAdjustmentAed)),
+      expenseCount: sumBy(lines, (l) => l.expenseReportIds.length),
+      hrClaimCount: sumBy(lines, (l) => l.hrClaimIds.length),
+      bonusCount: sumBy(lines, (l) => l.bonusIds.length),
+      banks: [...bankMap.values()].sort((a, b) => b.netAed - a.netAed),
+      currencies: [...ccyMap.entries()].map(([code, count]) => ({ code, count })).sort((a, b) => b.count - a.count),
+    };
+  }, [activeRun]);
+
   const selectedEmp = selectedLine ? userById.get(selectedLine.userId) : undefined;
   const linkedBonuses = useMemo(
-    () =>
-      selectedLine
-        ? bonuses.filter((b) => selectedLine.bonusIds.includes(b.id))
-        : [],
+    () => (selectedLine ? bonuses.filter((b) => selectedLine.bonusIds.includes(b.id)) : []),
     [bonuses, selectedLine],
   );
   const linkedExpenses = useMemo(
-    () =>
-      selectedLine
-        ? expenseReports.filter((r) => selectedLine.expenseReportIds.includes(r.id))
-        : [],
+    () => (selectedLine ? expenseReports.filter((r) => selectedLine.expenseReportIds.includes(r.id)) : []),
     [expenseReports, selectedLine],
   );
   const linkedHrClaims = useMemo(
-    () =>
-      selectedLine
-        ? hrClaims.filter((c) => selectedLine.hrClaimIds.includes(c.id))
-        : [],
+    () => (selectedLine ? hrClaims.filter((c) => selectedLine.hrClaimIds.includes(c.id)) : []),
     [hrClaims, selectedLine],
   );
 
-  if (!activeRun) {
+  if (!activeRun || !breakdown) {
     return (
-      <EmptyState icon={<Wallet />} title="No payroll runs initialized">
-        Refresh the Payroll Console to generate your active monthly pay run.
-      </EmptyState>
+      <NeoPanel>
+        <NeoEmpty icon={<Wallet />} title="No payroll runs initialized">
+          Refresh the Payroll Console to generate your active monthly pay run.
+        </NeoEmpty>
+      </NeoPanel>
     );
   }
 
   const currentStage = RUN_STATUS_META[activeRun.status].step;
   const isSelfPrepared =
-    activeRun.status === 'pending_signoff' &&
-    Boolean(caps.viewer && activeRun.preparedBy === caps.viewer.userId);
-
-  const settledExpenseCount = activeRun.lines.reduce(
-    (sum, l) => sum + l.expenseReportIds.length,
-    0,
-  );
-  const settledHrClaimCount = activeRun.lines.reduce((sum, l) => sum + l.hrClaimIds.length, 0);
-  const settledBonusCount = activeRun.lines.reduce((sum, l) => sum + l.bonusIds.length, 0);
+    activeRun.status === 'pending_signoff' && Boolean(caps.viewer && activeRun.preparedBy === caps.viewer.userId);
+  const prevRun = runs[runs.findIndex((r) => r.period === activeRun.period) + 1];
 
   const handleDownloadSif = () => {
     const sif = generateWpsSif(activeRun, users);
@@ -203,7 +240,7 @@ export function PayRunView() {
     toast.success(`Exported HELIX-PAYROLL-${activeRun.period}.csv`);
   };
 
-  const handleSaveAdjustment = (e: React.FormEvent) => {
+  const handleSaveAdjustment = (e: FormEvent) => {
     e.preventDefault();
     if (!selectedLine) return;
     const numeric = adjAmount.trim() === '' ? 0 : Number(adjAmount);
@@ -224,510 +261,312 @@ export function PayRunView() {
     }
   };
 
-  const stages = [
-    {
-      step: 1 as const,
-      title: '1. Draft & Live Sync',
-      desc: 'Pulls HR comp, pro-rata, leave, T&E claims & bonuses',
-    },
-    {
-      step: 2 as const,
-      title: '2. Four-Eyes Sign-Off',
-      desc: 'Independent People Ops / Finance counter-signature',
-    },
-    {
-      step: 3 as const,
-      title: '3. WPS Bank File Ready',
-      desc: 'Inspect & export UAE Central Bank .SIF & .CSV',
-    },
-    {
-      step: 4 as const,
-      title: '4. Disbursed & Payslips Live',
-      desc: 'Batch settled & official payslips published to HR Portal',
-    },
-  ];
+  const reopen = () => {
+    const res = reopenRunToDraft(activeRun.period);
+    toast.result(res, 'Reopened to draft');
+  };
 
-  const canEditAdjustment =
-    caps.canRun && (activeRun.status === 'draft' || activeRun.status === 'pending_signoff');
+  const canEditAdjustment = caps.canRun && (activeRun.status === 'draft' || activeRun.status === 'pending_signoff');
+
+  const periodTabs: NeoTabItem<string>[] = runs.map((r, idx) => ({
+    value: r.period,
+    label: shortPeriodLabel(r.period),
+    icon: <Orb tone={RUN_STATUS_META[r.status].tone} pulse={idx === 0 && r.status !== 'paid'} size={7} />,
+    title: `${r.label}${idx === 0 ? ' (active)' : ''} · ${RUN_STATUS_META[r.status].label} · ${formatAed(r.totalNetAed)} net`,
+  }));
+
+  /* ---------- Stage card (actions for the current step) ---------- */
+  let stage: ReactNode = null;
+  if (activeRun.status === 'draft') {
+    stage = (
+      <StageCard
+        tone="app"
+        icon={<RefreshCw />}
+        hud="Stage 1 of 4 · Live sync"
+        title={`Live payroll sync is running for ${activeRun.label}`}
+        actions={
+          <>
+            <button
+              type="button"
+              className="neo-btn neo-btn--soft"
+              onClick={() => {
+                syncActiveRun();
+                toast.info(`Re-synced ${activeRun.label} with live HR & T&E stores`);
+              }}
+            >
+              <RefreshCw /> Sync now
+            </button>
+            <button
+              type="button"
+              className="neo-btn neo-btn--plasma"
+              disabled={!caps.canRun}
+              title={!caps.canRun ? 'Requires payroll.run or hr.people.manage permission' : undefined}
+              onClick={() => {
+                const res = submitRunForSignoff(activeRun.period);
+                toast.result(res, 'Submitted run for four-eyes sign-off');
+              }}
+            >
+              <Send /> Submit for sign-off
+            </button>
+          </>
+        }
+      >
+        <p className="py-stage__text">
+          Reconciling {activeRun.headcount} employee comp records, starter pro-rata, unpaid leave and confirmed benefit shares — plus{' '}
+          <b>{pluralize(breakdown.expenseCount, 'queued T&E report')}</b>, <b>{pluralize(breakdown.hrClaimCount, 'HR allowance claim')}</b> and{' '}
+          <b>{pluralize(breakdown.bonusCount, 'approved bonus', 'approved bonuses')}</b>.
+        </p>
+        <div className="py-stage__meta">
+          <Chip size="sm" tone="success" icon={<Check />}>
+            HR base & allowances synced
+          </Chip>
+          <Chip size="sm" tone="cyan">
+            Reimbursements {formatAed(activeRun.totalReimbursementsAed)}
+          </Chip>
+          <Chip size="sm" tone="amber">
+            Bonuses {formatAed(activeRun.totalVariableBonusesAed)}
+          </Chip>
+        </div>
+      </StageCard>
+    );
+  } else if (activeRun.status === 'pending_signoff') {
+    stage = (
+      <StageCard
+        tone="warning"
+        icon={<ShieldCheck />}
+        hud="Stage 2 of 4 · Four-eyes"
+        title="Awaiting counter-signature"
+        actions={
+          <>
+            {(caps.canRun || caps.canApprove) && (
+              <button type="button" className="neo-btn neo-btn--ghost" onClick={reopen}>
+                <RotateCcw /> Reopen
+              </button>
+            )}
+            <button
+              type="button"
+              className="neo-btn neo-btn--plasma"
+              disabled={!counterSignGate.ok}
+              title={!counterSignGate.ok ? counterSignGate.reason : undefined}
+              onClick={() => {
+                const res = approvePayRun(activeRun.period, approvalNote);
+                if (toast.result(res, 'Pay run counter-signed')) {
+                  setApprovalNote('');
+                }
+              }}
+            >
+              <ShieldCheck /> Counter-sign & approve
+            </button>
+          </>
+        }
+      >
+        <p className="py-stage__text">
+          Verify variance flags, FX spot rates and the <b>{formatAed(activeRun.totalNetAed)}</b> net disbursement before the UAE Central Bank WPS file
+          unlocks.
+        </p>
+        {!counterSignGate.ok ? (
+          <div className="py-note" data-tone="warning">
+            <ShieldAlert />
+            <span>
+              <b>Separation of duties:</b>{' '}
+              {isSelfPrepared
+                ? preparerUser?.id === 'u-sara'
+                  ? 'Prepared by you — switch persona to Daniel Okafor (Finance) or Layla Haddad (Admin) to counter-sign this pay run.'
+                  : 'Prepared by you — switch persona to Sara Al Mansoori (People Ops) or Layla Haddad (Admin) to counter-sign this pay run.'
+                : counterSignGate.reason}
+            </span>
+          </div>
+        ) : (
+          <input
+            type="text"
+            className="neo-input neo-input--sm py-stage__input"
+            value={approvalNote}
+            onChange={(e) => setApprovalNote(e.target.value)}
+            placeholder="Optional sign-off note (e.g., Verified pro-rata, T&E queue & FX sheet)…"
+            aria-label="Sign-off note"
+          />
+        )}
+      </StageCard>
+    );
+  } else if (activeRun.status === 'approved_ready') {
+    stage = (
+      <StageCard
+        tone="cyan"
+        icon={<FileCode2 />}
+        hud="Stage 3 of 4 · Bank file"
+        title="Four-eyes verified — WPS batch ready"
+        actions={
+          <>
+            {(caps.canRun || caps.canApprove) && (
+              <button type="button" className="neo-btn neo-btn--ghost" onClick={reopen}>
+                <RotateCcw /> Reopen
+              </button>
+            )}
+            <button type="button" className="neo-btn neo-btn--soft" onClick={() => setSifModalOpen(true)}>
+              <FileCode2 /> Preview .SIF
+            </button>
+            <button
+              type="button"
+              className="neo-btn neo-btn--plasma"
+              disabled={!disburseGate.ok}
+              title={!disburseGate.ok ? disburseGate.reason : undefined}
+              onClick={() => {
+                const res = disbursePayRun(activeRun.period);
+                toast.result(res, 'Payday disbursed!');
+              }}
+            >
+              <Banknote /> Release payday
+            </button>
+          </>
+        }
+      >
+        <p className="py-stage__text">
+          Inspect the <code>.SIF</code> and the payroll register, then release payday to settle salaries, queued T&E reports, HR claims and bonuses in
+          one WPS batch.
+        </p>
+        {activeRun.approvalNote && <blockquote className="py-quote">“{activeRun.approvalNote}”</blockquote>}
+      </StageCard>
+    );
+  } else {
+    stage = (
+      <StageCard
+        tone="success"
+        icon={<Banknote />}
+        hud="Stage 4 of 4 · Settled"
+        title={`${activeRun.label} disbursed via UAE WPS`}
+        badge={activeRun.wpsBatchRef ? <span className="neo-chip neo-chip--sm py-mono-chip" data-tone="success">{activeRun.wpsBatchRef}</span> : undefined}
+        actions={
+          <>
+            <button type="button" className="neo-btn neo-btn--ghost" onClick={handleDownloadCsv}>
+              <Download /> Register .CSV
+            </button>
+            <button type="button" className="neo-btn neo-btn--plasma" onClick={() => navigate('/hr/documents?tab=payslips')}>
+              Payslips <ArrowRight />
+            </button>
+          </>
+        }
+      >
+        <p className="py-stage__text">
+          Settled <b>{formatAed(activeRun.totalNetAed)}</b> net across <b>{activeRun.headcount}</b> employees — including{' '}
+          <b>{pluralize(breakdown.expenseCount, 'T&E claim')}</b> + <b>{pluralize(breakdown.hrClaimCount, 'HR allowance')}</b> (
+          {formatAed(activeRun.totalReimbursementsAed)}) and <b>{pluralize(breakdown.bonusCount, 'bonus award')}</b> (
+          {formatAed(activeRun.totalVariableBonusesAed)}). Itemised payslips are live in the HR Portal.
+        </p>
+      </StageCard>
+    );
+  }
 
   return (
-    <div className="stack stack--lg" style={{ minWidth: 0 }}>
-      {/* Period Switcher Pills */}
-      <div className="py-period-bar">
-        <div className="py-period-pills" role="tablist" aria-label="Payroll periods">
-          {runs.map((r, idx) => {
-            const isSelected = r.period === activeRun.period;
-            const meta = RUN_STATUS_META[r.status];
-            return (
-              <button
-                key={r.period}
-                type="button"
-                role="tab"
-                aria-selected={isSelected}
-                className={cx('py-period-pill', isSelected && 'is-active')}
-                onClick={() => setSelectedPeriod(r.period)}
-              >
-                <span
-                  className={cx(
-                    'dot',
-                    r.status === 'paid'
-                      ? 'dot--online'
-                      : r.status === 'approved_ready'
-                        ? 'dot--maintenance'
-                        : r.status === 'pending_signoff'
-                          ? 'dot--away'
-                          : 'dot--offline',
-                  )}
-                />
-                <span>
-                  {r.label}
-                  {idx === 0 ? ' (Active)' : ''}
-                </span>
-                <span className={`badge badge--${meta.badge}`}>{meta.label}</span>
-                <span className="py-period-pill__meta">{formatAed(r.totalNetAed)}</span>
-              </button>
-            );
-          })}
-        </div>
+    <div className="py-view">
+      <NeoHome
+        sideLabel="Sign-off trail and bank file"
+        main={
+          <>
+            <NeoPanel
+              className="py-payday"
+              hud="Payday control"
+              title={`${activeRun.label} pay run`}
+              actions={runs.length > 1 ? <NeoTabs value={activeRun.period} onChange={setSelectedPeriod} label="Payroll periods" items={periodTabs} /> : undefined}
+            >
+              <ol className="py-steps" aria-label="Payday stages">
+                {STAGES.map((st) => {
+                  const state: StepState =
+                    activeRun.status === 'paid' || currentStage > st.step ? 'done' : currentStage === st.step ? 'active' : 'todo';
+                  return (
+                    <li key={st.step} className="py-step" data-state={state} aria-current={state === 'active' ? 'step' : undefined}>
+                      <span className="py-step__rail" aria-hidden="true">
+                        <span className="py-step__dot">{state === 'done' ? <Check strokeWidth={2.6} /> : st.icon}</span>
+                        <span className="py-step__line" />
+                      </span>
+                      <span className="py-step__text">
+                        <span className="py-step__idx">
+                          Step 0{st.step}
+                          {state === 'done' ? ' · done' : state === 'active' ? ' · now' : ''}
+                        </span>
+                        <span className="py-step__title">{st.title}</span>
+                        <span className="py-step__desc">{st.desc}</span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
+              {stage}
+            </NeoPanel>
+            <CompositionPanel run={activeRun} prevRun={prevRun} b={breakdown} />
+          </>
+        }
+        side={
+          <>
+            <TrailPanel run={activeRun} preparer={preparerUser} approver={approverUser} disburser={disburserUser} />
+            <BankFilePanel
+              run={activeRun}
+              b={breakdown}
+              onInspect={() => setSifModalOpen(true)}
+              onDownloadSif={handleDownloadSif}
+              onDownloadCsv={handleDownloadCsv}
+            />
+          </>
+        }
+      />
 
-        <div className="row row--wrap" style={{ gap: 8 }}>
-          <span className="tag">Cut-off {activeRun.cutoffDate}</span>
-          <span className="tag">Payday {activeRun.payDate}</span>
-          <button
-            type="button"
-            className="btn btn--sm"
-            onClick={() => setSifModalOpen(true)}
-          >
-            <FileCode2 /> Inspect WPS .SIF
-          </button>
-        </div>
-      </div>
-
-      {/* Interactive 4-Stage Payday Control Stepper */}
-      <section className="card py-stepper-card">
-        <div className="py-stepper">
-          {stages.map((st) => {
-            const isDone =
-              activeRun.status === 'paid' ? true : currentStage > st.step;
-            const isCurrent =
-              activeRun.status !== 'paid' && currentStage === st.step;
-            return (
-              <div
-                key={st.step}
-                className={cx(
-                  'py-step',
-                  isDone && 'is-done',
-                  isCurrent && 'is-current',
-                )}
-              >
-                <span className="py-step__num">
-                  {isDone ? <Check size={14} strokeWidth={2.6} /> : st.step}
-                </span>
-                <div className="py-step__body">
-                  <div className="py-step__title">{st.title}</div>
-                  <div className="py-step__desc">{st.desc}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Stage 1: Draft & Live Sync */}
-        {activeRun.status === 'draft' && (
-          <div className="py-stage-panel">
-            <div className="py-stage-panel__info">
-              <div className="py-stage-panel__title">
-                <Sparkles size={17} style={{ color: '#4ade80' }} />
-                Stage 1 · Live Payroll Sync Active for {activeRun.label}
-              </div>
-              <p className="py-stage-panel__sub">
-                Continuously reconciling {activeRun.headcount} active employee comp records, starter pro-rata, unpaid leave deductions, confirmed health/benefit shares,{' '}
-                <b>{settledExpenseCount}</b> Finance-queued Travel & Expense report
-                {settledExpenseCount === 1 ? '' : 's'}, <b>{settledHrClaimCount}</b> HR allowance claim
-                {settledHrClaimCount === 1 ? '' : 's'}, and <b>{settledBonusCount}</b> approved bonus
-                {settledBonusCount === 1 ? '' : 'es'}.
-              </p>
-              <div className="py-sync-tags">
-                <span className="py-vpill py-vpill--pos">HR Base & Allowances Synced</span>
-                <span className="py-vpill py-vpill--info">
-                  T&E Reimbursements: {formatAed(activeRun.totalReimbursementsAed)}
-                </span>
-                <span className="py-vpill py-vpill--pos">
-                  Approved Bonuses: {formatAed(activeRun.totalVariableBonusesAed)}
-                </span>
-              </div>
-            </div>
-
-            <div className="py-stage-panel__actions">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => {
-                  syncActiveRun();
-                  toast.info(`Re-synced ${activeRun.label} with live HR & T&E stores`);
-                }}
-              >
-                <RefreshCw /> Sync Now
-              </button>
-              <button
-                type="button"
-                className="btn py-btn-emerald"
-                disabled={!caps.canRun}
-                title={!caps.canRun ? 'Requires payroll.run or hr.people.manage permission' : undefined}
-                onClick={() => {
-                  const res = submitRunForSignoff(activeRun.period);
-                  toast.result(res, 'Submitted run for four-eyes sign-off');
-                }}
-              >
-                <Send /> Submit for Four-Eyes Sign-Off
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Stage 2: Four-Eyes Counter-Sign */}
-        {activeRun.status === 'pending_signoff' && (
-          <div className="py-stage-panel">
-            <div className="py-stage-panel__info">
-              <div className="py-stage-panel__title">
-                <ShieldCheck size={18} style={{ color: 'var(--warning)' }} />
-                Stage 2 · Awaiting Four-Eyes Counter-Signature
-                {preparerUser && (
-                  <span className="py-actor-pill">
-                    <Avatar user={preparerUser} size={20} />
-                    Prepared by <b>{preparerUser.name}</b>
-                    {activeRun.preparedAt ? ` · ${formatDateTime(activeRun.preparedAt)}` : ''}
-                  </span>
-                )}
-              </div>
-              <p className="py-stage-panel__sub">
-                Verify variance flags, FX spot rates, and net disbursement ({formatAed(activeRun.totalNetAed)}) before unlocking the UAE Central Bank WPS batch file.
-              </p>
-
-              {!counterSignGate.ok ? (
-                <div className="py-sod-banner">
-                  <ShieldAlert />
-                  <div>
-                    <strong>Four-Eyes Separation of Duties:</strong>{' '}
-                    {isSelfPrepared
-                      ? preparerUser?.id === 'u-sara'
-                        ? 'Prepared by you — switch persona to Daniel Okafor (Finance) or Layla Haddad (Admin) to counter-sign this pay run.'
-                        : 'Prepared by you — switch persona to Sara Al Mansoori (People Ops) or Layla Haddad (Admin) to counter-sign this pay run.'
-                      : counterSignGate.reason}
-                  </div>
-                </div>
-              ) : (
-                <div style={{ marginTop: 10, maxWidth: 480 }}>
-                  <input
-                    type="text"
-                    className="input"
-                    style={{ height: 36, fontSize: 13 }}
-                    value={approvalNote}
-                    onChange={(e) => setApprovalNote(e.target.value)}
-                    placeholder="Optional sign-off note (e.g., Verified pro-rata, T&E queue & FX sheet)..."
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="py-stage-panel__actions">
-              {(caps.canRun || caps.canApprove) && (
-                <button
-                  type="button"
-                  className="btn btn--ghost"
-                  onClick={() => {
-                    const res = reopenRunToDraft(activeRun.period);
-                    toast.result(res, 'Reopened to draft');
-                  }}
-                >
-                  <RotateCcw /> Reopen to Draft
-                </button>
-              )}
-              <button
-                type="button"
-                className="btn py-btn-emerald"
-                disabled={!counterSignGate.ok}
-                title={!counterSignGate.ok ? counterSignGate.reason : undefined}
-                onClick={() => {
-                  const res = approvePayRun(activeRun.period, approvalNote);
-                  if (toast.result(res, 'Pay run counter-signed')) {
-                    setApprovalNote('');
-                  }
-                }}
-              >
-                <ShieldCheck /> Counter-Sign & Approve Run
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Stage 3: WPS Bank File Ready */}
-        {activeRun.status === 'approved_ready' && (
-          <div className="py-stage-panel">
-            <div className="py-stage-panel__info">
-              <div className="py-stage-panel__title">
-                <FileCode2 size={18} style={{ color: 'var(--info)' }} />
-                Stage 3 · Four-Eyes Verified — WPS Bank Batch Ready
-              </div>
-              <div className="row row--wrap" style={{ gap: 8, marginTop: 8 }}>
-                {preparerUser && (
-                  <span className="py-actor-pill">
-                    <Avatar user={preparerUser} size={20} />
-                    Prepared: <b>{preparerUser.name}</b>
-                  </span>
-                )}
-                {approverUser && (
-                  <span className="py-actor-pill">
-                    <Avatar user={approverUser} size={20} />
-                    Counter-signed: <b>{approverUser.name}</b>
-                  </span>
-                )}
-                {activeRun.approvalNote && (
-                  <span className="text-xs muted">“{activeRun.approvalNote}”</span>
-                )}
-              </div>
-              <p className="py-stage-panel__sub">
-                Download or inspect the UAE Central Bank <code>.SIF</code> file and Payroll Register <code>.CSV</code>, then release payday to settle salaries, queued T&E reports, HR claims, and bonuses simultaneously.
-              </p>
-            </div>
-
-            <div className="py-stage-panel__actions">
-              {(caps.canRun || caps.canApprove) && (
-                <button
-                  type="button"
-                  className="btn btn--ghost btn--sm"
-                  onClick={() => {
-                    const res = reopenRunToDraft(activeRun.period);
-                    toast.result(res, 'Reopened to draft');
-                  }}
-                >
-                  <RotateCcw /> Reopen to Draft
-                </button>
-              )}
-              <button type="button" className="btn btn--sm" onClick={() => setSifModalOpen(true)}>
-                <FileCode2 /> Preview .SIF
-              </button>
-              <button type="button" className="btn btn--sm" onClick={handleDownloadSif}>
-                <Download /> Download .SIF
-              </button>
-              <button type="button" className="btn btn--sm" onClick={handleDownloadCsv}>
-                <FileSpreadsheet /> Export .CSV
-              </button>
-              <button
-                type="button"
-                className="btn py-btn-emerald"
-                disabled={!disburseGate.ok}
-                title={!disburseGate.ok ? disburseGate.reason : undefined}
-                onClick={() => {
-                  const res = disbursePayRun(activeRun.period);
-                  toast.result(res, 'Payday disbursed!');
-                }}
-              >
-                <Banknote /> Release Payday & Disburse WPS
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Stage 4: Disbursed & Payslips Live */}
-        {activeRun.status === 'paid' && (
-          <div className="py-stage-panel py-stage-panel--paid">
-            <div className="py-stage-panel__info">
-              <div className="py-stage-panel__title">
-                <CheckCircle2 size={19} style={{ color: '#4ade80' }} />
-                Payday Settled · {activeRun.label} Disbursed via UAE WPS
-                {activeRun.wpsBatchRef && (
-                  <span className="badge badge--success mono">{activeRun.wpsBatchRef}</span>
-                )}
-              </div>
-              <div className="row row--wrap" style={{ gap: 8, marginTop: 8 }}>
-                {preparerUser && (
-                  <span className="py-actor-pill">
-                    <Avatar user={preparerUser} size={20} />
-                    Prepared: <b>{preparerUser.name}</b>
-                  </span>
-                )}
-                {approverUser && (
-                  <span className="py-actor-pill">
-                    <Avatar user={approverUser} size={20} />
-                    Signed off: <b>{approverUser.name}</b>
-                  </span>
-                )}
-                {disburserUser && (
-                  <span className="py-actor-pill">
-                    <Avatar user={disburserUser} size={20} />
-                    Released: <b>{disburserUser.name}</b>
-                    {activeRun.disbursedAt ? ` · ${formatDateTime(activeRun.disbursedAt)}` : ''}
-                  </span>
-                )}
-              </div>
-              <p className="py-stage-panel__sub">
-                Settled <b>{formatAed(activeRun.totalNetAed)}</b> net across <b>{activeRun.headcount}</b> employees — including{' '}
-                <b>{settledExpenseCount}</b> T&E claim{settledExpenseCount === 1 ? '' : 's'} +{' '}
-                <b>{settledHrClaimCount}</b> HR allowance{settledHrClaimCount === 1 ? '' : 's'} ({formatAed(activeRun.totalReimbursementsAed)}) and{' '}
-                <b>{settledBonusCount}</b> bonus award{settledBonusCount === 1 ? '' : 's'} ({formatAed(activeRun.totalVariableBonusesAed)}). Official itemised payslips are live in the HR Portal.
-              </p>
-            </div>
-
-            <div className="py-stage-panel__actions">
-              <button type="button" className="btn btn--sm" onClick={() => setSifModalOpen(true)}>
-                <FileCode2 /> WPS .SIF
-              </button>
-              <button type="button" className="btn btn--sm" onClick={handleDownloadCsv}>
-                <Download /> Register .CSV
-              </button>
-              <button
-                type="button"
-                className="btn py-btn-emerald"
-                onClick={() => navigate('/hr/documents?tab=payslips')}
-              >
-                Inspect HR Portal Payslips <ArrowRight />
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* Payroll Breakdown KPI Strip */}
-      <section className="py-kpi-grid" aria-label="Payroll run breakdown">
-        <div className="py-kpi">
-          <div className="py-kpi__label">
-            <span>Headcount Paid</span>
-            <Users />
-          </div>
-          <div className="py-kpi__val">{activeRun.headcount}</div>
-          <div className="py-kpi__foot">{filterCounts.variance} with period variance flags</div>
-        </div>
-
-        <div className="py-kpi">
-          <div className="py-kpi__label">
-            <span>Fixed Salaries & Allowances</span>
-            <Building2 />
-          </div>
-          <div className="py-kpi__val">{formatAed(activeRun.totalFixedAed)}</div>
-          <div className="py-kpi__foot">Basic + Housing + Transport</div>
-        </div>
-
-        <div className="py-kpi">
-          <div className="py-kpi__label">
-            <span>Bonuses & Variable Pay</span>
-            <Award />
-          </div>
-          <div className="py-kpi__val">{formatAed(activeRun.totalVariableBonusesAed)}</div>
-          <div className="py-kpi__foot">
-            {settledBonusCount} award{settledBonusCount === 1 ? '' : 's'} in {activeRun.period}
-          </div>
-        </div>
-
-        <div className="py-kpi">
-          <div className="py-kpi__label">
-            <span>Tax-Free Reimbursements</span>
-            <Receipt />
-          </div>
-          <div className="py-kpi__val">{formatAed(activeRun.totalReimbursementsAed)}</div>
-          <div className="py-kpi__foot">
-            {settledExpenseCount} T&E + {settledHrClaimCount} HR claims
-          </div>
-        </div>
-
-        <div className="py-kpi">
-          <div className="py-kpi__label">
-            <span>Total Deductions</span>
-            <TrendingDown />
-          </div>
-          <div className="py-kpi__val">−{formatAed(activeRun.totalDeductionsAed)}</div>
-          <div className="py-kpi__foot">Pension, benefit share & unpaid leave</div>
-        </div>
-
-        <div className="py-kpi py-kpi--highlight">
-          <div className="py-kpi__label">
-            <span>Total Net Disbursement</span>
-            <Wallet />
-          </div>
-          <div className="py-kpi__val">{formatAed(activeRun.totalNetAed)}</div>
-          <div className="py-kpi__foot">Gross {formatAed(activeRun.totalGrossAed)}</div>
-        </div>
-      </section>
-
-      {/* Filterable Employee Pay Register Table */}
-      <section className="card py-table-card">
-        <div className="py-table-card__head">
-          <div>
-            <h2 className="section-title" style={{ margin: 0 }}>
-              Employee Pay Register · {activeRun.label}
-              <span className="count">{filteredLines.length}</span>
-            </h2>
-            <p className="text-xs muted" style={{ marginTop: 3 }}>
-              Click any employee row to inspect their itemised payslip, linked T&E / bonus references, or apply a one-off adjustment.
-            </p>
-          </div>
-
-          <div className="row row--wrap" style={{ gap: 8 }}>
-            <button type="button" className="btn btn--sm" onClick={() => setSifModalOpen(true)}>
-              <FileCode2 /> WPS .SIF
+      {/* Filterable employee pay register */}
+      <NeoPanel
+        flush
+        className="py-register"
+        hud={`Register · ${activeRun.label}`}
+        title="Employee pay register"
+        actions={
+          <>
+            <span className="neo-count" title="Lines shown">
+              {filteredLines.length}
+            </span>
+            <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={handleDownloadCsv}>
+              <FileSpreadsheet /> CSV
             </button>
-            <button type="button" className="btn btn--sm" onClick={handleDownloadCsv}>
-              <Download /> Export .CSV
-            </button>
-          </div>
-        </div>
-
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}>
-          <div className="py-toolbar" style={{ marginBottom: 0 }}>
-            <div className="py-toolbar__left">
-              <div className="input-wrap py-search">
-                <Search />
-                <input
-                  type="search"
-                  className="input"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search employee, dept, hub, currency..."
-                />
-              </div>
-
-              <div className="chips" style={{ maskImage: 'none', flexWrap: 'wrap' }}>
-                {(
-                  [
-                    { id: 'all', label: 'All', count: filterCounts.all },
-                    { id: 'variance', label: 'Has Variance / Flags', count: filterCounts.variance },
-                    { id: 'bonus', label: 'Has Bonus', count: filterCounts.bonus },
-                    { id: 'reimbursement', label: 'Has Reimbursement', count: filterCounts.reimbursement },
-                  ] as const
-                ).map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={cx('chip', filter === c.id && 'is-active')}
-                    onClick={() => setFilter(c.id)}
-                  >
-                    {c.label}
-                    <span className="count">{c.count}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          </>
+        }
+      >
+        <p className="py-panel-sub">Open any row for the itemised payslip, linked T&E / bonus records and one-off adjustments.</p>
+        <div className="py-toolbar">
+          <NeoSearch
+            size="sm"
+            className="py-toolbar__search"
+            value={search}
+            onChange={setSearch}
+            placeholder="Search employee, dept, hub, currency…"
+            label="Search the pay register"
+          />
+          <NeoTabs
+            value={filter}
+            onChange={setFilter}
+            label="Filter the pay register"
+            items={[
+              { value: 'all', label: 'All', count: filterCounts.all },
+              { value: 'variance', label: 'Flags', count: filterCounts.variance, title: 'Lines with variance or line flags' },
+              { value: 'bonus', label: 'Bonus', count: filterCounts.bonus, title: 'Lines with a bonus award' },
+              { value: 'reimbursement', label: 'Claims', count: filterCounts.reimbursement, title: 'Lines with T&E or HR reimbursements' },
+            ]}
+          />
         </div>
 
         {filteredLines.length === 0 ? (
-          <EmptyState icon={<Search />} title="No matching employee lines">
-            Clear your search or variance filter to see all {activeRun.headcount} employees in {activeRun.label}.
-          </EmptyState>
+          <NeoEmpty compact icon={<Search />} title="No matching employee lines">
+            Clear your search or filter to see all {activeRun.headcount} employees in {activeRun.label}.
+          </NeoEmpty>
         ) : (
-          <div className="py-table-wrap">
-            <table className="py-table">
+          <div className="neo-table-wrap">
+            <table className="neo-table py-table py-table--register">
               <thead>
                 <tr>
                   <th>Employee</th>
-                  <th>Currency / FX</th>
-                  <th className="is-right">Fixed Pay</th>
+                  <th>Currency</th>
+                  <th className="is-right">Fixed</th>
                   <th className="is-right">Bonuses</th>
-                  <th className="is-right">T&E + HR Claims</th>
+                  <th className="is-right">Claims</th>
                   <th className="is-right">Deductions</th>
-                  <th className="is-right">Net Pay (AED & Local)</th>
-                  <th>Bank · IBAN</th>
-                  <th>Variance & Line Flags</th>
+                  <th className="is-right">Net pay</th>
+                  <th>Bank</th>
+                  <th>Flags</th>
                 </tr>
               </thead>
               <tbody>
@@ -735,116 +574,91 @@ export function PayRunView() {
                   const emp = userById.get(line.userId);
                   const fixedAed = line.baseAed + line.housingAed + line.transportAed;
                   const reimbAed = line.expenseReimbursementsAed + line.hrClaimsAed;
+                  const onKey = (e: KeyboardEvent<HTMLTableRowElement>) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      openEmployeeDrawer(line);
+                    }
+                  };
                   return (
                     <tr
                       key={line.userId}
-                      className="py-row-clickable"
+                      className="py-row"
+                      tabIndex={0}
                       onClick={() => openEmployeeDrawer(line)}
+                      onKeyDown={onKey}
+                      aria-label={`Open ${emp?.name ?? line.userId} payslip`}
                     >
                       <td>
-                        <div className="py-emp-cell">
-                          {emp && <Avatar user={emp} size={34} />}
-                          <div className="py-emp-cell__meta">
-                            <div className="py-emp-cell__name">{emp?.name ?? line.userId}</div>
-                            <div className="py-emp-cell__sub">
+                        <div className="py-person">
+                          {emp && <Avatar user={emp} size={32} />}
+                          <div className="py-person__text">
+                            <b>{emp?.name ?? line.userId}</b>
+                            <span>
                               {line.department} · {line.location}
-                            </div>
+                            </span>
                           </div>
                         </div>
                       </td>
-
                       <td>
-                        <span className="tag">{line.localCurrency}</span>
-                        <div className="py-num-sub">
-                          {line.localCurrency === 'AED'
-                            ? '1.0000 PEG'
-                            : `1 ${line.localCurrency} = ${line.fxToAed} AED`}
-                        </div>
+                        <span className="py-ccy">{line.localCurrency}</span>
+                        <div className="py-sub">{line.localCurrency === 'AED' ? '1.0000 peg' : `1 ${line.localCurrency} = ${line.fxToAed} AED`}</div>
                       </td>
-
                       <td className="is-right">
-                        <div className="py-num">{formatAed(fixedAed)}</div>
+                        <div className="py-amt">{formatAed(fixedAed)}</div>
                         {line.proRataFraction < 1 && (
-                          <div className="py-num-sub" style={{ color: 'var(--warning)' }}>
+                          <div className="py-sub" data-tone="warning">
                             {Math.round(line.proRataFraction * 100)}% pro-rata
                           </div>
                         )}
                       </td>
-
                       <td className="is-right">
-                        {line.bonusesAed > 0 ? (
-                          <span className="py-num" style={{ color: 'var(--success)', fontWeight: 600 }}>
-                            +{formatAed(line.bonusesAed)}
-                          </span>
-                        ) : (
-                          <span className="faint mono">—</span>
-                        )}
+                        {line.bonusesAed > 0 ? <span className="py-amt py-amt--plus">+{formatAed(line.bonusesAed)}</span> : <span className="py-nil">—</span>}
                       </td>
-
                       <td className="is-right">
                         {reimbAed > 0 ? (
-                          <div>
-                            <div className="py-num" style={{ color: 'var(--info)', fontWeight: 600 }}>
-                              +{formatAed(reimbAed)}
-                            </div>
-                            <div className="py-num-sub">
+                          <>
+                            <div className="py-amt py-amt--claim">+{formatAed(reimbAed)}</div>
+                            <div className="py-sub">
                               {line.expenseReimbursementsAed > 0 && 'T&E'}
                               {line.expenseReimbursementsAed > 0 && line.hrClaimsAed > 0 && ' + '}
                               {line.hrClaimsAed > 0 && 'HR'}
                             </div>
-                          </div>
+                          </>
                         ) : (
-                          <span className="faint mono">—</span>
+                          <span className="py-nil">—</span>
                         )}
                       </td>
-
                       <td className="is-right">
-                        <div className="py-num muted">−{formatAed(line.totalDeductionsAed)}</div>
+                        <div className="py-amt py-amt--minus">−{formatAed(line.totalDeductionsAed)}</div>
                         {line.unpaidLeaveDays > 0 && (
-                          <div className="py-num-sub" style={{ color: 'var(--danger)' }}>
+                          <div className="py-sub" data-tone="danger">
                             {line.unpaidLeaveDays}d unpaid leave
                           </div>
                         )}
                       </td>
-
                       <td className="is-right">
-                        <div className="py-num py-num--net">{formatAed(line.netAed)}</div>
-                        {line.localCurrency !== 'AED' && (
-                          <div className="py-num-sub">
-                            {formatMoney(line.netLocal, line.localCurrency)}
-                          </div>
-                        )}
+                        <div className="py-amt py-amt--net">{formatAed(line.netAed)}</div>
+                        {line.localCurrency !== 'AED' && <div className="py-sub">{formatMoney(line.netLocal, line.localCurrency)}</div>}
                       </td>
-
                       <td>
-                        <div className="text-xs" style={{ fontWeight: 550 }}>
-                          {line.bankName}
-                        </div>
-                        <div className="py-num-sub">•••• {line.ibanLast4}</div>
+                        <div className="py-bankcell">{line.bankName}</div>
+                        <div className="py-sub">•••• {line.ibanLast4}</div>
                       </td>
-
                       <td>
                         {line.varianceFlags.length === 0 ? (
-                          <span className="py-vpill">Baseline · 0% var</span>
+                          <Chip size="sm" tone="slate">
+                            Baseline · 0% var
+                          </Chip>
                         ) : (
-                          <div className="py-variance-pills">
+                          <div className="py-flags">
                             {line.varianceFlags.map((flag, idx) => {
                               const isNeg = flag.includes('−') || flag.toLowerCase().includes('pro-rata');
                               const isReimb = flag.includes('T&E') || flag.includes('HR allowance');
                               return (
-                                <span
-                                  key={idx}
-                                  className={cx(
-                                    'py-vpill',
-                                    isNeg
-                                      ? 'py-vpill--warn'
-                                      : isReimb
-                                        ? 'py-vpill--info'
-                                        : 'py-vpill--pos',
-                                  )}
-                                >
+                                <Chip key={idx} size="sm" tone={isNeg ? 'warning' : isReimb ? 'cyan' : 'success'}>
                                   {flag}
-                                </span>
+                                </Chip>
                               );
                             })}
                           </div>
@@ -857,27 +671,19 @@ export function PayRunView() {
             </table>
           </div>
         )}
-      </section>
+      </NeoPanel>
 
       {/* WPS .SIF Inspector Modal */}
-      <WpsSifModal
-        open={sifModalOpen}
-        onClose={() => setSifModalOpen(false)}
-        run={activeRun}
-        users={users}
-      />
+      <WpsSifModal open={sifModalOpen} onClose={() => setSifModalOpen(false)} run={activeRun} users={users} />
 
       {/* Employee Payslip & One-Off Line Adjustment Modal */}
       <Modal
         open={Boolean(selectedLine)}
         onClose={() => setSelectedLineUserId(null)}
         width={680}
+        className="py-modal"
         icon={selectedEmp ? <Avatar user={selectedEmp} size={40} /> : <Wallet />}
-        title={
-          selectedEmp
-            ? `${selectedEmp.name} · ${activeRun.label} Payslip`
-            : `Employee Payslip · ${activeRun.label}`
-        }
+        title={selectedEmp ? `${selectedEmp.name} · ${activeRun.label} payslip` : `Employee payslip · ${activeRun.label}`}
         subtitle={
           selectedLine
             ? `${selectedEmp?.employeeId ?? selectedLine.userId} · ${selectedEmp?.title ?? ''} · ${selectedLine.department} (${selectedLine.location})`
@@ -888,7 +694,7 @@ export function PayRunView() {
             {activeRun.status === 'paid' && (
               <button
                 type="button"
-                className="btn btn--ghost"
+                className="neo-btn neo-btn--ghost"
                 onClick={() => {
                   setSelectedLineUserId(null);
                   navigate('/hr/documents?tab=payslips');
@@ -897,177 +703,140 @@ export function PayRunView() {
                 <ExternalLink /> View in HR Portal
               </button>
             )}
-            <button
-              type="button"
-              className="btn py-btn-emerald"
-              onClick={() => setSelectedLineUserId(null)}
-            >
+            <button type="button" className="neo-btn neo-btn--plasma" onClick={() => setSelectedLineUserId(null)}>
               Done
             </button>
           </>
         }
       >
         {selectedLine && (
-          <div className="stack">
-            <div className="py-net-banner">
+          <div className="py-modal__stack">
+            <div className="py-net">
               <div>
-                <div className="text-xs muted mono">NET DISBURSEMENT ({activeRun.payDate})</div>
-                <div
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 24,
-                    fontWeight: 700,
-                    marginTop: 2,
-                  }}
-                >
-                  {formatAed(selectedLine.netAed, 2)}
-                </div>
+                <div className="neo-hud">Net disbursement · value {activeRun.payDate}</div>
+                <div className="py-net__val">{formatAed(selectedLine.netAed, 2)}</div>
                 {selectedLine.localCurrency !== 'AED' && (
-                  <div className="text-xs muted mono">
-                    Local Payout: {formatMoney(selectedLine.netLocal, selectedLine.localCurrency, 2)} (@ {selectedLine.fxToAed} AED/{selectedLine.localCurrency})
+                  <div className="py-net__sub">
+                    Local payout {formatMoney(selectedLine.netLocal, selectedLine.localCurrency, 2)} @ {selectedLine.fxToAed} AED/{selectedLine.localCurrency}
                   </div>
                 )}
               </div>
-
-              <div style={{ textAlign: 'right' }}>
-                <div className="text-xs muted">Disbursement Account</div>
-                <div style={{ fontWeight: 600, fontSize: 13.5 }}>{selectedLine.bankName}</div>
-                <div className="mono text-xs muted">IBAN •••• {selectedLine.ibanLast4}</div>
+              <div className="py-net__bank">
+                <span className="neo-hud">Disbursement account</span>
+                <b>{selectedLine.bankName}</b>
+                <span className="py-net__sub">IBAN •••• {selectedLine.ibanLast4}</span>
               </div>
             </div>
 
-            <div className="py-payslip-grid">
+            <div className="py-slip">
               {/* Earnings Box */}
-              <div className="py-payslip-box">
-                <div className="py-payslip-box__title">Earnings & Reimbursements</div>
-                <div className="py-line-row">
+              <div className="py-box">
+                <div className="neo-hud">Earnings & reimbursements</div>
+                <div className="py-line">
                   <span>
-                    Basic Salary
-                    {selectedLine.proRataFraction < 1
-                      ? ` (${Math.round(selectedLine.proRataFraction * 100)}% pro-rata)`
-                      : ''}
+                    Basic salary
+                    {selectedLine.proRataFraction < 1 ? ` (${Math.round(selectedLine.proRataFraction * 100)}% pro-rata)` : ''}
                   </span>
-                  <span className="py-num">{formatAed(selectedLine.baseAed, 2)}</span>
+                  <span>{formatAed(selectedLine.baseAed, 2)}</span>
                 </div>
-                <div className="py-line-row">
-                  <span>Housing Allowance</span>
-                  <span className="py-num">{formatAed(selectedLine.housingAed, 2)}</span>
+                <div className="py-line">
+                  <span>Housing allowance</span>
+                  <span>{formatAed(selectedLine.housingAed, 2)}</span>
                 </div>
-                <div className="py-line-row">
-                  <span>Transport Allowance</span>
-                  <span className="py-num">{formatAed(selectedLine.transportAed, 2)}</span>
+                <div className="py-line">
+                  <span>Transport allowance</span>
+                  <span>{formatAed(selectedLine.transportAed, 2)}</span>
                 </div>
                 {selectedLine.bonusesAed > 0 && (
-                  <div className="py-line-row" style={{ color: 'var(--success)' }}>
-                    <span>Variable Bonus Awards ({selectedLine.bonusIds.length})</span>
-                    <span className="py-num">+{formatAed(selectedLine.bonusesAed, 2)}</span>
+                  <div className="py-line" data-tone="success">
+                    <span>Variable bonus awards ({selectedLine.bonusIds.length})</span>
+                    <span>+{formatAed(selectedLine.bonusesAed, 2)}</span>
                   </div>
                 )}
                 {selectedLine.expenseReimbursementsAed > 0 && (
-                  <div className="py-line-row" style={{ color: 'var(--info)' }}>
-                    <span>T&E Reimbursements ({selectedLine.expenseReportIds.length})</span>
-                    <span className="py-num">
-                      +{formatAed(selectedLine.expenseReimbursementsAed, 2)}
-                    </span>
+                  <div className="py-line" data-tone="info">
+                    <span>T&E reimbursements ({selectedLine.expenseReportIds.length})</span>
+                    <span>+{formatAed(selectedLine.expenseReimbursementsAed, 2)}</span>
                   </div>
                 )}
                 {selectedLine.hrClaimsAed > 0 && (
-                  <div className="py-line-row" style={{ color: 'var(--info)' }}>
-                    <span>HR Benefit Claims ({selectedLine.hrClaimIds.length})</span>
-                    <span className="py-num">+{formatAed(selectedLine.hrClaimsAed, 2)}</span>
+                  <div className="py-line" data-tone="info">
+                    <span>HR benefit claims ({selectedLine.hrClaimIds.length})</span>
+                    <span>+{formatAed(selectedLine.hrClaimsAed, 2)}</span>
                   </div>
                 )}
                 {selectedLine.manualAdjustmentAed > 0 && (
-                  <div className="py-line-row" style={{ color: 'var(--success)' }}>
-                    <span>One-Off Credit Adjustment</span>
-                    <span className="py-num">
-                      +{formatAed(selectedLine.manualAdjustmentAed, 2)}
-                    </span>
+                  <div className="py-line" data-tone="success">
+                    <span>One-off credit adjustment</span>
+                    <span>+{formatAed(selectedLine.manualAdjustmentAed, 2)}</span>
                   </div>
                 )}
-                <div className="py-line-row py-line-row--total">
-                  <span>Total Gross</span>
-                  <span className="py-num">{formatAed(selectedLine.grossAed, 2)}</span>
+                <div className="py-line py-line--total">
+                  <span>Total gross</span>
+                  <span>{formatAed(selectedLine.grossAed, 2)}</span>
                 </div>
               </div>
 
               {/* Deductions Box */}
-              <div className="py-payslip-box">
-                <div className="py-payslip-box__title">Statutory & Benefit Deductions</div>
-                <div className="py-line-row">
-                  <span>Pension / Social Security</span>
-                  <span className="py-num">−{formatAed(selectedLine.pensionDeductionAed, 2)}</span>
+              <div className="py-box">
+                <div className="neo-hud">Statutory & benefit deductions</div>
+                <div className="py-line">
+                  <span>Pension / social security</span>
+                  <span>−{formatAed(selectedLine.pensionDeductionAed, 2)}</span>
                 </div>
-                <div className="py-line-row">
-                  <span>Health & Dependent Plan Share</span>
-                  <span className="py-num">
-                    −{formatAed(selectedLine.benefitsDeductionAed, 2)}
-                  </span>
+                <div className="py-line">
+                  <span>Health & dependent plan share</span>
+                  <span>−{formatAed(selectedLine.benefitsDeductionAed, 2)}</span>
                 </div>
-                <div className="py-line-row">
-                  <span>
-                    Unpaid Leave
-                    {selectedLine.unpaidLeaveDays > 0
-                      ? ` (${selectedLine.unpaidLeaveDays}d)`
-                      : ' (0d)'}
-                  </span>
-                  <span className="py-num">
-                    −{formatAed(selectedLine.unpaidLeaveDeductionAed, 2)}
-                  </span>
+                <div className="py-line">
+                  <span>Unpaid leave ({selectedLine.unpaidLeaveDays}d)</span>
+                  <span>−{formatAed(selectedLine.unpaidLeaveDeductionAed, 2)}</span>
                 </div>
                 {selectedLine.manualAdjustmentAed < 0 && (
-                  <div className="py-line-row" style={{ color: 'var(--danger)' }}>
-                    <span>One-Off Debit Adjustment</span>
-                    <span className="py-num">
-                      −{formatAed(Math.abs(selectedLine.manualAdjustmentAed), 2)}
-                    </span>
+                  <div className="py-line" data-tone="danger">
+                    <span>One-off debit adjustment</span>
+                    <span>−{formatAed(Math.abs(selectedLine.manualAdjustmentAed), 2)}</span>
                   </div>
                 )}
-                <div className="py-line-row py-line-row--total">
-                  <span>Total Deductions</span>
-                  <span className="py-num">
-                    −{formatAed(selectedLine.totalDeductionsAed, 2)}
-                  </span>
+                <div className="py-line py-line--total">
+                  <span>Total deductions</span>
+                  <span>−{formatAed(selectedLine.totalDeductionsAed, 2)}</span>
                 </div>
               </div>
             </div>
 
             {/* Linked Source Items (Expenses, Bonuses, HR Claims) */}
-            {(linkedBonuses.length > 0 ||
-              linkedExpenses.length > 0 ||
-              linkedHrClaims.length > 0) && (
-              <div className="py-payslip-box">
-                <div className="py-payslip-box__title">Linked Source Records in This Run</div>
-                <div className="stack stack--sm">
+            {(linkedBonuses.length > 0 || linkedExpenses.length > 0 || linkedHrClaims.length > 0) && (
+              <div className="py-box">
+                <div className="neo-hud">Linked source records in this run</div>
+                <div className="py-refs">
                   {linkedBonuses.map((b) => (
-                    <div key={b.id} className="row row--between text-xs">
-                      <span>
-                        <span className="tag">{b.reference}</span> <b>{b.title}</b>
+                    <div key={b.id} className="py-ref">
+                      <span className="py-ref__l">
+                        <span className="py-ref__tag">{b.reference}</span>
+                        <b>{b.title}</b>
                       </span>
-                      <span className="mono" style={{ color: 'var(--success)' }}>
-                        +{formatAed(b.amountAed)}
-                      </span>
+                      <span className="py-amt py-amt--plus">+{formatAed(b.amountAed)}</span>
                     </div>
                   ))}
                   {linkedExpenses.map((r) => (
-                    <div key={r.id} className="row row--between text-xs">
-                      <span>
-                        <span className="tag">{r.reference}</span> <b>{r.title}</b> ({r.costCenter})
+                    <div key={r.id} className="py-ref">
+                      <span className="py-ref__l">
+                        <span className="py-ref__tag">{r.reference}</span>
+                        <b>{r.title}</b>
+                        <span className="py-ref__dim">{r.costCenter}</span>
                       </span>
-                      <span className="mono" style={{ color: 'var(--info)' }}>
-                        +{formatAed(r.reimbursableAed)}
-                      </span>
+                      <span className="py-amt py-amt--claim">+{formatAed(r.reimbursableAed)}</span>
                     </div>
                   ))}
                   {linkedHrClaims.map((cl) => (
-                    <div key={cl.id} className="row row--between text-xs">
-                      <span>
-                        <span className="tag">HR CLAIM</span>{' '}
-                        <b>{ALLOWANCE_LABELS[cl.allowance]}</b> · {cl.merchant}
+                    <div key={cl.id} className="py-ref">
+                      <span className="py-ref__l">
+                        <span className="py-ref__tag">HR claim</span>
+                        <b>{ALLOWANCE_LABELS[cl.allowance]}</b>
+                        <span className="py-ref__dim">{cl.merchant}</span>
                       </span>
-                      <span className="mono" style={{ color: 'var(--info)' }}>
-                        +{formatAed(cl.amount)}
-                      </span>
+                      <span className="py-amt py-amt--claim">+{formatAed(cl.amount)}</span>
                     </div>
                   ))}
                 </div>
@@ -1076,59 +845,53 @@ export function PayRunView() {
 
             {/* Inline One-Off Payroll Adjustment Form */}
             {canEditAdjustment ? (
-              <form className="py-payslip-box stack stack--sm" onSubmit={handleSaveAdjustment}>
-                <div className="row row--between">
-                  <div className="py-payslip-box__title" style={{ marginBottom: 0 }}>
-                    <SlidersHorizontal size={12} style={{ verticalAlign: '-2px', marginRight: 5 }} />
-                    One-Off Payroll Adjustment ({activeRun.period})
-                  </div>
+              <form className="py-box py-adjust" onSubmit={handleSaveAdjustment}>
+                <div className="py-adjust__head">
+                  <span className="neo-hud">
+                    <SlidersHorizontal /> One-off adjustment · {activeRun.period}
+                  </span>
                   {selectedLine.manualAdjustmentAed !== 0 && (
-                    <button
-                      type="button"
-                      className="btn btn--ghost btn--sm"
-                      onClick={handleClearAdjustment}
-                    >
-                      Clear Adjustment
+                    <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={handleClearAdjustment}>
+                      Clear
                     </button>
                   )}
                 </div>
                 <div className="py-form-grid">
-                  <label className="field">
-                    <span className="field-label">Amount AED (+ credit / − deduction)</span>
+                  <label className="neo-field">
+                    <span className="neo-label">Amount AED (+ credit / − deduction)</span>
                     <input
                       type="number"
                       step="50"
-                      className="input mono"
+                      className="neo-input neo-input--sm neo-mono"
                       value={adjAmount}
                       onChange={(e) => setAdjAmount(e.target.value)}
                       placeholder="e.g. 1500 or -500"
                     />
                   </label>
-                  <label className="field">
-                    <span className="field-label">Audit Reason</span>
+                  <label className="neo-field">
+                    <span className="neo-label">Audit reason</span>
                     <input
                       type="text"
-                      className="input"
+                      className="neo-input neo-input--sm"
                       value={adjNote}
                       onChange={(e) => setAdjNote(e.target.value)}
                       placeholder="e.g. On-call holiday stipend or retro adjustment"
                     />
                   </label>
                 </div>
-                <div className="row" style={{ justifyContent: 'flex-end' }}>
-                  <button type="submit" className="btn btn--sm py-btn-emerald">
-                    Apply Line Adjustment
+                <div className="py-actions py-actions--end">
+                  <button type="submit" className="neo-btn neo-btn--soft neo-btn--sm">
+                    <Check /> Apply adjustment
                   </button>
                 </div>
               </form>
             ) : (
               selectedLine.manualAdjustmentNote && (
-                <div className="py-sod-banner">
+                <div className="py-note" data-tone="warning">
                   <AlertTriangle />
-                  <div>
-                    <strong>Manual Adjustment ({formatAed(selectedLine.manualAdjustmentAed)}):</strong>{' '}
-                    {selectedLine.manualAdjustmentNote}
-                  </div>
+                  <span>
+                    <b>Manual adjustment ({formatAed(selectedLine.manualAdjustmentAed)}):</b> {selectedLine.manualAdjustmentNote}
+                  </span>
                 </div>
               )
             )}
@@ -1136,5 +899,327 @@ export function PayRunView() {
         )}
       </Modal>
     </div>
+  );
+}
+
+/* ==========================================================================
+   Building blocks
+   ========================================================================== */
+
+function StageCard({
+  tone,
+  icon,
+  hud,
+  title,
+  badge,
+  actions,
+  children,
+}: {
+  tone: Tone;
+  icon: ReactNode;
+  hud: string;
+  title: string;
+  badge?: ReactNode;
+  actions?: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="py-stage" data-tone={tone}>
+      <span className="py-stage__icon" aria-hidden="true">
+        {icon}
+      </span>
+      <div className="py-stage__body">
+        <div className="py-stage__hud">{hud}</div>
+        <h3 className="py-stage__title">
+          {title}
+          {badge}
+        </h3>
+        {children}
+      </div>
+      {actions && <div className="py-stage__actions">{actions}</div>}
+    </div>
+  );
+}
+
+/** Gross → net: earnings stack vs. what actually reaches employees, plus component tiles. */
+function CompositionPanel({ run, prevRun, b }: { run: PayrollRun; prevRun?: PayrollRun; b: Breakdown }) {
+  const gross = run.totalGrossAed;
+  const delta = prevRun ? run.totalNetAed - prevRun.totalNetAed : 0;
+  const deltaPct = prevRun && prevRun.totalNetAed > 0 ? (delta / prevRun.totalNetAed) * 100 : 0;
+
+  const parts: Array<{ key: string; label: string; tone: Tone; value: number; sub: string; to?: string }> = [
+    { key: 'fixed', label: 'Fixed pay', tone: 'app', value: run.totalFixedAed, sub: 'Basic + housing + transport' },
+    { key: 'bonus', label: 'Bonuses', tone: 'amber', value: run.totalVariableBonusesAed, sub: pluralize(b.bonusCount, 'award'), to: '/payroll/bonuses' },
+    {
+      key: 'reimb',
+      label: 'Reimbursements',
+      tone: 'cyan',
+      value: run.totalReimbursementsAed,
+      sub: `${b.expenseCount} T&E · ${b.hrClaimCount} HR`,
+      to: '/payroll/reimbursements',
+    },
+    { key: 'credit', label: 'Credits', tone: 'violet', value: b.adjustmentsAed, sub: 'One-off adjustments' },
+  ];
+  const shown = parts.filter((p) => p.key === 'fixed' || p.value > 0);
+  const deductionBits = [
+    b.pensionAed > 0 && `pension ${compactAed(b.pensionAed)}`,
+    b.benefitsAed > 0 && `benefits ${compactAed(b.benefitsAed)}`,
+    b.leaveAed > 0 && `leave ${compactAed(b.leaveAed)}`,
+    b.debitsAed > 0 && `debits ${compactAed(b.debitsAed)}`,
+  ].filter(Boolean);
+
+  return (
+    <NeoPanel
+      hud="Gross → net"
+      title="Where the money goes"
+      actions={
+        prevRun ? (
+          <Chip
+            size="sm"
+            tone="slate"
+            icon={delta >= 0 ? <TrendingUp /> : <TrendingDown />}
+            title={`Net ${delta >= 0 ? '+' : '−'}${formatAed(Math.abs(delta))} vs ${prevRun.label}`}
+          >
+            {delta >= 0 ? '+' : '−'}
+            {Math.abs(deltaPct).toFixed(1)}% vs {shortPeriodLabel(prevRun.period).split(' ')[0]}
+          </Chip>
+        ) : undefined
+      }
+    >
+      <div className="py-flow">
+        <div className="py-flow__row">
+          <span className="neo-hud">Gross</span>
+          <div className="py-seg py-seg--lg" role="img" aria-label={shown.map((p) => `${p.label} ${formatAed(p.value)}`).join(', ')}>
+            {shown.map((p) => (
+              <i key={p.key} data-tone={p.tone} style={{ flexGrow: Math.max(p.value, gross * 0.004) }} title={`${p.label}: ${formatAed(p.value)}`} />
+            ))}
+          </div>
+          <b className="py-flow__val">{formatAed(gross)}</b>
+        </div>
+        <div className="py-flow__row">
+          <span className="neo-hud">Net</span>
+          <div className="py-seg py-seg--lg" role="img" aria-label={`Net ${formatAed(run.totalNetAed)}, deductions ${formatAed(run.totalDeductionsAed)}`}>
+            <i data-tone="app" style={{ flexGrow: run.totalNetAed }} title={`Net: ${formatAed(run.totalNetAed)}`} />
+            {run.totalDeductionsAed > 0 && (
+              <i className="py-seg__cut" style={{ flexGrow: Math.max(run.totalDeductionsAed, gross * 0.004) }} title={`Deductions: ${formatAed(run.totalDeductionsAed)}`} />
+            )}
+          </div>
+          <b className="py-flow__val">{formatAed(run.totalNetAed)}</b>
+        </div>
+      </div>
+      <div className="py-tiles">
+        {shown.map((p) => {
+          const body = (
+            <>
+              <span className="py-tile__label">
+                <i className="py-dot" data-tone={p.tone} aria-hidden="true" />
+                {p.label}
+                {p.to && <ArrowRight className="py-tile__go" aria-hidden="true" />}
+              </span>
+              <b className="py-tile__val">{formatAed(p.value)}</b>
+              <span className="py-tile__sub">
+                {p.sub} · {pct(p.value, gross).toFixed(1)}%
+              </span>
+            </>
+          );
+          return p.to ? (
+            <Link key={p.key} to={p.to} className="py-tile py-tile--link">
+              {body}
+            </Link>
+          ) : (
+            <div key={p.key} className="py-tile">
+              {body}
+            </div>
+          );
+        })}
+        <div className="py-tile">
+          <span className="py-tile__label">
+            <i className="py-dot py-dot--cut" aria-hidden="true" />
+            Deductions
+          </span>
+          <b className="py-tile__val py-tile__val--minus">−{formatAed(run.totalDeductionsAed)}</b>
+          <span className="py-tile__sub">{deductionBits.length ? deductionBits.join(' · ') : 'None this period'}</span>
+        </div>
+      </div>
+    </NeoPanel>
+  );
+}
+
+/** Four-eyes audit trail: prepared → counter-signed → released. */
+function TrailPanel({ run, preparer, approver, disburser }: { run: PayrollRun; preparer?: User; approver?: User; disburser?: User }) {
+  const s = run.status;
+  const meta = RUN_STATUS_META[s];
+  const signed = s === 'approved_ready' || s === 'paid';
+  const items: Array<{
+    key: string;
+    icon: ReactNode;
+    title: string;
+    state: StepState;
+    who?: User;
+    at?: number;
+    note?: string;
+    ref?: string;
+    wait: string;
+  }> = [
+    {
+      key: 'prepared',
+      icon: <Send />,
+      title: 'Prepared & submitted',
+      state: s === 'draft' ? 'active' : 'done',
+      who: s === 'draft' ? undefined : preparer,
+      at: s === 'draft' ? undefined : run.preparedAt,
+      wait: s === 'draft' ? 'The preparer submits the synced draft for sign-off.' : 'Submitted for sign-off.',
+    },
+    {
+      key: 'signed',
+      icon: <ShieldCheck />,
+      title: 'Counter-signed',
+      state: signed ? 'done' : s === 'pending_signoff' ? 'active' : 'todo',
+      who: signed ? approver : undefined,
+      at: signed ? run.approvedAt : undefined,
+      note: signed ? run.approvalNote : undefined,
+      wait: signed ? 'Counter-signed.' : s === 'pending_signoff' ? 'Needs a second Payroll approver — never the preparer.' : 'Unlocks once the run is submitted.',
+    },
+    {
+      key: 'released',
+      icon: <Banknote />,
+      title: 'Released to bank',
+      state: s === 'paid' ? 'done' : s === 'approved_ready' ? 'active' : 'todo',
+      who: s === 'paid' ? disburser : undefined,
+      at: s === 'paid' ? run.disbursedAt : undefined,
+      ref: s === 'paid' ? run.wpsBatchRef : undefined,
+      wait: s === 'paid' ? 'Released.' : s === 'approved_ready' ? 'WPS batch is ready — release payday to settle.' : 'Unlocks after four-eyes sign-off.',
+    },
+  ];
+
+  return (
+    <NeoPanel
+      hud="Audit trail"
+      title="Four-eyes sign-off"
+      actions={
+        <Chip size="sm" tone={meta.tone}>
+          {meta.label}
+        </Chip>
+      }
+    >
+      <ol className="py-trail">
+        {items.map((it) => (
+          <li key={it.key} className="py-trail__item" data-state={it.state}>
+            <span className="py-trail__dot" aria-hidden="true">
+              {it.state === 'done' ? <Check strokeWidth={2.6} /> : it.icon}
+            </span>
+            <div className="py-trail__body">
+              <div className="py-trail__head">
+                <b>{it.title}</b>
+                {it.at ? (
+                  <span className="py-trail__time" title={formatDateTime(it.at)}>
+                    {relativeTime(it.at)}
+                  </span>
+                ) : null}
+              </div>
+              {it.who ? (
+                <div className="py-trail__who">
+                  <Avatar user={it.who} size={22} />
+                  <span className="truncate">
+                    <b>{it.who.name}</b> · {it.who.title}
+                  </span>
+                </div>
+              ) : (
+                <div className="py-trail__wait">{it.wait}</div>
+              )}
+              {it.note && <blockquote className="py-quote">“{it.note}”</blockquote>}
+              {it.ref && (
+                <span className="neo-chip neo-chip--sm py-mono-chip" data-tone="success">
+                  {it.ref}
+                </span>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </NeoPanel>
+  );
+}
+
+/** WPS bank file: SIF facts, routing banks and payout currencies for the selected run. */
+function BankFilePanel({
+  run,
+  b,
+  onInspect,
+  onDownloadSif,
+  onDownloadCsv,
+}: {
+  run: PayrollRun;
+  b: Breakdown;
+  onInspect: () => void;
+  onDownloadSif: () => void;
+  onDownloadCsv: () => void;
+}) {
+  const top = b.banks.slice(0, 4);
+  const rest = b.banks.slice(4);
+  const restCount = rest.reduce((s, x) => s + x.count, 0);
+  return (
+    <NeoPanel
+      hud="UAE WPS"
+      title="Bank file"
+      actions={
+        <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={onInspect}>
+          Inspect <ArrowRight />
+        </button>
+      }
+    >
+      <div className="py-minis">
+        <div className="py-mini">
+          <span className="neo-hud">EDR records</span>
+          <b className="py-mini__val">{run.headcount}</b>
+        </div>
+        <div className="py-mini">
+          <span className="neo-hud">Control total</span>
+          <b className="py-mini__val">{compactAed(run.totalNetAed)}</b>
+        </div>
+        <div className="py-mini">
+          <span className="neo-hud">Value date</span>
+          <b className="py-mini__val py-mini__val--mono">{run.payDate}</b>
+        </div>
+      </div>
+
+      <div className="neo-hud py-sect">Routing banks</div>
+      <ul className="py-banks">
+        {top.map((bank) => (
+          <li key={bank.name}>
+            <div className="py-bank__head">
+              <b className="truncate">{bank.name}</b>
+              <span>
+                {bank.count} · {compactAed(bank.netAed)}
+              </span>
+            </div>
+            <Bar value={bank.netAed / Math.max(1, run.totalNetAed)} label={`${bank.name} share of net pay`} />
+          </li>
+        ))}
+        {restCount > 0 && (
+          <li className="py-bank__more">
+            + {pluralize(restCount, 'employee')} across {pluralize(rest.length, 'more bank')}
+          </li>
+        )}
+      </ul>
+
+      <div className="neo-hud py-sect">Payout currencies</div>
+      <div className="py-chips">
+        {b.currencies.map((c) => (
+          <Chip key={c.code} size="sm" tone={c.code === 'AED' ? 'app' : 'slate'}>
+            {c.code} · {c.count}
+          </Chip>
+        ))}
+      </div>
+
+      <div className="py-actions">
+        <button type="button" className="neo-btn neo-btn--soft neo-btn--sm" onClick={onDownloadSif}>
+          <Download /> .SIF
+        </button>
+        <button type="button" className="neo-btn neo-btn--ghost neo-btn--sm" onClick={onDownloadCsv}>
+          <FileSpreadsheet /> Register .CSV
+        </button>
+      </div>
+    </NeoPanel>
   );
 }

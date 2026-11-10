@@ -1,639 +1,1334 @@
 /**
- * Helix Projects store — every mutation re-checks the viewer's project role,
- * writes task activity, fans out hub notifications (kind `work`) and runs the
- * project's no-code automation rules, exactly like an API would.
+ * Helix Projects store — behaves like an API: every action validates input,
+ * re-checks permissions for the acting user, writes audit entries for
+ * security-relevant changes, notifies affected people (Hub bell + in-app
+ * Inbox) with deep links, and fires project automations.
+ *
+ * Actions accept an optional `as` actor (bridge calls pass the viewer);
+ * otherwise the signed-in Hub user acts.
  */
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { ActionResult, HubNotification, User } from '@/types';
-import { uid } from '@/lib/id';
+import type { User } from '@/types';
 import { useHub } from '@/store/hub';
-import { addDaysISO, todayISO } from '@/hr/calendar';
-import * as access from './access';
-import { PROJECTS_DATA_VERSION, TEMPLATE_BY_ID } from './constants';
-import { instantiateTemplate, isDone, nextRecurrence, slugKey, sprintStats, wouldCreateCycle } from './engine';
-import { createProjectsSeed } from './seed';
+import { effectivePermissions } from '@/lib/rbac';
+import { currentViewer, loadBridge } from '@/lib/appBridge';
+import { uid } from '@/lib/id';
+import { toast } from '@/store/toast';
+import {
+  type Actor,
+  actorFrom,
+  canAdminProject,
+  canCommentTask,
+  canCompleteTask,
+  canCreateProject,
+  canDecideApproval,
+  canDeleteTask,
+  canEditProject,
+  canEditTask,
+  canSeeTask,
+  canViewProject,
+  isProjectsAdmin,
+  memberRole,
+} from './access';
+import { type AutoEvent, ruleMatches } from './automation';
+import { addDays, formatDue, isIsoDate, todayIso } from './dates';
+import { wouldCreateCycle } from './graph';
+import { taskKey } from './metrics';
+import { PRIORITY_NAME, resolveUser } from './nlp';
+import { PROJECTS_DATA_VERSION, createProjectsSeed } from './seed';
+import { TEMPLATES, type TemplateId } from './templates';
 import type {
-  AutomationRule,
-  Goal,
-  IntakeForm,
-  MyTasksBucket,
+  ApprovalState,
+  Attachment,
+  InboxItem,
+  InboxKind,
+  PlanSlot,
   Portfolio,
+  Priority,
+  Privacy,
   Project,
-  ProjectHealth,
   ProjectRole,
+  ProjectStatus,
   ProjectsData,
-  ProjectsUserState,
-  RuleTrigger,
-  Sprint,
+  Result,
+  Rule,
+  Section,
+  SectionStage,
   StatusUpdate,
   Task,
-  TaskAttachment,
-  TaskPriority,
-  TaskStatus,
-  TaskType,
+  TaskKind,
+  TaskSource,
+  UserState,
+  ViewId,
 } from './types';
+
+/* ───────────────────────── inputs ───────────────────────── */
+
+export interface NewTaskInput {
+  title: string;
+  projectId?: string | null;
+  sectionId?: string | null;
+  assigneeId?: string | null;
+  dueDate?: string;
+  dueTime?: string;
+  startDate?: string;
+  priority?: Priority;
+  tags?: string[];
+  estimate?: number;
+  description?: string;
+  kind?: TaskKind;
+  approverId?: string;
+  blockedBy?: string[];
+  source?: TaskSource;
+  /** Insert position inside the section (default: end). */
+  index?: number;
+}
+
+export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'assigneeId' | 'startDate' | 'dueDate' | 'dueTime' | 'priority' | 'estimate' | 'tags' | 'kind'>>;
 
 export interface NewProjectInput {
   name: string;
-  description?: string;
-  department?: Project['department'];
-  privacy: Project['privacy'];
-  color?: string;
-  icon?: string;
-  startDate?: string;
-  dueDate?: string;
-  templateId?: string;
-  memberIds?: string[];
   key?: string;
-  defaultView?: Project['defaultView'];
-}
-
-export interface NewTaskInput {
-  projectId: string;
-  sectionId?: string;
-  title: string;
-  description?: string;
-  type?: TaskType;
-  priority?: TaskPriority;
-  assigneeId?: string;
-  dueDate?: string;
+  icon: string;
+  color: string;
+  department: Project['department'];
+  privacy: Privacy;
+  template: TemplateId;
+  members: { userId: string; role: ProjectRole }[];
   startDate?: string;
-  estimateHours?: number;
-  storyPoints?: number;
-  tags?: string[];
-  sprintId?: string;
-  approverId?: string;
-  collaboratorIds?: string[];
-  customFieldValues?: Record<string, string | number>;
+  dueDate?: string;
+  brief?: string;
 }
 
-export type TaskPatch = Partial<
-  Pick<Task, 'title' | 'description' | 'type' | 'status' | 'priority' | 'assigneeId' | 'dueDate' | 'startDate' | 'estimateHours' | 'storyPoints' | 'tags' | 'customFieldValues' | 'sectionId' | 'sprintId' | 'recurring' | 'collaboratorIds'>
->;
+export interface DeletedTasks {
+  tasks: Task[];
+  /** taskId → ids of tasks that were blocked by it */
+  refs: Record<string, string[]>;
+}
 
-export type Result<T extends object = Record<never, never>> = ActionResult & Partial<T>;
+export interface DeletedProject {
+  project: Project;
+  tasks: Task[];
+  rules: Rule[];
+  updates: StatusUpdate[];
+  portfolios: { id: string; index: number }[];
+}
+
+type Ok<T extends object = object> = Result<T>;
+const ok = <T extends object>(v: T = {} as T): Ok<T> => ({ ok: true, ...v });
+const fail = (error: string): { ok: false; error: string } => ({ ok: false, error });
+
+/* ───────────────────────── helpers ───────────────────────── */
+
+const DEFAULT_USER_STATE: UserState = { starred: [], lastView: {}, sideCollapsed: false, browseMode: 'gallery' };
+const PRIORITIES: Priority[] = ['urgent', 'high', 'medium', 'low', 'none'];
+const STATUSES: ProjectStatus[] = ['on-track', 'at-risk', 'off-track', 'on-hold', 'complete'];
+const ROLES: ProjectRole[] = ['owner', 'editor', 'commenter', 'viewer'];
+const isBrowser = typeof window !== 'undefined';
+
+function hubUsers(): User[] {
+  return useHub.getState().users;
+}
+function userName(id: string | null | undefined): string {
+  if (!id) return 'Unassigned';
+  if (id === 'automation') return 'Automation';
+  return hubUsers().find((u) => u.id === id)?.name ?? 'Someone';
+}
+const firstOf = (id: string | null | undefined) => userName(id).split(' ')[0];
+
+export function sessionActor(): Actor | null {
+  const v = currentViewer();
+  return v ? actorFrom(v.user, v.perms) : null;
+}
+
+/** Actor for any directory user (used to check what a recipient may see). */
+function actorForUser(userId: string): Actor | null {
+  const s = useHub.getState();
+  const u = s.users.find((x) => x.id === userId);
+  if (!u || !u.active) return null;
+  return actorFrom(u, effectivePermissions(u, s.roles));
+}
+
+export function taskLink(t: Pick<Task, 'id' | 'projectId'>): string {
+  return t.projectId ? `/projects/p/${t.projectId}?task=${t.id}` : `/projects?task=${t.id}`;
+}
+
+function audit(action: string, target: string, detail: string, outcome: 'success' | 'denied', severity: 'info' | 'warning' | 'critical', actorId?: string) {
+  useHub.getState().logAudit({ action, target, detail, outcome, severity, actorId });
+}
+
+const cleanTags = (tags: string[]) => [...new Set(tags.map((t) => t.trim().toLowerCase().replace(/^[#+]/, '').replace(/\s+/g, '-')).filter(Boolean))].slice(0, 12);
+
+function parseMentions(body: string): string[] {
+  const users = hubUsers().filter((u) => u.active);
+  const ids = new Set<string>();
+  const re = /(?<=^|[\s(])@([\p{L}][\p{L}.'-]*)/gu;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body))) {
+    const u = resolveUser(m[1], users);
+    if (u) ids.add(u.id);
+  }
+  return [...ids];
+}
+
+function suggestKey(name: string, taken: Set<string>): string {
+  const words = name
+    .toUpperCase()
+    .replace(/[^A-Z0-9 ]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  let base = words.length > 1 ? words.map((w) => w[0]).join('').slice(0, 5) : (words[0] ?? 'PRJ').slice(0, 5);
+  if (base.length < 2) base = (words.join('') + 'PRJ').slice(0, 4);
+  let key = base;
+  for (let i = 2; taken.has(key); i++) key = `${base}${i}`;
+  return key;
+}
+export { suggestKey };
+
+/* ───────────────────────── state ───────────────────────── */
 
 export interface ProjectsActions {
   // projects
-  createProject(input: NewProjectInput): Result<{ projectId: string }>;
-  updateProject(projectId: string, patch: Partial<Pick<Project, 'name' | 'description' | 'color' | 'icon' | 'privacy' | 'startDate' | 'dueDate' | 'defaultView' | 'health' | 'customFields' | 'links'>>): ActionResult;
-  archiveProject(projectId: string, archived: boolean): ActionResult;
-  addMember(projectId: string, userId: string, role: ProjectRole): ActionResult;
-  updateMemberRole(projectId: string, userId: string, role: ProjectRole): ActionResult;
-  removeMember(projectId: string, userId: string): ActionResult;
-  addSection(projectId: string, name: string, wipLimit?: number): Result<{ sectionId: string }>;
-  updateSection(projectId: string, sectionId: string, patch: { name?: string; wipLimit?: number | null }): ActionResult;
-  deleteSection(projectId: string, sectionId: string): ActionResult;
-  reorderSections(projectId: string, sectionIds: string[]): ActionResult;
-  toggleStarProject(projectId: string): ActionResult;
-  recordProjectVisit(projectId: string): void;
+  createProject(input: NewProjectInput, as?: Actor): Ok<{ projectId: string }>;
+  updateProject(id: string, patch: Partial<Pick<Project, 'name' | 'icon' | 'color' | 'brief' | 'startDate' | 'dueDate' | 'priority' | 'channelId' | 'department'>>, as?: Actor): Ok;
+  setProjectStatus(id: string, status: ProjectStatus, as?: Actor): Ok;
+  setPrivacy(id: string, privacy: Privacy, as?: Actor): Ok;
+  setMemberRole(id: string, userId: string, role: ProjectRole | null, as?: Actor): Ok;
+  addMembers(id: string, userIds: string[], role: ProjectRole, as?: Actor): Ok<{ added: number }>;
+  archiveProject(id: string, archived: boolean, as?: Actor): Ok;
+  deleteProject(id: string, as?: Actor): Ok<{ snapshot: DeletedProject }>;
+  restoreProject(snapshot: DeletedProject): void;
+  duplicateProject(id: string, as?: Actor): Ok<{ projectId: string }>;
+  addSection(projectId: string, name: string, as?: Actor): Ok<{ sectionId: string }>;
+  updateSection(projectId: string, sectionId: string, patch: Partial<Pick<Section, 'name' | 'wip' | 'stage'>>, as?: Actor): Ok;
+  moveSection(projectId: string, sectionId: string, toIndex: number, as?: Actor): Ok;
+  deleteSection(projectId: string, sectionId: string, as?: Actor): Ok;
+  postStatusUpdate(projectId: string, input: { status: ProjectStatus; title: string; body: string; byNova?: boolean }, as?: Actor): Ok<{ updateId: string }>;
+  linkKeyResults(projectId: string, keyResultIds: string[], as?: Actor): Ok;
+  addProjectAttachment(projectId: string, att: Omit<Attachment, 'id' | 'addedBy' | 'at'>, as?: Actor): Ok;
+  removeProjectAttachment(projectId: string, attId: string, as?: Actor): Ok;
+  // per-user
+  toggleStar(projectId: string): void;
+  setLastView(projectId: string, view: ViewId): void;
+  setSideCollapsed(v: boolean): void;
+  setBrowseMode(m: UserState['browseMode']): void;
+  savePlan(slots: PlanSlot[], accepted: boolean): void;
+  clearPlan(): void;
   // tasks
-  createTask(input: NewTaskInput): Result<{ taskId: string }>;
-  updateTask(taskId: string, patch: TaskPatch): ActionResult;
-  moveTask(taskId: string, sectionId: string, index?: number): ActionResult;
-  completeTask(taskId: string, done: boolean): ActionResult;
-  deleteTask(taskId: string): ActionResult;
-  addSubtask(taskId: string, title: string, assigneeId?: string, dueDate?: string): ActionResult;
-  toggleSubtask(taskId: string, subtaskId: string): ActionResult;
-  removeSubtask(taskId: string, subtaskId: string): ActionResult;
-  addComment(taskId: string, body: string, mentions?: string[]): ActionResult;
-  toggleReaction(taskId: string, commentId: string, emoji: string): ActionResult;
-  toggleLike(taskId: string): ActionResult;
-  toggleFollow(taskId: string): ActionResult;
-  addAttachment(taskId: string, att: Pick<TaskAttachment, 'kind' | 'driveFileId' | 'wikiSlug' | 'url' | 'title'>): ActionResult;
-  removeAttachment(taskId: string, attachmentId: string): ActionResult;
-  setDependency(taskId: string, dependsOnId: string, add: boolean): ActionResult;
-  decideApproval(taskId: string, decision: 'approved' | 'changes_requested' | 'rejected', note?: string): ActionResult;
-  logTime(taskId: string, hours: number): ActionResult;
-  setMyTaskBucket(taskId: string, bucket: MyTasksBucket | null): void;
-  // status, portfolios, goals
-  postStatusUpdate(projectId: string, draft: Omit<StatusUpdate, 'id' | 'projectId' | 'authorId' | 'at'>): ActionResult;
-  createPortfolio(input: Pick<Portfolio, 'name' | 'description' | 'color'> & { projectIds?: string[] }): Result<{ portfolioId: string }>;
-  setPortfolioProjects(portfolioId: string, projectIds: string[]): ActionResult;
-  deletePortfolio(portfolioId: string): ActionResult;
-  createGoal(input: Pick<Goal, 'title' | 'description' | 'level' | 'department' | 'parentId' | 'projectIds' | 'metric' | 'targetDate'>): Result<{ goalId: string }>;
-  updateGoal(goalId: string, patch: Partial<Pick<Goal, 'title' | 'description' | 'projectIds' | 'metric' | 'manualProgress' | 'status' | 'targetDate' | 'parentId'>>): ActionResult;
-  // sprints
-  createSprint(projectId: string, input: Pick<Sprint, 'name' | 'goal' | 'startDate' | 'endDate'>): Result<{ sprintId: string }>;
-  startSprint(sprintId: string): ActionResult;
-  completeSprint(sprintId: string, rolloverSprintId?: string | null): ActionResult;
-  // automations & forms
-  upsertRule(projectId: string, rule: Omit<AutomationRule, 'id' | 'projectId' | 'runs' | 'createdBy' | 'lastRunAt'> & { id?: string }): Result<{ ruleId: string }>;
-  toggleRule(ruleId: string, enabled: boolean): ActionResult;
-  deleteRule(ruleId: string): ActionResult;
-  upsertForm(projectId: string, form: Omit<IntakeForm, 'id' | 'projectId' | 'submissions' | 'createdBy'> & { id?: string }): Result<{ formId: string }>;
-  submitForm(formId: string, values: Record<string, string>): Result<{ taskId: string }>;
-  /** Apply time-based automations (overdue tags) — run on app load. */
-  runScheduledRules(): number;
-  markInboxRead(): void;
-  resetProjectsDemo(): void;
+  createTask(input: NewTaskInput, as?: Actor): Ok<{ taskId: string }>;
+  updateTask(id: string, patch: TaskPatch, as?: Actor): Ok;
+  completeTask(id: string, done: boolean, as?: Actor): Ok<{ milestone: boolean }>;
+  moveTask(id: string, to: { sectionId: string; index?: number }, as?: Actor): Ok;
+  deleteTasks(ids: string[], as?: Actor): Ok<{ snapshot: DeletedTasks; skipped: number }>;
+  restoreTasks(snapshot: DeletedTasks): void;
+  duplicateTask(id: string, as?: Actor): Ok<{ taskId: string }>;
+  convertKind(id: string, kind: TaskKind, as?: Actor): Ok;
+  addSubtask(id: string, title: string, as?: Actor): Ok;
+  updateSubtask(id: string, subId: string, patch: { title?: string; done?: boolean }, as?: Actor): Ok;
+  removeSubtask(id: string, subId: string, as?: Actor): Ok;
+  moveSubtask(id: string, subId: string, toIndex: number, as?: Actor): Ok;
+  addDependency(id: string, blockerId: string, as?: Actor): Ok;
+  removeDependency(id: string, blockerId: string, as?: Actor): Ok;
+  addAttachment(id: string, att: Omit<Attachment, 'id' | 'addedBy' | 'at'>, as?: Actor): Ok;
+  removeAttachment(id: string, attId: string, as?: Actor): Ok;
+  addComment(id: string, body: string, as?: Actor): Ok<{ commentId: string; mentioned: string[] }>;
+  deleteComment(id: string, commentId: string, as?: Actor): Ok;
+  toggleReaction(id: string, commentId: string, emoji: string, as?: Actor): Ok;
+  toggleFollow(id: string, as?: Actor): Ok<{ following: boolean }>;
+  decideApproval(id: string, decision: Exclude<ApprovalState, 'pending'>, note?: string, as?: Actor): Ok;
+  bulkUpdate(ids: string[], patch: TaskPatch, as?: Actor): Ok<{ changed: number; skipped: number }>;
+  bulkComplete(ids: string[], done: boolean, as?: Actor): Ok<{ changed: number; skipped: number }>;
+  bulkMove(ids: string[], sectionId: string, as?: Actor): Ok<{ changed: number; skipped: number }>;
+  // automations
+  createRule(projectId: string, rule: Pick<Rule, 'name' | 'trigger' | 'conditions' | 'actions'>, as?: Actor): Ok<{ ruleId: string }>;
+  updateRule(ruleId: string, patch: Partial<Pick<Rule, 'name' | 'trigger' | 'conditions' | 'actions' | 'enabled'>>, as?: Actor): Ok;
+  deleteRule(ruleId: string, as?: Actor): Ok;
+  runDueSoonSweep(): number;
+  // inbox
+  markInboxRead(id: string, read?: boolean): void;
+  markAllInboxRead(ids?: string[]): void;
+  archiveInbox(id: string, archived?: boolean): void;
+  // portfolios
+  createPortfolio(input: { name: string; description?: string; color: string; projectIds: string[] }, as?: Actor): Ok<{ portfolioId: string }>;
+  updatePortfolio(id: string, patch: Partial<Pick<Portfolio, 'name' | 'description' | 'color' | 'projectIds'>>, as?: Actor): Ok;
+  deletePortfolio(id: string, as?: Actor): Ok;
+  // demo
+  resetDemo(): void;
 }
 
 export type ProjectsStore = ProjectsData & ProjectsActions;
 
-const ok = (message?: string): ActionResult => ({ ok: true, message });
-const fail = (error: string): ActionResult => ({ ok: false, error });
-const emptyUserState = (): ProjectsUserState => ({ starredProjectIds: [], recentProjectIds: [], buckets: {}, inboxReadAt: 0 });
-const DONE_SECTION = /^(done|complete|completed|shipped|closed won)$/i;
-
-export const taskLink = (projectId: string, taskId: string) => `/projects/p/${projectId}?task=${taskId}`;
+try {
+  if (isBrowser) window.localStorage.removeItem('nexus-projects');
+} catch {
+  /* storage unavailable */
+}
 
 export const useProjects = create<ProjectsStore>()(
   persist(
     (set, get) => {
-      const hub = () => useHub.getState();
-      const viewer = (): { user: User; v: access.ProjectsViewer } | null => {
-        const h = hub();
-        const user = h.users.find((u) => u.id === h.sessionUserId) ?? null;
-        const v = access.buildProjectsViewer(user, h.roles);
-        return user && v ? { user, v } : null;
-      };
-      const userName = (id?: string) => hub().users.find((u) => u.id === id)?.name ?? 'Someone';
-      const audit = (e: { action: string; target: string; detail?: string; outcome?: 'success' | 'denied'; severity?: 'info' | 'warning' | 'critical' }) =>
-        hub().logAudit({ outcome: 'success', severity: 'info', ...e });
-      const notify = (userIds: (string | undefined)[], n: Omit<HubNotification, 'id' | 'userId' | 'at' | 'read' | 'kind'>, exclude?: string) => {
-        const ids = [...new Set(userIds.filter((x): x is string => Boolean(x) && x !== exclude))];
-        if (ids.length) hub().pushNotifications(ids, { kind: 'work', ...n });
-      };
-      const project = (id: string) => get().projects.find((p) => p.id === id);
+      /* ---------- internal helpers (closures over set/get) ---------- */
+      const actorOr = (as?: Actor) => as ?? sessionActor();
+      const project = (id: string | null | undefined) => (id ? get().projects.find((p) => p.id === id) : undefined);
       const task = (id: string) => get().tasks.find((t) => t.id === id);
       const patchProject = (id: string, fn: (p: Project) => Project) =>
         set((s) => ({ projects: s.projects.map((p) => (p.id === id ? { ...fn(p), updatedAt: Date.now() } : p)) }));
       const patchTask = (id: string, fn: (t: Task) => Task) => set((s) => ({ tasks: s.tasks.map((t) => (t.id === id ? { ...fn(t), updatedAt: Date.now() } : t)) }));
-      const act = (actorId: string, action: string, detail?: string) => ({ id: uid('ta'), at: Date.now(), actorId, action, detail });
-      const patchUserState = (userId: string, fn: (u: ProjectsUserState) => ProjectsUserState) =>
-        set((s) => ({ userState: { ...s.userState, [userId]: fn(s.userState[userId] ?? emptyUserState()) } }));
-
-      /** Apply matching automation rules to a task once (no re-triggering). */
-      const runRules = (trigger: RuleTrigger, t: Task, actorId: string, sectionId?: string): Task => {
-        const p = project(t.projectId);
-        if (!p) return t;
-        const rules = get().rules.filter((r) => r.enabled && r.projectId === t.projectId && r.trigger === trigger && (trigger !== 'task_moved_to_section' || r.triggerSectionId === sectionId));
-        if (!rules.length) return t;
-        let next = { ...t };
-        const fired: string[] = [];
-        for (const r of rules) {
-          switch (r.action) {
-            case 'move_to_section':
-              if (r.actionValue && p.sections.some((s) => s.id === r.actionValue)) next.sectionId = r.actionValue;
-              break;
-            case 'set_status':
-              if (r.actionValue) {
-                next.status = r.actionValue as TaskStatus;
-                next.completedAt = r.actionValue === 'done' ? Date.now() : undefined;
-              }
-              break;
-            case 'add_tag':
-              if (r.actionValue && !next.tags.includes(r.actionValue)) next.tags = [...next.tags, r.actionValue];
-              break;
-            case 'assign_to':
-              if (r.actionValue && !next.assigneeId) next.assigneeId = r.actionValue;
-              break;
-            case 'set_priority':
-              if (r.actionValue) next.priority = r.actionValue as TaskPriority;
-              break;
-            case 'add_collaborator':
-              if (r.actionValue && !next.collaboratorIds.includes(r.actionValue)) next.collaboratorIds = [...next.collaboratorIds, r.actionValue];
-              break;
-            case 'notify_owner':
-              notify([p.ownerId], { title: `Rule “${r.name}” fired`, body: `${p.key}-${t.number} · ${t.title}`, link: taskLink(p.id, t.id) }, actorId);
-              break;
-          }
-          fired.push(r.id);
-        }
-        if (fired.length) {
-          next = { ...next, activity: [...next.activity, act('system', `rule:${trigger}`, rules.map((r) => r.name).join(', '))] };
-          set((s) => ({ rules: s.rules.map((r) => (fired.includes(r.id) ? { ...r, runs: r.runs + 1, lastRunAt: Date.now() } : r)) }));
-        }
-        return next;
+      const act = (actorId: string, text: string) => ({ id: uid('a'), at: Date.now(), actorId, text });
+      const pAct = (projectId: string, actorId: string, text: string) => patchProject(projectId, (p) => ({ ...p, activity: [...p.activity, act(actorId, text)].slice(-80) }));
+      const userState = (userId: string): UserState => ({ ...DEFAULT_USER_STATE, ...(get().users[userId] ?? {}) });
+      const patchUser = (fn: (u: UserState) => UserState) => {
+        const me = sessionActor();
+        if (!me) return;
+        set((s) => ({ users: { ...s.users, [me.id]: fn({ ...DEFAULT_USER_STATE, ...(s.users[me.id] ?? {}) }) } }));
       };
 
-      type Ctx = { user: User; v: access.ProjectsViewer };
-      type ProjectGate = { error: ActionResult; ctx?: undefined; p?: undefined } | { error?: undefined; ctx: Ctx; p: Project };
-      type TaskGate = { error: ActionResult; ctx?: undefined; t?: undefined; p?: undefined } | { error?: undefined; ctx: Ctx; t: Task; p: Project };
-      const requireProjectEdit = (projectId: string): ProjectGate => {
-        const ctx = viewer();
-        const p = project(projectId);
-        if (!ctx || !p) return { error: fail('Project not found.') };
-        if (!access.canEditProject(ctx.v, p)) {
-          audit({ action: 'projects.denied', target: p.name, detail: 'Editor role required', outcome: 'denied', severity: 'warning' });
-          return { error: fail('You need editor access on this project.') };
-        }
-        return { ctx, p };
-      };
-      const requireProjectAdmin = (projectId: string): ProjectGate => {
-        const ctx = viewer();
-        const p = project(projectId);
-        if (!ctx || !p) return { error: fail('Project not found.') };
-        if (!access.canAdminProject(ctx.v, p)) {
-          audit({ action: 'projects.denied', target: p.name, detail: 'Project admin required', outcome: 'denied', severity: 'warning' });
-          return { error: fail('Only project admins can do that.') };
-        }
-        return { ctx, p };
-      };
-      const requireTaskEdit = (taskId: string): TaskGate => {
-        const ctx = viewer();
-        const t = task(taskId);
-        const p = t ? project(t.projectId) : undefined;
-        if (!ctx || !t || !p || !access.canViewProject(ctx.v, p)) return { error: fail('Task not found.') };
-        if (!access.canEditTask(ctx.v, p, t)) return { error: fail('You can’t edit this task.') };
-        return { ctx, t, p };
-      };
-
-      const insertTask = (p: Project, t: Omit<Task, 'id' | 'number' | 'createdAt' | 'updatedAt' | 'activity' | 'order'>, actorId: string): Task => {
+      /** Inbox items (+ optional Hub bell) for recipients who can see the target. */
+      const deliver = (
+        recipients: string[],
+        actorId: string,
+        kind: InboxKind,
+        ref: { taskId?: string; projectId?: string },
+        title: string,
+        body: string | undefined,
+        bell?: { title: string; body?: string },
+      ) => {
+        const t = ref.taskId ? task(ref.taskId) : undefined;
+        const p = project(ref.projectId ?? t?.projectId ?? undefined);
+        const ids = [...new Set(recipients)].filter((id) => id && id !== actorId && id !== 'automation');
+        const allowed = ids.filter((id) => {
+          const a = actorForUser(id);
+          if (!a) return false;
+          if (t) return canSeeTask(t, p, a);
+          return p ? canViewProject(p, a) : false;
+        });
+        if (!allowed.length) return;
         const now = Date.now();
-        const siblings = get().tasks.filter((x) => x.projectId === p.id && x.sectionId === t.sectionId);
-        let created: Task = {
-          ...t,
-          id: uid('t'),
-          number: p.nextTaskNumber,
-          order: siblings.length ? Math.max(...siblings.map((x) => x.order)) + 1 : 0,
-          activity: [act(actorId, 'created')],
-          createdAt: now,
-          updatedAt: now,
-        };
-        created = runRules('task_created', created, actorId);
-        if (created.assigneeId) created = runRules('task_assigned', created, actorId);
-        if (created.priority === 'urgent') created = runRules('priority_set_urgent', created, actorId);
-        set((s) => ({ tasks: [...s.tasks, created], projects: s.projects.map((x) => (x.id === p.id ? { ...x, nextTaskNumber: x.nextTaskNumber + 1, updatedAt: now } : x)) }));
-        return created;
+        const items: InboxItem[] = allowed.map((userId) => ({
+          id: uid('ib'),
+          userId,
+          kind,
+          actorId,
+          taskId: t?.id,
+          projectId: p?.id,
+          title,
+          body,
+          at: now,
+          read: false,
+          archived: false,
+        }));
+        set((s) => ({ inbox: [...items, ...s.inbox].slice(0, 600) }));
+        if (bell) {
+          const link = t ? taskLink(t) : p ? `/projects/p/${p.id}/overview` : '/projects/inbox';
+          useHub.getState().pushNotifications(allowed, { kind: 'work', title: bell.title, body: bell.body, link });
+        }
       };
 
-      const finishTask = (t: Task, actorId: string, p: Project): Task => {
-        const doneSection = p.sections.find((s) => DONE_SECTION.test(s.name));
-        let next: Task = { ...t, status: 'done', completedAt: Date.now(), activity: [...t.activity, act(actorId, 'completed')] };
-        if (doneSection) next.sectionId = doneSection.id;
-        next = runRules('task_completed', next, actorId);
-        if (t.recurring && t.dueDate) {
-          const clone = { ...t, status: 'todo' as TaskStatus, completedAt: undefined, dueDate: nextRecurrence(t.dueDate, t.recurring), loggedHours: 0, subtasks: t.subtasks.map((s) => ({ ...s, done: false })), comments: [], likes: [], attachments: t.attachments, dependsOn: [], sprintId: undefined, creatorId: actorId, collaboratorIds: t.collaboratorIds, customFieldValues: t.customFieldValues, tags: t.tags.filter((x) => x !== 'overdue'), description: t.description, title: t.title, type: t.type, priority: t.priority, assigneeId: t.assigneeId, estimateHours: t.estimateHours, storyPoints: t.storyPoints, startDate: undefined, recurring: t.recurring, sectionId: t.sectionId, projectId: t.projectId, approval: undefined };
-          insertTask(p, clone, actorId);
-        }
-        const dependents = get().tasks.filter((x) => x.dependsOn.includes(t.id) && !isDone(x));
-        notify(
-          dependents.map((x) => x.assigneeId),
-          { title: `Unblocked: ${dependents[0]?.title ?? ''}`, body: `${userName(actorId)} completed “${t.title}”.`, link: dependents[0] ? taskLink(p.id, dependents[0].id) : undefined },
-          actorId,
-        );
-        notify([t.creatorId, ...t.collaboratorIds], { title: `Completed · ${p.key}-${t.number}`, body: `${userName(actorId)} completed “${t.title}”.`, link: taskLink(p.id, t.id) }, actorId);
-        return next;
+      const sectionTasks = (projectId: string, sectionId: string) =>
+        get()
+          .tasks.filter((t) => t.projectId === projectId && t.sectionId === sectionId)
+          .sort((a, b) => a.order - b.order);
+
+      /** Place `taskId` into `sectionId` at `index` and renumber the section. */
+      const placeInSection = (taskId: string, projectId: string, sectionId: string, index?: number) => {
+        const list = sectionTasks(projectId, sectionId).filter((t) => t.id !== taskId);
+        const at = index === undefined ? list.length : Math.max(0, Math.min(index, list.length));
+        const ids = [...list.slice(0, at).map((t) => t.id), taskId, ...list.slice(at).map((t) => t.id)];
+        const order = new Map(ids.map((id, i) => [id, i]));
+        set((s) => ({
+          tasks: s.tasks.map((t) => (order.has(t.id) ? { ...t, sectionId: t.id === taskId ? sectionId : t.sectionId, order: order.get(t.id)! } : t)),
+        }));
       };
+
+      /** Fire project automations for an event. Actions taken by rules never re-trigger rules. */
+      const runAutomations = (taskId: string, event: AutoEvent, actor: Actor, depth = 0) => {
+        if (depth > 0) return;
+        const t0 = task(taskId);
+        if (!t0?.projectId) return;
+        const now = Date.now();
+        const rules = get().rules.filter((r) => r.projectId === t0.projectId);
+        for (const rule of rules) {
+          const t = task(taskId);
+          if (!t || !ruleMatches(rule, event, t, now)) continue;
+          const p = project(t.projectId)!;
+          const done: string[] = [];
+          for (const a of rule.actions) {
+            const cur = task(taskId)!;
+            switch (a.kind) {
+              case 'move': {
+                const sec = p.sections.find((s) => s.id === a.value);
+                if (!sec || cur.sectionId === sec.id) break;
+                placeInSection(cur.id, p.id, sec.id);
+                if (sec.stage === 'done' && !cur.completedAt) patchTask(cur.id, (x) => ({ ...x, completedAt: now, completedBy: actor.id }));
+                patchTask(cur.id, (x) => ({ ...x, activity: [...x.activity, act('automation', `moved this to ${sec.name} · ${rule.name}`)] }));
+                done.push(`moved to ${sec.name}`);
+                break;
+              }
+              case 'assign': {
+                const u = hubUsers().find((x) => x.id === a.value && x.active);
+                if (!u || cur.assigneeId === u.id) break;
+                patchTask(cur.id, (x) => ({
+                  ...x,
+                  assigneeId: u.id,
+                  followers: [...new Set([...x.followers, u.id])],
+                  activity: [...x.activity, act('automation', `assigned this to ${u.name} · ${rule.name}`)],
+                }));
+                deliver([u.id], actor.id, 'assigned', { taskId: cur.id }, `${firstOf(actor.id)} assigned you a task`, cur.title, {
+                  title: `New task · ${taskKey(p, cur)}`,
+                  body: `${cur.title} (via automation “${rule.name}”)`,
+                });
+                done.push(`assigned ${u.name.split(' ')[0]}`);
+                break;
+              }
+              case 'priority': {
+                const pr = a.value as Priority;
+                if (!PRIORITIES.includes(pr) || cur.priority === pr) break;
+                patchTask(cur.id, (x) => ({ ...x, priority: pr, activity: [...x.activity, act('automation', `set priority to ${PRIORITY_NAME[pr]} · ${rule.name}`)] }));
+                done.push(`priority → ${PRIORITY_NAME[pr]}`);
+                break;
+              }
+              case 'tag': {
+                const tag = cleanTags([a.value ?? ''])[0];
+                if (!tag || cur.tags.includes(tag)) break;
+                patchTask(cur.id, (x) => ({ ...x, tags: [...x.tags, tag] }));
+                done.push(`tagged ${tag}`);
+                break;
+              }
+              case 'notify': {
+                const to = a.value || cur.assigneeId;
+                if (!to) break;
+                const recipients = to === actor.id ? [] : [to];
+                if (recipients.length) {
+                  const items: InboxItem[] = recipients.map((userId) => ({
+                    id: uid('ib'),
+                    userId,
+                    kind: 'automation' as const,
+                    actorId: 'automation',
+                    taskId: cur.id,
+                    projectId: p.id,
+                    title: rule.name,
+                    body: cur.title,
+                    at: now,
+                    read: false,
+                    archived: false,
+                  }));
+                  set((s) => ({ inbox: [...items, ...s.inbox].slice(0, 600) }));
+                  useHub.getState().pushNotifications(recipients, { kind: 'work', title: `${rule.name} · ${taskKey(p, cur)}`, body: cur.title, link: taskLink(cur) });
+                }
+                done.push(`notified ${firstOf(to)}`);
+                break;
+              }
+              case 'post': {
+                const channelId = a.value || p.channelId;
+                if (!channelId || !isBrowser) break;
+                const viewer = currentViewer();
+                if (!viewer) break;
+                const verb = event.kind === 'completed' ? 'completed' : event.kind === 'moved' ? `moved to ${p.sections.find((s) => s.id === cur.sectionId)?.name ?? 'a new stage'}` : event.kind;
+                void loadBridge('chat')
+                  .then((api) =>
+                    api.postToChannel(viewer, {
+                      channelId,
+                      text: `${taskKey(p, cur)} ${verb} by ${userName(actor.id)}`,
+                      card: { app: 'projects', title: `${taskKey(p, cur)} · ${cur.title}`, subtitle: p.name, to: taskLink(cur), status: cur.completedAt ? 'Done' : 'Updated' },
+                      asBot: true,
+                    }),
+                  )
+                  .catch(() => undefined);
+                done.push(`posted to #${channelId.replace(/^ch-/, '')}`);
+                break;
+              }
+            }
+          }
+          set((s) => ({
+            rules: s.rules.map((r) =>
+              r.id === rule.id ? { ...r, runs: r.runs + 1, lastRunAt: now, fired: event.kind === 'due-soon' ? [...new Set([...r.fired, taskId])] : r.fired } : r,
+            ),
+          }));
+          if (isBrowser && done.length) toast.info(`Automation · ${rule.name}`, `${taskKey(p, t)} ${done.join(', ')}`);
+        }
+      };
+
+      const notifyAssignee = (t: Task, assigneeId: string, actor: Actor) => {
+        const p = project(t.projectId);
+        deliver([assigneeId], actor.id, 'assigned', { taskId: t.id }, `${firstOf(actor.id)} assigned you a task`, t.title, {
+          title: `${firstOf(actor.id)} assigned you ${taskKey(p, t)}`,
+          body: t.dueDate ? `${t.title} · due ${formatDue(t.dueDate)}` : t.title,
+        });
+      };
+
+      const setCompletion = (t: Task, done: boolean, actor: Actor) => {
+        const now = Date.now();
+        patchTask(t.id, (x) => ({
+          ...x,
+          completedAt: done ? now : undefined,
+          completedBy: done ? actor.id : undefined,
+          activity: [...x.activity, act(actor.id, done ? 'completed this task' : 'reopened this task')],
+        }));
+        const p = project(t.projectId);
+        if (p && !done) {
+          // reopening a task that sits in a Done column moves it back into flight
+          const sec = p.sections.find((s) => s.id === t.sectionId);
+          if (sec?.stage === 'done') {
+            const back = [...p.sections].reverse().find((s) => s.stage === 'doing') ?? p.sections.find((s) => s.stage !== 'done');
+            if (back) placeInSection(t.id, p.id, back.id, 0);
+          }
+        }
+        if (done && t.creatorId !== actor.id && t.creatorId !== t.assigneeId)
+          deliver([t.creatorId], actor.id, 'completed', { taskId: t.id }, `${firstOf(actor.id)} completed a task you created`, t.title);
+        if (done) runAutomations(t.id, { kind: 'completed' }, actor);
+      };
+
+      const guardTask = (id: string, as: Actor | undefined, check: (t: Task, p: Project | undefined, a: Actor) => boolean, msg: string) => {
+        const a = actorOr(as);
+        if (!a) return fail('You are not signed in.');
+        const t = task(id);
+        if (!t) return fail('That task no longer exists.');
+        const p = project(t.projectId);
+        if (!canSeeTask(t, p, a)) return fail('That task no longer exists.');
+        if (!check(t, p, a)) return fail(msg);
+        return { ok: true as const, a, t, p };
+      };
+
+      const guardProject = (id: string, as: Actor | undefined, check: (p: Project, a: Actor) => boolean, msg: string, auditAction?: string) => {
+        const a = actorOr(as);
+        if (!a) return fail('You are not signed in.');
+        const p = project(id);
+        if (!p || !canViewProject(p, a)) return fail('Project not found.');
+        if (!check(p, a)) {
+          if (auditAction) audit(auditAction, p.name, 'Insufficient project role', 'denied', 'warning', a.id);
+          return fail(msg);
+        }
+        return { ok: true as const, a, p };
+      };
+
+      const READ_ONLY = 'You have view-only access to this project.';
 
       return {
         ...createProjectsSeed(),
 
-        // ───────────────────────── projects ─────────────────────────
-        createProject(input) {
-          const ctx = viewer();
-          if (!ctx || !access.canCreateProject(ctx.v)) return fail('Contractors can’t create projects — ask a project admin to add you.');
+        /* ═════════════════════ projects ═════════════════════ */
+        createProject(input, as) {
+          const a = actorOr(as);
+          if (!a) return fail('You are not signed in.');
+          if (!canCreateProject(a)) {
+            audit('projects.project.create', input.name || 'New project', 'Contractors cannot create projects', 'denied', 'warning', a.id);
+            return fail('Contractors can’t create projects.');
+          }
           const name = input.name.trim();
           if (name.length < 3) return fail('Give the project a name (3+ characters).');
-          const department = input.department && access.canManageProjects(ctx.v) ? input.department : ctx.user.department;
-          const today = todayISO();
-          const startDate = input.startDate ?? today;
-          const dueDate = input.dueDate ?? addDaysISO(startDate, 30);
-          if (dueDate < startDate) return fail('The target date must be after the start date.');
-          const tpl = input.templateId ? TEMPLATE_BY_ID[input.templateId] : undefined;
-          let key = (input.key ?? slugKey(name)).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'PRJ';
+          if (name.length > 80) return fail('Keep the name under 80 characters.');
           const taken = new Set(get().projects.map((p) => p.key));
-          let i = 2;
-          const base = key;
-          while (taken.has(key)) key = `${base}${i++}`;
-          const id = uid('prj');
+          let key = (input.key ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+          if (key && taken.has(key)) return fail(`The key ${key} is already used.`);
+          if (!key) key = suggestKey(name, taken);
+          if (key.length < 2) return fail('Keys need at least 2 letters.');
+          const startDate = input.startDate && isIsoDate(input.startDate) ? input.startDate : todayIso();
+          const dueDate = input.dueDate && isIsoDate(input.dueDate) && input.dueDate >= startDate ? input.dueDate : addDays(startDate, 42);
+          const tpl = TEMPLATES.find((t) => t.id === input.template) ?? TEMPLATES[0];
+          const id = `prj-${key.toLowerCase()}-${Date.now().toString(36).slice(-4)}`;
           const now = Date.now();
-          const sectionNames = tpl ? tpl.sections : ['To do', 'In progress', 'In review', 'Done'];
-          const sectionIds = sectionNames.map(() => uid('sec'));
-          const members = [...new Set(input.memberIds ?? [])].filter((u) => u !== ctx.user.id && hub().users.some((x) => x.id === u && x.active));
-          const proj: Project = {
+          const users = hubUsers();
+          const members = [
+            { userId: a.id, role: 'owner' as ProjectRole, addedAt: now, addedBy: a.id },
+            ...input.members
+              .filter((m) => m.userId !== a.id && users.some((u) => u.id === m.userId && u.active) && ROLES.includes(m.role) && m.role !== 'owner')
+              .map((m) => ({ userId: m.userId, role: m.role, addedAt: now, addedBy: a.id })),
+          ];
+          const sections: Section[] = tpl.sections.map((s, i) => ({ id: `${id}-s${i + 1}`, name: s.name, stage: s.stage, wip: s.wip }));
+          const p: Project = {
             id,
             key,
             name,
-            description: input.description?.trim() ?? tpl?.description ?? '',
-            icon: input.icon ?? tpl?.icon ?? '🚀',
-            color: input.color ?? tpl?.color ?? '#38bdf8',
-            department,
-            ownerId: ctx.user.id,
-            members: [{ userId: ctx.user.id, role: 'owner', addedAt: now, addedBy: ctx.user.id }, ...members.map((u) => ({ userId: u, role: 'editor' as ProjectRole, addedAt: now, addedBy: ctx.user.id }))],
+            icon: input.icon || '🚀',
+            color: input.color || '#a78bfa',
+            department: input.department,
+            ownerId: a.id,
             privacy: input.privacy,
-            health: 'on_track',
+            status: 'on-track',
+            priority: 'medium',
+            members,
+            sections,
+            brief: input.brief?.trim() || tpl.brief,
             startDate,
             dueDate,
-            sections: sectionNames.map((n, idx) => ({ id: sectionIds[idx], name: n })),
-            customFields: [],
-            defaultView: input.defaultView ?? tpl?.recommendedView ?? 'board',
-            templateId: tpl?.id,
+            keyResultIds: [],
+            attachments: [],
+            activity: [act(a.id, `created this project from the ${tpl.name} template`)],
             archived: false,
-            nextTaskNumber: 1,
+            nextNumber: 1,
             createdAt: now,
             updatedAt: now,
           };
-          set((s) => ({ projects: [proj, ...s.projects] }));
-          if (tpl) {
-            const { tasks } = instantiateTemplate(tpl, startDate, sectionIds);
-            for (const t of tasks) insertTask(get().projects.find((p) => p.id === id)!, { ...t, projectId: id, creatorId: ctx.user.id, assigneeId: undefined }, ctx.user.id);
-            const rules: AutomationRule[] = tpl.defaultRules.map((r) => ({
-              id: uid('rule'),
+          set((s) => ({ projects: [...s.projects, p] }));
+          // template starter tasks
+          tpl.tasks.forEach((tt, i) => {
+            const sec = sections[Math.min(tt.section, sections.length - 1)];
+            const pr = get().projects.find((x) => x.id === id)!;
+            const number = pr.nextNumber;
+            patchProject(id, (x) => ({ ...x, nextNumber: x.nextNumber + 1 }));
+            const t: Task = {
+              id: uid('t'),
               projectId: id,
-              name: r.name,
-              trigger: r.trigger,
-              triggerSectionId: r.trigger === 'task_moved_to_section' ? sectionIds[sectionNames.findIndex((n) => DONE_SECTION.test(n))] ?? sectionIds[sectionIds.length - 1] : undefined,
-              action: r.action,
-              actionValue: r.actionValue,
-              enabled: true,
-              runs: 0,
-              createdBy: ctx.user.id,
-            }));
-            set((s) => ({ rules: [...s.rules, ...rules] }));
-          }
-          patchUserState(ctx.user.id, (u) => ({ ...u, starredProjectIds: [id, ...u.starredProjectIds], recentProjectIds: [id, ...u.recentProjectIds].slice(0, 8) }));
-          notify(members, { title: `You were added to ${name}`, body: `${ctx.user.name} created a new ${input.privacy} project.`, link: `/projects/p/${id}` });
-          audit({ action: 'projects.project.created', target: name, detail: `${key} · ${input.privacy}${tpl ? ` · template ${tpl.name}` : ''}` });
-          return { ok: true, message: `Created ${name}${tpl ? ` from the ${tpl.name} template` : ''}.`, projectId: id };
-        },
-
-        updateProject(projectId, patch) {
-          const r = requireProjectAdmin(projectId);
-          if (r.error) return r.error;
-          patchProject(projectId, (p) => ({ ...p, ...patch }));
-          audit({ action: 'projects.project.updated', target: r.p.name, detail: Object.keys(patch).join(', ') });
-          return ok('Project updated.');
-        },
-
-        archiveProject(projectId, archived) {
-          const r = requireProjectAdmin(projectId);
-          if (r.error) return r.error;
-          patchProject(projectId, (p) => ({ ...p, archived, health: archived ? 'complete' : p.health }));
-          audit({ action: archived ? 'projects.project.archived' : 'projects.project.restored', target: r.p.name });
-          return ok(archived ? `Archived ${r.p.name}.` : `Restored ${r.p.name}.`);
-        },
-
-        addMember(projectId, userId, role) {
-          const r = requireProjectAdmin(projectId);
-          if (r.error) return r.error;
-          const u = hub().users.find((x) => x.id === userId && x.active);
-          if (!u) return fail('Pick an active teammate.');
-          if (r.p.members.some((m) => m.userId === userId)) return fail(`${u.name} is already a member.`);
-          patchProject(projectId, (p) => ({ ...p, members: [...p.members, { userId, role, addedAt: Date.now(), addedBy: r.ctx.user.id }] }));
-          notify([userId], { title: `Added to ${r.p.name}`, body: `${r.ctx.user.name} added you as ${role}.`, link: `/projects/p/${projectId}` });
-          audit({ action: 'projects.member.added', target: `${r.p.name} · ${u.name}`, detail: role });
-          return ok(`Added ${u.name} as ${role}.`);
-        },
-
-        updateMemberRole(projectId, userId, role) {
-          const r = requireProjectAdmin(projectId);
-          if (r.error) return r.error;
-          if (userId === r.p.ownerId && role !== 'owner') return fail('Transfer ownership before changing the owner’s role.');
-          patchProject(projectId, (p) => ({ ...p, members: p.members.map((m) => (m.userId === userId ? { ...m, role } : m)) }));
-          return ok('Role updated.');
-        },
-
-        removeMember(projectId, userId) {
-          const r = requireProjectAdmin(projectId);
-          if (r.error) return r.error;
-          if (userId === r.p.ownerId) return fail('The project owner can’t be removed.');
-          patchProject(projectId, (p) => ({ ...p, members: p.members.filter((m) => m.userId !== userId) }));
-          audit({ action: 'projects.member.removed', target: `${r.p.name} · ${userName(userId)}` });
-          return ok('Member removed.');
-        },
-
-        addSection(projectId, name, wipLimit) {
-          const r = requireProjectEdit(projectId);
-          if (r.error) return r.error;
-          const clean = name.trim();
-          if (!clean) return fail('Name the section.');
-          const sectionId = uid('sec');
-          patchProject(projectId, (p) => ({ ...p, sections: [...p.sections, { id: sectionId, name: clean, wipLimit }] }));
-          return { ok: true, message: `Added section ${clean}.`, sectionId };
-        },
-
-        updateSection(projectId, sectionId, patch) {
-          const r = requireProjectEdit(projectId);
-          if (r.error) return r.error;
-          patchProject(projectId, (p) => ({
-            ...p,
-            sections: p.sections.map((s) => (s.id === sectionId ? { ...s, name: patch.name?.trim() || s.name, wipLimit: patch.wipLimit === null ? undefined : (patch.wipLimit ?? s.wipLimit) } : s)),
-          }));
-          return ok('Section updated.');
-        },
-
-        deleteSection(projectId, sectionId) {
-          const r = requireProjectAdmin(projectId);
-          if (r.error) return r.error;
-          if (r.p.sections.length <= 1) return fail('A project needs at least one section.');
-          const fallback = r.p.sections.find((s) => s.id !== sectionId)!.id;
-          set((s) => ({
-            tasks: s.tasks.map((t) => (t.projectId === projectId && t.sectionId === sectionId ? { ...t, sectionId: fallback } : t)),
-            projects: s.projects.map((p) => (p.id === projectId ? { ...p, sections: p.sections.filter((x) => x.id !== sectionId), updatedAt: Date.now() } : p)),
-          }));
-          return ok('Section deleted; its tasks were moved.');
-        },
-
-        reorderSections(projectId, sectionIds) {
-          const r = requireProjectEdit(projectId);
-          if (r.error) return r.error;
-          patchProject(projectId, (p) => ({ ...p, sections: sectionIds.map((id) => p.sections.find((s) => s.id === id)!).filter(Boolean) }));
-          return ok();
-        },
-
-        toggleStarProject(projectId) {
-          const ctx = viewer();
-          if (!ctx) return fail('Not signed in.');
-          let starred = false;
-          patchUserState(ctx.user.id, (u) => {
-            starred = !u.starredProjectIds.includes(projectId);
-            return { ...u, starredProjectIds: starred ? [projectId, ...u.starredProjectIds] : u.starredProjectIds.filter((id) => id !== projectId) };
-          });
-          return ok(starred ? 'Starred — it’s now in your sidebar.' : 'Removed from starred.');
-        },
-
-        recordProjectVisit(projectId) {
-          const ctx = viewer();
-          if (!ctx) return;
-          patchUserState(ctx.user.id, (u) => (u.recentProjectIds[0] === projectId ? u : { ...u, recentProjectIds: [projectId, ...u.recentProjectIds.filter((id) => id !== projectId)].slice(0, 8) }));
-        },
-
-        // ───────────────────────── tasks ─────────────────────────
-        createTask(input) {
-          const r = requireProjectEdit(input.projectId);
-          if (r.error) return r.error;
-          const title = input.title.trim();
-          if (title.length < 2) return fail('Give the task a title.');
-          const sectionId = input.sectionId && r.p.sections.some((s) => s.id === input.sectionId) ? input.sectionId : r.p.sections[0].id;
-          const type = input.type ?? 'task';
-          if (type === 'approval' && !input.approverId) return fail('Approval tasks need an approver.');
-          const created = insertTask(
-            r.p,
-            {
-              projectId: r.p.id,
-              sectionId,
-              title,
-              description: input.description?.trim() ?? '',
-              type,
-              status: 'todo',
-              priority: input.priority ?? 'medium',
-              assigneeId: input.assigneeId,
-              collaboratorIds: input.collaboratorIds ?? [],
-              creatorId: r.ctx.user.id,
-              startDate: input.startDate,
-              dueDate: input.dueDate,
-              estimateHours: input.estimateHours,
-              loggedHours: 0,
-              storyPoints: input.storyPoints,
-              tags: input.tags ?? [],
-              customFieldValues: input.customFieldValues ?? {},
+              sectionId: sec.id,
+              number,
+              title: tt.title,
+              description: tt.description ?? '',
+              kind: tt.kind ?? 'task',
+              priority: tt.priority ?? 'medium',
+              assigneeId: null,
+              creatorId: a.id,
+              followers: [a.id],
+              dueDate: tt.dueOffset !== undefined ? addDays(startDate, tt.dueOffset) : undefined,
+              estimate: tt.estimate,
+              tags: [],
               subtasks: [],
-              dependsOn: [],
+              blockedBy: [],
               attachments: [],
               comments: [],
-              likes: [],
-              approval: type === 'approval' && input.approverId ? { approverId: input.approverId, decision: 'pending' } : undefined,
-              sprintId: input.sprintId,
-            },
-            r.ctx.user.id,
-          );
-          if (created.assigneeId) notify([created.assigneeId], { title: `New task · ${r.p.key}-${created.number}`, body: `${r.ctx.user.name} assigned you “${title}”.`, link: taskLink(r.p.id, created.id) }, r.ctx.user.id);
-          if (created.approval) notify([created.approval.approverId], { title: `Approval requested · ${r.p.key}-${created.number}`, body: `${r.ctx.user.name} needs your decision on “${title}”.`, link: taskLink(r.p.id, created.id) }, r.ctx.user.id);
-          return { ok: true, message: `Created ${r.p.key}-${created.number}.`, taskId: created.id };
-        },
-
-        updateTask(taskId, patch) {
-          const r = requireTaskEdit(taskId);
-          if (r.error) return r.error;
-          const { t, p, ctx } = r;
-          if (patch.status === 'done' && t.status !== 'done') return get().completeTask(taskId, true);
-          if (patch.status && patch.status !== 'done' && t.status === 'done') {
-            get().completeTask(taskId, false);
-            patch = { ...patch, status: patch.status };
-          }
-          if (patch.sectionId && patch.sectionId !== t.sectionId) {
-            const res = get().moveTask(taskId, patch.sectionId);
-            if (!res.ok) return res;
-          }
-          const { sectionId: _ignored, ...rest } = patch;
-          void _ignored;
-          if (rest.title !== undefined && rest.title.trim().length < 2) return fail('Title is too short.');
-          let next: Task = { ...task(taskId)!, ...rest, title: rest.title?.trim() ?? t.title };
-          const changes: string[] = [];
-          (Object.keys(rest) as (keyof typeof rest)[]).forEach((k) => {
-            if (JSON.stringify(t[k]) !== JSON.stringify(rest[k])) changes.push(k);
+              activity: [act(a.id, 'created this task')],
+              order: i,
+              createdAt: now,
+              updatedAt: now,
+            };
+            set((s) => ({ tasks: [...s.tasks, t] }));
           });
-          if (!changes.length) return ok();
-          next.activity = [...next.activity, act(ctx.user.id, 'updated', changes.join(', '))];
-          if (changes.includes('assigneeId') && next.assigneeId) {
-            next = runRules('task_assigned', next, ctx.user.id);
-            notify([next.assigneeId], { title: `Assigned to you · ${p.key}-${t.number}`, body: `${ctx.user.name} assigned “${next.title}” to you.`, link: taskLink(p.id, t.id) }, ctx.user.id);
-          }
-          if (changes.includes('priority') && next.priority === 'urgent') next = runRules('priority_set_urgent', next, ctx.user.id);
-          if (changes.includes('dueDate') && next.assigneeId && next.assigneeId !== ctx.user.id) {
-            notify([next.assigneeId], { title: `Due date changed · ${p.key}-${t.number}`, body: `${next.title} is now due ${next.dueDate ?? 'anytime'}.`, link: taskLink(p.id, t.id) }, ctx.user.id);
-          }
-          set((s) => ({ tasks: s.tasks.map((x) => (x.id === taskId ? { ...next, updatedAt: Date.now() } : x)) }));
-          return ok('Saved.');
+          set((s) => ({ users: { ...s.users, [a.id]: { ...userState(a.id), starred: [...new Set([...userState(a.id).starred, id])] } } }));
+          audit('projects.project.create', name, `${key} · ${input.privacy} · ${members.length} members`, 'success', 'info', a.id);
+          const invited = members.filter((m) => m.userId !== a.id).map((m) => m.userId);
+          deliver(invited, a.id, 'access', { projectId: id }, `${firstOf(a.id)} added you to ${name}`, `You're a ${'member'}`, { title: `${firstOf(a.id)} added you to ${name}` });
+          return ok({ projectId: id });
         },
 
-        moveTask(taskId, sectionId, index) {
-          const r = requireTaskEdit(taskId);
-          if (r.error) return r.error;
-          const { t, p, ctx } = r;
-          const section = p.sections.find((s) => s.id === sectionId);
-          if (!section) return fail('Section not found.');
-          const others = get()
-            .tasks.filter((x) => x.projectId === p.id && x.sectionId === sectionId && x.id !== taskId)
-            .sort((a, b) => a.order - b.order);
-          if (section.wipLimit && others.filter((x) => !isDone(x)).length >= section.wipLimit && !isDone(t) && t.sectionId !== sectionId) {
-            return fail(`“${section.name}” is at its WIP limit (${section.wipLimit}). Finish something first.`);
+        updateProject(id, patch, as) {
+          const g = guardProject(id, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
+          const next: Partial<Project> = {};
+          if (patch.name !== undefined) {
+            const n = patch.name.trim();
+            if (n.length < 3) return fail('Project names need 3+ characters.');
+            next.name = n.slice(0, 80);
           }
-          const at = index === undefined ? others.length : Math.max(0, Math.min(others.length, index));
-          let moved: Task = { ...t, sectionId };
-          const leavingDone = DONE_SECTION.test(p.sections.find((s) => s.id === t.sectionId)?.name ?? '') && !DONE_SECTION.test(section.name);
-          if (t.sectionId !== sectionId) {
-            moved.activity = [...moved.activity, act(ctx.user.id, 'moved', `→ ${section.name}`)];
-            if (DONE_SECTION.test(section.name) && !isDone(moved)) moved = finishTask(moved, ctx.user.id, p);
-            else if (leavingDone && isDone(moved)) moved = { ...moved, status: 'todo', completedAt: undefined };
-            moved.sectionId = sectionId;
-            moved = runRules('task_moved_to_section', moved, ctx.user.id, sectionId);
-            moved.sectionId = sectionId;
+          if (patch.icon !== undefined) next.icon = patch.icon || g.p.icon;
+          if (patch.color !== undefined) next.color = patch.color;
+          if (patch.brief !== undefined) next.brief = patch.brief.slice(0, 6000);
+          if (patch.priority !== undefined && PRIORITIES.includes(patch.priority)) next.priority = patch.priority;
+          if (patch.channelId !== undefined) next.channelId = patch.channelId || undefined;
+          if (patch.department !== undefined) next.department = patch.department;
+          const start = patch.startDate ?? g.p.startDate;
+          const due = patch.dueDate ?? g.p.dueDate;
+          if (patch.startDate !== undefined || patch.dueDate !== undefined) {
+            if (!isIsoDate(start) || !isIsoDate(due)) return fail('Invalid date.');
+            if (due < start) return fail('The due date must be after the start date.');
+            next.startDate = start;
+            next.dueDate = due;
           }
-          const ordered = [...others.slice(0, at), moved, ...others.slice(at)].map((x, i) => ({ ...x, order: i }));
-          const orderById = new Map(ordered.map((x) => [x.id, x]));
-          set((s) => ({ tasks: s.tasks.map((x) => orderById.get(x.id) ?? x) }));
+          patchProject(id, (p) => ({ ...p, ...next }));
           return ok();
         },
 
-        completeTask(taskId, done) {
-          const r = requireTaskEdit(taskId);
-          if (r.error) return r.error;
-          const { t, p, ctx } = r;
-          if (done === isDone(t)) return ok();
-          if (done) {
-            const byId = new Map(get().tasks.map((x) => [x.id, x]));
-            const open = t.dependsOn.map((id) => byId.get(id)).filter((x): x is Task => Boolean(x) && !isDone(x!));
-            if (open.length && t.type !== 'approval') return fail(`Blocked by ${open.map((x) => `“${x.title}”`).join(', ')} — complete those first.`);
-            if (t.type === 'approval' && t.approval?.decision === 'pending') return fail('Approvals are completed by the approver’s decision.');
-            const next = finishTask(t, ctx.user.id, p);
-            set((s) => ({ tasks: s.tasks.map((x) => (x.id === taskId ? { ...next, updatedAt: Date.now() } : x)) }));
-            audit({ action: 'projects.task.completed', target: `${p.key}-${t.number} ${t.title}` });
-            return ok(`Completed ${p.key}-${t.number} 🎉`);
+        setProjectStatus(id, status, as) {
+          const g = guardProject(id, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
+          if (!STATUSES.includes(status)) return fail('Unknown status.');
+          patchProject(id, (p) => ({ ...p, status }));
+          pAct(id, g.a.id, `set the status to ${status.replace('-', ' ')}`);
+          return ok();
+        },
+
+        setPrivacy(id, privacy, as) {
+          const g = guardProject(id, as, canAdminProject, 'Only owners and Projects admins can change privacy.', 'projects.project.privacy');
+          if (!g.ok) return g;
+          if (g.p.privacy === privacy) return ok();
+          const before = g.p.privacy;
+          patchProject(id, (p) => ({ ...p, privacy }));
+          pAct(id, g.a.id, `changed privacy from ${before} to ${privacy}`);
+          audit('projects.project.privacy', g.p.name, `${before} → ${privacy}`, 'success', 'warning', g.a.id);
+          return ok();
+        },
+
+        setMemberRole(id, userId, role, as) {
+          const g = guardProject(id, as, canAdminProject, 'Only owners and Projects admins can manage members.', 'projects.member.role');
+          if (!g.ok) return g;
+          const p = g.p;
+          const current = memberRole(p, userId);
+          const who = userName(userId);
+          if (role === null) {
+            if (!current) return ok();
+            if (userId === p.ownerId) return fail('Transfer ownership before removing the owner.');
+            patchProject(id, (x) => ({ ...x, members: x.members.filter((m) => m.userId !== userId) }));
+            pAct(id, g.a.id, `removed ${who}`);
+            audit('projects.member.remove', p.name, who, 'success', 'warning', g.a.id);
+            return ok();
           }
-          const inDone = DONE_SECTION.test(p.sections.find((s) => s.id === t.sectionId)?.name ?? '');
-          patchTask(taskId, (x) => ({ ...x, status: 'todo', completedAt: undefined, sectionId: inDone ? p.sections[0].id : x.sectionId, activity: [...x.activity, act(ctx.user.id, 'reopened')] }));
-          return ok('Reopened.');
-        },
-
-        deleteTask(taskId) {
-          const ctx = viewer();
-          const t = task(taskId);
-          const p = t ? project(t.projectId) : undefined;
-          if (!ctx || !t || !p || !access.canDeleteTask(ctx.v, p, t)) return fail('You can’t delete this task.');
-          set((s) => ({ tasks: s.tasks.filter((x) => x.id !== taskId).map((x) => (x.dependsOn.includes(taskId) ? { ...x, dependsOn: x.dependsOn.filter((id) => id !== taskId) } : x)) }));
-          audit({ action: 'projects.task.deleted', target: `${p.key}-${t.number} ${t.title}`, severity: 'warning' });
-          return ok(`Deleted ${p.key}-${t.number}.`);
-        },
-
-        addSubtask(taskId, title, assigneeId, dueDate) {
-          const r = requireTaskEdit(taskId);
-          if (r.error) return r.error;
-          if (!title.trim()) return fail('Name the subtask.');
-          patchTask(taskId, (t) => ({ ...t, subtasks: [...t.subtasks, { id: uid('st'), title: title.trim(), done: false, assigneeId, dueDate }], activity: [...t.activity, act(r.ctx.user.id, 'subtask_added', title.trim())] }));
+          if (!ROLES.includes(role)) return fail('Unknown role.');
+          const u = hubUsers().find((x) => x.id === userId && x.active);
+          if (!u) return fail('That person is not an active Helix member.');
+          if (role === 'owner') {
+            if (userId === p.ownerId) return ok();
+            patchProject(id, (x) => ({
+              ...x,
+              ownerId: userId,
+              members: [
+                ...x.members.map((m) => (m.userId === x.ownerId ? { ...m, role: 'editor' as ProjectRole } : m.userId === userId ? { ...m, role: 'owner' as ProjectRole } : m)),
+                ...(current ? [] : [{ userId, role: 'owner' as ProjectRole, addedAt: Date.now(), addedBy: g.a.id }]),
+              ],
+            }));
+            pAct(id, g.a.id, `transferred ownership to ${who}`);
+            audit('projects.member.role', p.name, `${who} → owner (ownership transfer)`, 'success', 'warning', g.a.id);
+            deliver([userId], g.a.id, 'access', { projectId: id }, `${firstOf(g.a.id)} made you the owner`, p.name, { title: `You now own ${p.name}` });
+            return ok();
+          }
+          if (userId === p.ownerId) return fail('Transfer ownership before changing the owner’s role.');
+          if (current === role) return ok();
+          patchProject(id, (x) => ({
+            ...x,
+            members: current ? x.members.map((m) => (m.userId === userId ? { ...m, role } : m)) : [...x.members, { userId, role, addedAt: Date.now(), addedBy: g.a.id }],
+          }));
+          const label = (r: ProjectRole) => r[0].toUpperCase() + r.slice(1);
+          pAct(id, g.a.id, current ? `changed ${who} from ${label(current)} to ${label(role)}` : `added ${who} as ${label(role)}`);
+          audit('projects.member.role', p.name, `${who}: ${current ?? 'none'} → ${role}`, 'success', 'warning', g.a.id);
+          deliver([userId], g.a.id, 'access', { projectId: id }, current ? `${firstOf(g.a.id)} made you ${role === 'editor' ? 'an' : 'a'} ${role}` : `${firstOf(g.a.id)} added you to ${p.name}`, p.name, {
+            title: current ? `You're now ${role === 'editor' ? 'an' : 'a'} ${role} on ${p.name}` : `${firstOf(g.a.id)} added you to ${p.name}`,
+          });
           return ok();
         },
 
-        toggleSubtask(taskId, subtaskId) {
-          const r = requireTaskEdit(taskId);
-          if (r.error) return r.error;
-          patchTask(taskId, (t) => ({ ...t, subtasks: t.subtasks.map((s) => (s.id === subtaskId ? { ...s, done: !s.done } : s)) }));
+        addMembers(id, userIds, role, as) {
+          const g = guardProject(id, as, canAdminProject, 'Only owners and Projects admins can add members.', 'projects.member.add');
+          if (!g.ok) return g;
+          if (role === 'owner') return fail('Add people first, then transfer ownership.');
+          let added = 0;
+          for (const uidv of [...new Set(userIds)]) {
+            if (memberRole(get().projects.find((p) => p.id === id)!, uidv)) continue;
+            const r = get().setMemberRole(id, uidv, role, g.a);
+            if (r.ok) added += 1;
+          }
+          return ok({ added });
+        },
+
+        archiveProject(id, archived, as) {
+          const g = guardProject(id, as, canAdminProject, 'Only owners and Projects admins can archive projects.', 'projects.project.archive');
+          if (!g.ok) return g;
+          patchProject(id, (p) => ({ ...p, archived }));
+          pAct(id, g.a.id, archived ? 'archived this project' : 'restored this project');
+          audit('projects.project.archive', g.p.name, archived ? 'Archived' : 'Restored', 'success', 'info', g.a.id);
           return ok();
         },
 
-        removeSubtask(taskId, subtaskId) {
-          const r = requireTaskEdit(taskId);
-          if (r.error) return r.error;
-          patchTask(taskId, (t) => ({ ...t, subtasks: t.subtasks.filter((s) => s.id !== subtaskId) }));
-          return ok();
+        deleteProject(id, as) {
+          const g = guardProject(id, as, canAdminProject, 'Only owners and Projects admins can delete projects.', 'projects.project.delete');
+          if (!g.ok) return g;
+          const s = get();
+          const snapshot: DeletedProject = {
+            project: g.p,
+            tasks: s.tasks.filter((t) => t.projectId === id),
+            rules: s.rules.filter((r) => r.projectId === id),
+            updates: s.updates.filter((u) => u.projectId === id),
+            portfolios: s.portfolios.filter((pf) => pf.projectIds.includes(id)).map((pf) => ({ id: pf.id, index: pf.projectIds.indexOf(id) })),
+          };
+          const taskIds = new Set(snapshot.tasks.map((t) => t.id));
+          set((st) => ({
+            projects: st.projects.filter((p) => p.id !== id),
+            tasks: st.tasks.filter((t) => t.projectId !== id).map((t) => (t.blockedBy.some((b) => taskIds.has(b)) ? { ...t, blockedBy: t.blockedBy.filter((b) => !taskIds.has(b)) } : t)),
+            rules: st.rules.filter((r) => r.projectId !== id),
+            updates: st.updates.filter((u) => u.projectId !== id),
+            portfolios: st.portfolios.map((pf) => ({ ...pf, projectIds: pf.projectIds.filter((x) => x !== id) })),
+          }));
+          audit('projects.project.delete', g.p.name, `${g.p.key} · ${snapshot.tasks.length} tasks`, 'success', 'critical', g.a.id);
+          return ok({ snapshot });
         },
 
-        addComment(taskId, body, mentions = []) {
-          const ctx = viewer();
-          const t = task(taskId);
-          const p = t ? project(t.projectId) : undefined;
-          if (!ctx || !t || !p || !access.canCommentProject(ctx.v, p)) return fail('You need commenter access on this project.');
-          const clean = body.trim();
-          if (!clean) return fail('Write something first.');
+        restoreProject(snap) {
+          if (get().projects.some((p) => p.id === snap.project.id)) return;
+          set((s) => ({
+            projects: [...s.projects, snap.project],
+            tasks: [...s.tasks, ...snap.tasks],
+            rules: [...s.rules, ...snap.rules],
+            updates: [...s.updates, ...snap.updates],
+            portfolios: s.portfolios.map((pf) => {
+              const ref = snap.portfolios.find((x) => x.id === pf.id);
+              if (!ref || pf.projectIds.includes(snap.project.id)) return pf;
+              const ids = [...pf.projectIds];
+              ids.splice(ref.index, 0, snap.project.id);
+              return { ...pf, projectIds: ids };
+            }),
+          }));
+          audit('projects.project.restore', snap.project.name, 'Undo delete', 'success', 'warning');
+        },
+
+        duplicateProject(id, as) {
+          const a = actorOr(as);
+          if (!a) return fail('You are not signed in.');
+          const src = project(id);
+          if (!src || !canViewProject(src, a)) return fail('Project not found.');
+          if (!canCreateProject(a)) return fail('Contractors can’t create projects.');
+          const taken = new Set(get().projects.map((p) => p.key));
+          const key = suggestKey(`${src.key}T`, taken);
+          const nid = `prj-${key.toLowerCase()}-${Date.now().toString(36).slice(-4)}`;
           const now = Date.now();
-          patchTask(taskId, (x) => ({ ...x, comments: [...x.comments, { id: uid('c'), authorId: ctx.user.id, body: clean, at: now, mentions, reactions: {} }], activity: [...x.activity, act(ctx.user.id, 'commented')] }));
-          notify([t.assigneeId, t.creatorId, ...t.collaboratorIds, ...mentions], { title: `${ctx.user.name} commented · ${p.key}-${t.number}`, body: clean.slice(0, 120), link: taskLink(p.id, t.id) }, ctx.user.id);
-          return ok('Comment posted.');
+          const secMap = new Map(src.sections.map((s, i) => [s.id, `${nid}-s${i + 1}`]));
+          const srcTasks = get()
+            .tasks.filter((t) => t.projectId === id)
+            .sort((x, y) => x.number - y.number);
+          const idMap = new Map(srcTasks.map((t) => [t.id, uid('t')]));
+          const p: Project = {
+            ...src,
+            id: nid,
+            key,
+            name: `${src.name} (template)`,
+            ownerId: a.id,
+            status: 'on-track',
+            members: [{ userId: a.id, role: 'owner', addedAt: now, addedBy: a.id }],
+            sections: src.sections.map((s) => ({ ...s, id: secMap.get(s.id)! })),
+            keyResultIds: [],
+            attachments: [],
+            activity: [act(a.id, `duplicated ${src.name}`)],
+            archived: false,
+            nextNumber: srcTasks.length + 1,
+            createdAt: now,
+            updatedAt: now,
+          };
+          const copies: Task[] = srcTasks.map((t, i) => ({
+            ...t,
+            id: idMap.get(t.id)!,
+            projectId: nid,
+            sectionId: t.sectionId ? (secMap.get(t.sectionId) ?? null) : null,
+            number: i + 1,
+            assigneeId: null,
+            creatorId: a.id,
+            followers: [a.id],
+            completedAt: undefined,
+            completedBy: undefined,
+            comments: [],
+            attachments: [],
+            approval: t.approval ? { approverId: a.id, state: 'pending' } : undefined,
+            subtasks: t.subtasks.map((st) => ({ ...st, id: uid('st'), done: false })),
+            blockedBy: t.blockedBy.map((b) => idMap.get(b)).filter((x): x is string => !!x),
+            activity: [act(a.id, 'created this task')],
+            createdAt: now,
+            updatedAt: now,
+          }));
+          // land copies in the first non-done section if their source was done
+          const firstOpen = p.sections.find((s) => s.stage !== 'done') ?? p.sections[0];
+          for (const c of copies) if (p.sections.find((s) => s.id === c.sectionId)?.stage === 'done') c.sectionId = firstOpen.id;
+          set((s) => ({ projects: [...s.projects, p], tasks: [...s.tasks, ...copies] }));
+          audit('projects.project.create', p.name, `Duplicated from ${src.key}`, 'success', 'info', a.id);
+          return ok({ projectId: nid });
         },
 
-        toggleReaction(taskId, commentId, emoji) {
-          const ctx = viewer();
-          if (!ctx) return fail('Not signed in.');
-          patchTask(taskId, (t) => ({
-            ...t,
-            comments: t.comments.map((c) => {
+        addSection(projectId, name, as) {
+          const g = guardProject(projectId, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
+          const n = name.trim();
+          if (!n) return fail('Name the section.');
+          const id = uid(`${projectId}-s`);
+          const doneIdx = g.p.sections.findIndex((s) => s.stage === 'done');
+          patchProject(projectId, (p) => {
+            const secs = [...p.sections];
+            const sec: Section = { id, name: n.slice(0, 40), stage: 'todo' };
+            if (doneIdx >= 0) secs.splice(doneIdx, 0, sec);
+            else secs.push(sec);
+            return { ...p, sections: secs };
+          });
+          return ok({ sectionId: id });
+        },
+
+        updateSection(projectId, sectionId, patch, as) {
+          const g = guardProject(projectId, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
+          if (!g.p.sections.some((s) => s.id === sectionId)) return fail('Section not found.');
+          if (patch.name !== undefined && !patch.name.trim()) return fail('Sections need a name.');
+          if (patch.wip !== undefined && patch.wip !== 0 && (!Number.isInteger(patch.wip) || patch.wip < 1 || patch.wip > 99)) return fail('WIP limits are 1–99.');
+          patchProject(projectId, (p) => ({
+            ...p,
+            sections: p.sections.map((s) =>
+              s.id === sectionId
+                ? {
+                    ...s,
+                    ...(patch.name !== undefined ? { name: patch.name.trim().slice(0, 40) } : {}),
+                    ...(patch.wip !== undefined ? { wip: patch.wip || undefined } : {}),
+                    ...(patch.stage !== undefined ? { stage: patch.stage as SectionStage } : {}),
+                  }
+                : s,
+            ),
+          }));
+          return ok();
+        },
+
+        moveSection(projectId, sectionId, toIndex, as) {
+          const g = guardProject(projectId, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
+          patchProject(projectId, (p) => {
+            const secs = [...p.sections];
+            const from = secs.findIndex((s) => s.id === sectionId);
+            if (from < 0) return p;
+            const [sec] = secs.splice(from, 1);
+            secs.splice(Math.max(0, Math.min(toIndex, secs.length)), 0, sec);
+            return { ...p, sections: secs };
+          });
+          return ok();
+        },
+
+        deleteSection(projectId, sectionId, as) {
+          const g = guardProject(projectId, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
+          if (g.p.sections.length <= 1) return fail('A project needs at least one section.');
+          const target = g.p.sections.find((s) => s.id !== sectionId && s.stage !== 'done') ?? g.p.sections.find((s) => s.id !== sectionId)!;
+          const moving = sectionTasks(projectId, sectionId);
+          const base = sectionTasks(projectId, target.id).length;
+          set((s) => ({
+            tasks: s.tasks.map((t) => (t.projectId === projectId && t.sectionId === sectionId ? { ...t, sectionId: target.id, order: base + moving.findIndex((m) => m.id === t.id) } : t)),
+            rules: s.rules.map((r) => (r.projectId === projectId && r.trigger.sectionId === sectionId ? { ...r, enabled: false } : r)),
+          }));
+          patchProject(projectId, (p) => ({ ...p, sections: p.sections.filter((s) => s.id !== sectionId) }));
+          return ok();
+        },
+
+        postStatusUpdate(projectId, input, as) {
+          const g = guardProject(projectId, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
+          if (!STATUSES.includes(input.status)) return fail('Pick a status.');
+          const title = input.title.trim();
+          const body = input.body.trim();
+          if (!title && !body) return fail('Write a short update first.');
+          const u: StatusUpdate = {
+            id: uid('su'),
+            projectId,
+            authorId: g.a.id,
+            status: input.status,
+            title: title || body.split('\n')[0].replace(/\*\*/g, '').slice(0, 90),
+            body,
+            at: Date.now(),
+            byNova: input.byNova,
+          };
+          set((s) => ({ updates: [u, ...s.updates] }));
+          patchProject(projectId, (p) => ({ ...p, status: input.status }));
+          pAct(projectId, g.a.id, `posted a status update (${input.status.replace('-', ' ')})`);
+          const members = g.p.members.map((m) => m.userId);
+          const label = { 'on-track': 'is on track', 'at-risk': 'is at risk', 'off-track': 'is off track', 'on-hold': 'is on hold', complete: 'is complete' }[input.status];
+          deliver(members, g.a.id, 'status', { projectId }, `${g.p.name} ${label}`, u.title, input.status === 'at-risk' || input.status === 'off-track' ? { title: `${g.p.name} ${label}`, body: u.title } : undefined);
+          return ok({ updateId: u.id });
+        },
+
+        linkKeyResults(projectId, keyResultIds, as) {
+          const g = guardProject(projectId, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
+          const ids = [...new Set(keyResultIds.filter((x) => typeof x === 'string' && x))].slice(0, 12);
+          patchProject(projectId, (p) => ({ ...p, keyResultIds: ids }));
+          pAct(projectId, g.a.id, ids.length ? `linked ${ids.length} key ${ids.length === 1 ? 'result' : 'results'}` : 'unlinked all key results');
+          return ok();
+        },
+
+        addProjectAttachment(projectId, att, as) {
+          const g = guardProject(projectId, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
+          if (!att.name.trim()) return fail('Attachments need a name.');
+          if (att.kind === 'link' && !/^https?:\/\//i.test(att.url ?? '')) return fail('Links must start with http:// or https://');
+          if (g.p.attachments.some((x) => (att.fileId && x.fileId === att.fileId) || (att.url && x.url === att.url))) return fail('Already attached.');
+          patchProject(projectId, (p) => ({ ...p, attachments: [...p.attachments, { ...att, name: att.name.trim(), id: uid('att'), addedBy: g.a.id, at: Date.now() }] }));
+          return ok();
+        },
+
+        removeProjectAttachment(projectId, attId, as) {
+          const g = guardProject(projectId, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
+          patchProject(projectId, (p) => ({ ...p, attachments: p.attachments.filter((x) => x.id !== attId) }));
+          return ok();
+        },
+
+        /* ═════════════════════ per-user ═════════════════════ */
+        toggleStar(projectId) {
+          patchUser((u) => ({ ...u, starred: u.starred.includes(projectId) ? u.starred.filter((x) => x !== projectId) : [...u.starred, projectId] }));
+        },
+        setLastView(projectId, view) {
+          patchUser((u) => (u.lastView[projectId] === view ? u : { ...u, lastView: { ...u.lastView, [projectId]: view } }));
+        },
+        setSideCollapsed(v) {
+          patchUser((u) => ({ ...u, sideCollapsed: v }));
+        },
+        setBrowseMode(m) {
+          patchUser((u) => ({ ...u, browseMode: m }));
+        },
+        savePlan(slots, accepted) {
+          patchUser((u) => ({ ...u, plan: { date: todayIso(), slots, accepted } }));
+        },
+        clearPlan() {
+          patchUser((u) => ({ ...u, plan: undefined }));
+        },
+
+        /* ═════════════════════ tasks ═════════════════════ */
+        createTask(input, as) {
+          const a = actorOr(as);
+          if (!a) return fail('You are not signed in.');
+          const title = input.title.replace(/\s+/g, ' ').trim();
+          if (!title) return fail('Give the task a title.');
+          if (title.length > 200) return fail('Keep titles under 200 characters.');
+          const p = input.projectId ? project(input.projectId) : undefined;
+          if (input.projectId) {
+            if (!p || !canViewProject(p, a)) return fail('Project not found.');
+            if (!canEditProject(p, a)) return fail(p.archived ? 'This project is archived.' : 'You can’t add tasks to this project.');
+          }
+          const users = hubUsers();
+          const assigneeId = input.assigneeId === undefined ? (p ? null : a.id) : input.assigneeId;
+          if (assigneeId && !users.some((u) => u.id === assigneeId && u.active)) return fail('Pick an active teammate to assign.');
+          if (!p && assigneeId && assigneeId !== a.id) return fail('Personal tasks can only be assigned to yourself — pick a project to assign others.');
+          if (input.dueDate && !isIsoDate(input.dueDate)) return fail('Invalid due date.');
+          if (input.startDate && !isIsoDate(input.startDate)) return fail('Invalid start date.');
+          if (input.dueTime && !/^([01]\d|2[0-3]):[0-5]\d$/.test(input.dueTime)) return fail('Invalid time.');
+          const kind = input.kind ?? 'task';
+          let sectionId: string | null = null;
+          if (p) {
+            sectionId = input.sectionId && p.sections.some((s) => s.id === input.sectionId) ? input.sectionId : (p.sections.find((s) => s.stage !== 'done') ?? p.sections[0]).id;
+          }
+          const approverId = kind === 'approval' ? (input.approverId ?? assigneeId ?? undefined) : undefined;
+          if (kind === 'approval' && !approverId) return fail('Approvals need an approver.');
+          const now = Date.now();
+          const number = p ? p.nextNumber : get().personalSeq + 1;
+          const id = uid('t');
+          const startDate = input.startDate && input.dueDate && input.startDate > input.dueDate ? input.dueDate : input.startDate;
+          const t: Task = {
+            id,
+            projectId: p?.id ?? null,
+            sectionId,
+            number,
+            title,
+            description: (input.description ?? '').slice(0, 8000),
+            kind,
+            priority: input.priority && PRIORITIES.includes(input.priority) ? input.priority : 'none',
+            assigneeId: assigneeId ?? null,
+            creatorId: a.id,
+            followers: [...new Set([a.id, ...(assigneeId ? [assigneeId] : []), ...(approverId ? [approverId] : [])])],
+            startDate,
+            dueDate: input.dueDate,
+            dueTime: input.dueDate ? input.dueTime : undefined,
+            estimate: input.estimate && input.estimate > 0 ? Math.min(400, input.estimate) : undefined,
+            tags: cleanTags(input.tags ?? []),
+            subtasks: [],
+            blockedBy: (input.blockedBy ?? []).filter((b) => get().tasks.some((x) => x.id === b)),
+            attachments: [],
+            comments: [],
+            activity: [act(a.id, input.source ? `created this task from ${input.source.label}` : 'created this task')],
+            approval: approverId ? { approverId, state: 'pending' } : undefined,
+            order: 0,
+            createdAt: now,
+            updatedAt: now,
+            source: input.source,
+          };
+          set((s) => ({ tasks: [...s.tasks, t], personalSeq: p ? s.personalSeq : s.personalSeq + 1 }));
+          if (p) {
+            patchProject(p.id, (x) => ({ ...x, nextNumber: x.nextNumber + 1 }));
+            placeInSection(id, p.id, sectionId!, input.index);
+          }
+          if (approverId && approverId !== a.id)
+            deliver([approverId], a.id, 'approval', { taskId: id }, `${firstOf(a.id)} requested your approval`, title, { title: `Approval requested · ${taskKey(p, t)}`, body: title });
+          else if (assigneeId && assigneeId !== a.id) notifyAssignee(task(id)!, assigneeId, a);
+          runAutomations(id, { kind: 'created' }, a);
+          if (assigneeId) runAutomations(id, { kind: 'assigned', assigneeId }, a);
+          return ok({ taskId: id });
+        },
+
+        updateTask(id, patch, as) {
+          const g = guardTask(id, as, canEditTask, 'You can’t edit this task.');
+          if (!g.ok) return g;
+          const { a, t } = g;
+          const next: Partial<Task> = {};
+          const log: string[] = [];
+          if (patch.title !== undefined) {
+            const v = patch.title.replace(/\s+/g, ' ').trim();
+            if (!v) return fail('Titles can’t be empty.');
+            if (v !== t.title) {
+              next.title = v.slice(0, 200);
+              log.push('renamed this task');
+            }
+          }
+          if (patch.description !== undefined && patch.description !== t.description) {
+            next.description = patch.description.slice(0, 8000);
+            log.push('updated the description');
+          }
+          if (patch.priority !== undefined && patch.priority !== t.priority) {
+            if (!PRIORITIES.includes(patch.priority)) return fail('Unknown priority.');
+            next.priority = patch.priority;
+            log.push(`set priority to ${PRIORITY_NAME[patch.priority]}`);
+          }
+          if (patch.estimate !== undefined && patch.estimate !== t.estimate) {
+            if (patch.estimate !== undefined && (Number.isNaN(patch.estimate) || patch.estimate < 0)) return fail('Estimates are hours (0 or more).');
+            next.estimate = patch.estimate ? Math.min(400, Math.round(patch.estimate * 4) / 4) : undefined;
+            log.push(next.estimate ? `estimated ${next.estimate}h` : 'cleared the estimate');
+          }
+          if (patch.tags !== undefined) next.tags = cleanTags(patch.tags);
+          if ('dueDate' in patch || 'startDate' in patch || 'dueTime' in patch) {
+            const due = 'dueDate' in patch ? patch.dueDate : t.dueDate;
+            let start = 'startDate' in patch ? patch.startDate : t.startDate;
+            if (due && !isIsoDate(due)) return fail('Invalid due date.');
+            if (start && !isIsoDate(start)) return fail('Invalid start date.');
+            if (start && due && start > due) start = 'startDate' in patch && !('dueDate' in patch) ? due : start > due ? due : start;
+            const time = 'dueTime' in patch ? patch.dueTime : t.dueTime;
+            if (time && !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return fail('Invalid time.');
+            next.dueDate = due;
+            next.startDate = start;
+            next.dueTime = due ? time : undefined;
+            if (due !== t.dueDate) log.push(due ? `changed the due date to ${formatDue(due)}` : 'removed the due date');
+            else if (start !== t.startDate) log.push(start ? `set the start date to ${formatDue(start)}` : 'removed the start date');
+          }
+          let newAssignee: string | null | undefined;
+          if (patch.assigneeId !== undefined && patch.assigneeId !== t.assigneeId) {
+            if (patch.assigneeId && !hubUsers().some((u) => u.id === patch.assigneeId && u.active)) return fail('Pick an active teammate.');
+            if (!t.projectId && patch.assigneeId && patch.assigneeId !== a.id) return fail('Personal tasks stay with you — move it to a project to assign others.');
+            next.assigneeId = patch.assigneeId;
+            newAssignee = patch.assigneeId;
+            log.push(patch.assigneeId ? `assigned this to ${userName(patch.assigneeId)}` : 'unassigned this task');
+          }
+          if (patch.kind !== undefined && patch.kind !== t.kind) {
+            next.kind = patch.kind;
+            if (patch.kind === 'approval') next.approval = { approverId: t.assigneeId ?? a.id, state: 'pending' };
+            if (patch.kind !== 'approval') next.approval = undefined;
+            log.push(patch.kind === 'milestone' ? 'converted this to a milestone' : patch.kind === 'approval' ? 'converted this to an approval' : 'converted this to a task');
+          }
+          if (!Object.keys(next).length) return ok();
+          patchTask(id, (x) => ({
+            ...x,
+            ...next,
+            followers: newAssignee ? [...new Set([...x.followers, newAssignee])] : x.followers,
+            activity: [...x.activity, ...log.map((l) => act(a.id, l))].slice(-120),
+          }));
+          if (newAssignee) {
+            notifyAssignee(task(id)!, newAssignee, a);
+            runAutomations(id, { kind: 'assigned', assigneeId: newAssignee }, a);
+          }
+          return ok();
+        },
+
+        completeTask(id, done, as) {
+          const g = guardTask(id, as, canCompleteTask, 'You can’t complete this task.');
+          if (!g.ok) return g;
+          const { a, t } = g;
+          if (t.kind === 'approval' && t.approval?.state === 'pending') {
+            if (!canDecideApproval(t, g.p, a)) return fail(`Only ${userName(t.approval.approverId)} can approve this.`);
+            return done ? get().decideApproval(id, 'approved', undefined, a).ok ? ok({ milestone: false }) : fail('Could not approve.') : ok({ milestone: false });
+          }
+          if (!!t.completedAt === done) return ok({ milestone: t.kind === 'milestone' });
+          setCompletion(t, done, a);
+          return ok({ milestone: t.kind === 'milestone' && done });
+        },
+
+        moveTask(id, to, as) {
+          const g = guardTask(id, as, canEditTask, 'You can’t move this task.');
+          if (!g.ok) return g;
+          const { a, t, p } = g;
+          if (!p) return fail('Personal tasks don’t have sections.');
+          const sec = p.sections.find((s) => s.id === to.sectionId);
+          if (!sec) return fail('Section not found.');
+          const fromSection = t.sectionId;
+          placeInSection(id, p.id, sec.id, to.index);
+          if (fromSection !== sec.id) {
+            patchTask(id, (x) => ({ ...x, activity: [...x.activity, act(a.id, `moved this to ${sec.name}`)] }));
+            const cur = task(id)!;
+            if (sec.stage === 'done' && !cur.completedAt) setCompletion(cur, true, a);
+            else if (sec.stage !== 'done' && cur.completedAt && p.sections.find((s) => s.id === fromSection)?.stage === 'done') {
+              patchTask(id, (x) => ({ ...x, completedAt: undefined, completedBy: undefined, activity: [...x.activity, act(a.id, 'reopened this task')] }));
+            }
+            runAutomations(id, { kind: 'moved', sectionId: sec.id }, a);
+          }
+          return ok();
+        },
+
+        deleteTasks(ids, as) {
+          const a = actorOr(as);
+          if (!a) return fail('You are not signed in.');
+          const removed: Task[] = [];
+          let skipped = 0;
+          for (const id of ids) {
+            const t = task(id);
+            if (!t) continue;
+            const p = project(t.projectId);
+            if (!canSeeTask(t, p, a) || !canDeleteTask(t, p, a)) {
+              skipped += 1;
+              continue;
+            }
+            removed.push(t);
+          }
+          if (!removed.length) return skipped ? fail('You can’t delete these tasks.') : fail('Nothing to delete.');
+          const gone = new Set(removed.map((t) => t.id));
+          const refs: Record<string, string[]> = {};
+          for (const t of get().tasks)
+            for (const b of t.blockedBy)
+              if (gone.has(b)) {
+                refs[b] = [...(refs[b] ?? []), t.id];
+              }
+          set((s) => ({
+            tasks: s.tasks.filter((t) => !gone.has(t.id)).map((t) => (t.blockedBy.some((b) => gone.has(b)) ? { ...t, blockedBy: t.blockedBy.filter((b) => !gone.has(b)) } : t)),
+          }));
+          return ok({ snapshot: { tasks: removed, refs }, skipped });
+        },
+
+        restoreTasks(snap) {
+          const existing = new Set(get().tasks.map((t) => t.id));
+          const back = snap.tasks.filter((t) => !existing.has(t.id) && (!t.projectId || get().projects.some((p) => p.id === t.projectId)));
+          set((s) => ({
+            tasks: [
+              ...s.tasks.map((t) => {
+                const add = Object.entries(snap.refs)
+                  .filter(([, dependents]) => dependents.includes(t.id))
+                  .map(([blocker]) => blocker);
+                return add.length ? { ...t, blockedBy: [...new Set([...t.blockedBy, ...add])] } : t;
+              }),
+              ...back,
+            ],
+          }));
+        },
+
+        duplicateTask(id, as) {
+          const g = guardTask(id, as, (t, p, a) => (t.projectId ? !!p && canEditProject(p, a) : t.creatorId === a.id), 'You can’t duplicate this task.');
+          if (!g.ok) return g;
+          const { t } = g;
+          const r = get().createTask(
+            {
+              title: `${t.title} (copy)`,
+              projectId: t.projectId,
+              sectionId: t.sectionId,
+              assigneeId: t.assigneeId,
+              dueDate: t.dueDate,
+              dueTime: t.dueTime,
+              startDate: t.startDate,
+              priority: t.priority,
+              tags: t.tags,
+              estimate: t.estimate,
+              description: t.description,
+              kind: t.kind,
+              approverId: t.approval?.approverId,
+            },
+            g.a,
+          );
+          if (!r.ok) return r;
+          patchTask(r.taskId, (x) => ({ ...x, subtasks: t.subtasks.map((s) => ({ ...s, id: uid('st'), done: false })) }));
+          const list = t.projectId && t.sectionId ? sectionTasks(t.projectId, t.sectionId) : [];
+          const idx = list.findIndex((x) => x.id === t.id);
+          if (t.projectId && t.sectionId && idx >= 0) placeInSection(r.taskId, t.projectId, t.sectionId, idx + 1);
+          return ok({ taskId: r.taskId });
+        },
+
+        convertKind(id, kind, as) {
+          return get().updateTask(id, { kind }, as);
+        },
+
+        addSubtask(id, title, as) {
+          const g = guardTask(id, as, canEditTask, 'You can’t edit this task.');
+          if (!g.ok) return g;
+          const v = title.trim();
+          if (!v) return fail('Subtasks need a title.');
+          if (g.t.subtasks.length >= 50) return fail('That’s a lot of subtasks — split the task instead.');
+          patchTask(id, (x) => ({ ...x, subtasks: [...x.subtasks, { id: uid('st'), title: v.slice(0, 160), done: false }] }));
+          return ok();
+        },
+
+        updateSubtask(id, subId, patch, as) {
+          const g = guardTask(id, as, patch.title !== undefined ? canEditTask : canCompleteTask, 'You can’t edit this task.');
+          if (!g.ok) return g;
+          if (patch.title !== undefined && !patch.title.trim()) return get().removeSubtask(id, subId, as);
+          patchTask(id, (x) => ({
+            ...x,
+            subtasks: x.subtasks.map((s) => (s.id === subId ? { ...s, ...(patch.title !== undefined ? { title: patch.title.trim().slice(0, 160) } : {}), ...(patch.done !== undefined ? { done: patch.done } : {}) } : s)),
+          }));
+          return ok();
+        },
+
+        removeSubtask(id, subId, as) {
+          const g = guardTask(id, as, canEditTask, 'You can’t edit this task.');
+          if (!g.ok) return g;
+          patchTask(id, (x) => ({ ...x, subtasks: x.subtasks.filter((s) => s.id !== subId) }));
+          return ok();
+        },
+
+        moveSubtask(id, subId, toIndex, as) {
+          const g = guardTask(id, as, canEditTask, 'You can’t edit this task.');
+          if (!g.ok) return g;
+          patchTask(id, (x) => {
+            const list = [...x.subtasks];
+            const from = list.findIndex((s) => s.id === subId);
+            if (from < 0) return x;
+            const [it] = list.splice(from, 1);
+            list.splice(Math.max(0, Math.min(toIndex, list.length)), 0, it);
+            return { ...x, subtasks: list };
+          });
+          return ok();
+        },
+
+        addDependency(id, blockerId, as) {
+          const g = guardTask(id, as, canEditTask, 'You can’t edit this task.');
+          if (!g.ok) return g;
+          const b = task(blockerId);
+          if (!b || !canSeeTask(b, project(b.projectId), g.a)) return fail('That task doesn’t exist.');
+          if (g.t.blockedBy.includes(blockerId)) return ok();
+          if (wouldCreateCycle(get().tasks, id, blockerId)) return fail(`That would create a loop — ${taskKey(project(b.projectId), b)} already waits on this task.`);
+          patchTask(id, (x) => ({ ...x, blockedBy: [...x.blockedBy, blockerId], activity: [...x.activity, act(g.a.id, `marked this blocked by ${taskKey(project(b.projectId), b)}`)] }));
+          return ok();
+        },
+
+        removeDependency(id, blockerId, as) {
+          const g = guardTask(id, as, canEditTask, 'You can’t edit this task.');
+          if (!g.ok) return g;
+          patchTask(id, (x) => ({ ...x, blockedBy: x.blockedBy.filter((b) => b !== blockerId) }));
+          return ok();
+        },
+
+        addAttachment(id, att, as) {
+          const g = guardTask(id, as, canCommentTask, 'You can’t add files to this task.');
+          if (!g.ok) return g;
+          if (!att.name.trim()) return fail('Attachments need a name.');
+          if (att.kind === 'link' && !/^https?:\/\//i.test(att.url ?? '')) return fail('Links must start with http:// or https://');
+          if (g.t.attachments.some((x) => (att.fileId && x.fileId === att.fileId) || (att.url && x.url === att.url))) return fail('Already attached.');
+          patchTask(id, (x) => ({
+            ...x,
+            attachments: [...x.attachments, { ...att, name: att.name.trim(), id: uid('att'), addedBy: g.a.id, at: Date.now() }],
+            activity: [...x.activity, act(g.a.id, `attached ${att.name.trim()}`)],
+          }));
+          return ok();
+        },
+
+        removeAttachment(id, attId, as) {
+          const g = guardTask(id, as, (t, p, a) => canEditTask(t, p, a) || t.attachments.some((x) => x.id === attId && x.addedBy === a.id), 'You can’t remove this file.');
+          if (!g.ok) return g;
+          patchTask(id, (x) => ({ ...x, attachments: x.attachments.filter((f) => f.id !== attId) }));
+          return ok();
+        },
+
+        addComment(id, body, as) {
+          const g = guardTask(id, as, canCommentTask, 'You have view-only access — ask the owner for comment access.');
+          if (!g.ok) return g;
+          const { a, t, p } = g;
+          const text = body.trim();
+          if (!text) return fail('Write something first.');
+          if (text.length > 4000) return fail('Keep comments under 4,000 characters.');
+          const mentioned = parseMentions(text).filter((m) => m !== a.id);
+          const c = { id: uid('c'), authorId: a.id, body: text, at: Date.now(), mentions: mentioned, reactions: {} };
+          patchTask(id, (x) => ({ ...x, comments: [...x.comments, c], followers: [...new Set([...x.followers, a.id, ...mentioned])] }));
+          const key = taskKey(p, t);
+          const quote = text.length > 120 ? `${text.slice(0, 117)}…` : text;
+          deliver(mentioned, a.id, 'mention', { taskId: id }, `${firstOf(a.id)} mentioned you`, quote, { title: `${firstOf(a.id)} mentioned you · ${key}`, body: `“${quote}”` });
+          const others = t.followers.filter((f) => !mentioned.includes(f));
+          deliver(others, a.id, 'comment', { taskId: id }, `${firstOf(a.id)} commented`, quote);
+          return ok({ commentId: c.id, mentioned });
+        },
+
+        deleteComment(id, commentId, as) {
+          const g = guardTask(id, as, (t, p, a) => t.comments.some((c) => c.id === commentId && c.authorId === a.id) || (!!p && canAdminProject(p, a)), 'You can only delete your own comments.');
+          if (!g.ok) return g;
+          patchTask(id, (x) => ({ ...x, comments: x.comments.filter((c) => c.id !== commentId) }));
+          return ok();
+        },
+
+        toggleReaction(id, commentId, emoji, as) {
+          const g = guardTask(id, as, canSeeTask, 'Not allowed.');
+          if (!g.ok) return g;
+          if (!emoji || emoji.length > 8) return fail('Pick an emoji.');
+          const me = g.a.id;
+          patchTask(id, (x) => ({
+            ...x,
+            comments: x.comments.map((c) => {
               if (c.id !== commentId) return c;
-              const who = c.reactions[emoji] ?? [];
-              const next = who.includes(ctx.user.id) ? who.filter((id) => id !== ctx.user.id) : [...who, ctx.user.id];
+              const cur = c.reactions[emoji] ?? [];
+              const next = cur.includes(me) ? cur.filter((u) => u !== me) : [...cur, me];
               const reactions = { ...c.reactions, [emoji]: next };
               if (!next.length) delete reactions[emoji];
               return { ...c, reactions };
@@ -642,357 +1337,206 @@ export const useProjects = create<ProjectsStore>()(
           return ok();
         },
 
-        toggleLike(taskId) {
-          const ctx = viewer();
-          const t = task(taskId);
-          const p = t ? project(t.projectId) : undefined;
-          if (!ctx || !t || !p || !access.canCommentProject(ctx.v, p)) return fail('You need commenter access on this project.');
-          const liked = t.likes.includes(ctx.user.id);
-          patchTask(taskId, (x) => ({ ...x, likes: liked ? x.likes.filter((id) => id !== ctx.user.id) : [...x.likes, ctx.user.id] }));
-          if (!liked && t.assigneeId) notify([t.assigneeId], { title: `${ctx.user.name} liked your task`, body: t.title, link: taskLink(p.id, t.id) }, ctx.user.id);
+        toggleFollow(id, as) {
+          const g = guardTask(id, as, canSeeTask, 'Not allowed.');
+          if (!g.ok) return g;
+          const following = !g.t.followers.includes(g.a.id);
+          patchTask(id, (x) => ({ ...x, followers: following ? [...x.followers, g.a.id] : x.followers.filter((f) => f !== g.a.id) }));
+          return ok({ following });
+        },
+
+        decideApproval(id, decision, note, as) {
+          const g = guardTask(id, as, canDecideApproval, 'Only the approver can decide on this.');
+          if (!g.ok) return g;
+          const { a, t, p } = g;
+          const now = Date.now();
+          const verb = decision === 'approved' ? 'approved' : decision === 'changes' ? 'requested changes' : 'rejected';
+          patchTask(id, (x) => ({
+            ...x,
+            approval: { ...(x.approval ?? { approverId: a.id }), state: decision, decidedAt: now, note: note?.trim() || undefined },
+            completedAt: decision === 'changes' ? undefined : now,
+            completedBy: decision === 'changes' ? undefined : a.id,
+            activity: [...x.activity, act(a.id, note?.trim() ? `${verb}: “${note.trim().slice(0, 120)}”` : verb)],
+          }));
+          const key = taskKey(p, t);
+          deliver([t.creatorId, ...(t.assigneeId ? [t.assigneeId] : [])], a.id, 'decision', { taskId: id }, `${firstOf(a.id)} ${verb}`, t.title, { title: `${firstOf(a.id)} ${verb} ${key}`, body: note?.trim() || t.title });
+          audit('projects.approval.decide', `${key} ${t.title}`, verb, 'success', 'info', a.id);
+          if (decision !== 'changes') runAutomations(id, { kind: 'completed' }, a);
           return ok();
         },
 
-        toggleFollow(taskId) {
-          const ctx = viewer();
-          const t = task(taskId);
-          const p = t ? project(t.projectId) : undefined;
-          if (!ctx || !t || !p || !access.canCommentProject(ctx.v, p)) return fail('You need commenter access on this project.');
-          const following = t.collaboratorIds.includes(ctx.user.id);
-          patchTask(taskId, (x) => ({ ...x, collaboratorIds: following ? x.collaboratorIds.filter((id) => id !== ctx.user.id) : [...x.collaboratorIds, ctx.user.id] }));
-          return ok(following ? 'Unfollowed.' : 'You’ll be notified about this task.');
+        bulkUpdate(ids, patch, as) {
+          let changed = 0;
+          let skipped = 0;
+          for (const id of ids) {
+            const r = get().updateTask(id, patch, as);
+            if (r.ok) changed += 1;
+            else skipped += 1;
+          }
+          return changed || !skipped ? ok({ changed, skipped }) : fail('You can’t edit these tasks.');
         },
 
-        addAttachment(taskId, att) {
-          const r = requireTaskEdit(taskId);
-          if (r.error) return r.error;
-          if (!att.title.trim()) return fail('Attachment needs a title.');
-          patchTask(taskId, (t) => ({ ...t, attachments: [...t.attachments, { ...att, id: uid('att'), addedBy: r.ctx.user.id, at: Date.now() }], activity: [...t.activity, act(r.ctx.user.id, 'attached', att.title)] }));
-          return ok(`Attached ${att.title}.`);
+        bulkComplete(ids, done, as) {
+          let changed = 0;
+          let skipped = 0;
+          for (const id of ids) {
+            const r = get().completeTask(id, done, as);
+            if (r.ok) changed += 1;
+            else skipped += 1;
+          }
+          return changed || !skipped ? ok({ changed, skipped }) : fail('You can’t complete these tasks.');
         },
 
-        removeAttachment(taskId, attachmentId) {
-          const r = requireTaskEdit(taskId);
-          if (r.error) return r.error;
-          patchTask(taskId, (t) => ({ ...t, attachments: t.attachments.filter((a) => a.id !== attachmentId) }));
+        bulkMove(ids, sectionId, as) {
+          let changed = 0;
+          let skipped = 0;
+          for (const id of ids) {
+            const r = get().moveTask(id, { sectionId }, as);
+            if (r.ok) changed += 1;
+            else skipped += 1;
+          }
+          return changed || !skipped ? ok({ changed, skipped }) : fail('You can’t move these tasks.');
+        },
+
+        /* ═════════════════════ automations ═════════════════════ */
+        createRule(projectId, rule, as) {
+          const g = guardProject(projectId, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
+          const name = rule.name.trim() || 'Untitled rule';
+          if (!rule.actions.length) return fail('Add at least one action.');
+          if (rule.trigger.kind === 'moved' && rule.trigger.sectionId && !g.p.sections.some((s) => s.id === rule.trigger.sectionId)) return fail('Pick a section for the trigger.');
+          const r: Rule = { id: uid('r'), projectId, name: name.slice(0, 60), enabled: true, trigger: rule.trigger, conditions: rule.conditions, actions: rule.actions, runs: 0, createdBy: g.a.id, createdAt: Date.now(), fired: [] };
+          set((s) => ({ rules: [...s.rules, r] }));
+          pAct(projectId, g.a.id, `added the automation “${r.name}”`);
+          return ok({ ruleId: r.id });
+        },
+
+        updateRule(ruleId, patch, as) {
+          const r = get().rules.find((x) => x.id === ruleId);
+          if (!r) return fail('Rule not found.');
+          const g = guardProject(r.projectId, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
+          if (patch.actions && !patch.actions.length) return fail('Add at least one action.');
+          set((s) => ({ rules: s.rules.map((x) => (x.id === ruleId ? { ...x, ...patch, name: (patch.name ?? x.name).trim().slice(0, 60) || x.name } : x)) }));
           return ok();
         },
 
-        setDependency(taskId, dependsOnId, add) {
-          const r = requireTaskEdit(taskId);
-          if (r.error) return r.error;
-          const dep = task(dependsOnId);
-          if (!dep) return fail('Dependency not found.');
-          if (add) {
-            const byId = new Map(get().tasks.map((x) => [x.id, x]));
-            if (wouldCreateCycle(taskId, dependsOnId, byId)) return fail('That would create a circular dependency.');
-            if (r.t.dependsOn.includes(dependsOnId)) return ok();
-            patchTask(taskId, (t) => ({ ...t, dependsOn: [...t.dependsOn, dependsOnId], activity: [...t.activity, act(r.ctx.user.id, 'blocked_by', dep.title)] }));
-            return ok(`Now blocked by “${dep.title}”.`);
-          }
-          patchTask(taskId, (t) => ({ ...t, dependsOn: t.dependsOn.filter((id) => id !== dependsOnId) }));
-          return ok('Dependency removed.');
-        },
-
-        decideApproval(taskId, decision, note) {
-          const ctx = viewer();
-          const t = task(taskId);
-          const p = t ? project(t.projectId) : undefined;
-          const gate = access.canDecideApproval(ctx?.v ?? null, t);
-          if (!ctx || !t || !p || !gate.ok) {
-            audit({ action: 'projects.approval.denied', target: t ? `${p?.key}-${t.number}` : taskId, detail: gate.ok ? 'Not found' : gate.reason, outcome: 'denied', severity: 'warning' });
-            return fail(gate.ok ? 'Task not found.' : gate.reason);
-          }
-          if (decision !== 'approved' && !note?.trim()) return fail('Add a short note so the requester knows what to change.');
-          const now = Date.now();
-          let next: Task = { ...t, approval: { ...t.approval!, decision, decidedAt: now, note: note?.trim() || undefined }, activity: [...t.activity, act(ctx.user.id, `approval_${decision}`, note?.trim())] };
-          if (decision === 'approved') next = finishTask(next, ctx.user.id, p);
-          else if (decision === 'rejected') next = { ...next, status: 'done', completedAt: now, tags: next.tags.includes('rejected') ? next.tags : [...next.tags, 'rejected'] };
-          else next = { ...next, status: 'in_progress' };
-          set((s) => ({ tasks: s.tasks.map((x) => (x.id === taskId ? { ...next, updatedAt: now } : x)) }));
-          notify([t.creatorId, t.assigneeId], { title: `Approval ${decision.replace('_', ' ')} · ${p.key}-${t.number}`, body: `${ctx.user.name}: ${note?.trim() || t.title}`, link: taskLink(p.id, t.id) }, ctx.user.id);
-          audit({ action: `projects.approval.${decision}`, target: `${p.key}-${t.number} ${t.title}`, detail: note?.trim() });
-          return ok(decision === 'approved' ? 'Approved ✓' : decision === 'rejected' ? 'Rejected.' : 'Sent back with your notes.');
-        },
-
-        logTime(taskId, hours) {
-          const r = requireTaskEdit(taskId);
-          if (r.error) return r.error;
-          if (!Number.isFinite(hours) || hours <= 0 || hours > 24) return fail('Log between 0.25 and 24 hours.');
-          patchTask(taskId, (t) => ({ ...t, loggedHours: Math.round((t.loggedHours + hours) * 4) / 4, activity: [...t.activity, act(r.ctx.user.id, 'time_logged', `${hours}h`)] }));
-          return ok(`Logged ${hours}h.`);
-        },
-
-        setMyTaskBucket(taskId, bucket) {
-          const ctx = viewer();
-          if (!ctx) return;
-          patchUserState(ctx.user.id, (u) => {
-            const buckets = { ...u.buckets };
-            if (bucket) buckets[taskId] = bucket;
-            else delete buckets[taskId];
-            return { ...u, buckets };
-          });
-        },
-
-        // ───────────────────────── status, portfolios, goals ─────────────────────────
-        postStatusUpdate(projectId, draft) {
-          const r = requireProjectEdit(projectId);
-          if (r.error) return r.error;
-          if (draft.title.trim().length < 4) return fail('Give the update a headline.');
-          const update: StatusUpdate = { ...draft, id: uid('su'), projectId, authorId: r.ctx.user.id, at: Date.now(), title: draft.title.trim(), summary: draft.summary.trim() };
-          set((s) => ({ statusUpdates: [update, ...s.statusUpdates] }));
-          patchProject(projectId, (p) => ({ ...p, health: draft.health as ProjectHealth }));
-          notify(r.p.members.map((m) => m.userId), { title: `${r.p.name}: ${update.title}`, body: `${r.ctx.user.name} posted a status update (${draft.health.replace('_', ' ')}).`, link: `/projects/p/${projectId}?view=overview` }, r.ctx.user.id);
-          audit({ action: 'projects.status.posted', target: r.p.name, detail: draft.health });
-          return ok('Status update posted.');
-        },
-
-        createPortfolio(input) {
-          const ctx = viewer();
-          if (!ctx || !access.canCreateProject(ctx.v)) return fail('Contractors can’t create portfolios.');
-          if (input.name.trim().length < 3) return fail('Name the portfolio.');
-          const visible = (input.projectIds ?? []).filter((id) => access.canViewProject(ctx.v, project(id)));
-          const portfolioId = uid('pf');
-          set((s) => ({ portfolios: [...s.portfolios, { id: portfolioId, name: input.name.trim(), description: input.description.trim(), color: input.color, ownerId: ctx.user.id, projectIds: visible, createdAt: Date.now() }] }));
-          return { ok: true, message: `Created portfolio ${input.name.trim()}.`, portfolioId };
-        },
-
-        setPortfolioProjects(portfolioId, projectIds) {
-          const ctx = viewer();
-          const pf = get().portfolios.find((x) => x.id === portfolioId);
-          if (!ctx || !pf) return fail('Portfolio not found.');
-          if (pf.ownerId !== ctx.user.id && !access.canManageProjects(ctx.v)) return fail('Only the portfolio owner can change it.');
-          set((s) => ({ portfolios: s.portfolios.map((x) => (x.id === portfolioId ? { ...x, projectIds: projectIds.filter((id) => access.canViewProject(ctx.v, project(id))) } : x)) }));
-          return ok('Portfolio updated.');
-        },
-
-        deletePortfolio(portfolioId) {
-          const ctx = viewer();
-          const pf = get().portfolios.find((x) => x.id === portfolioId);
-          if (!ctx || !pf) return fail('Portfolio not found.');
-          if (pf.ownerId !== ctx.user.id && !access.canManageProjects(ctx.v)) return fail('Only the portfolio owner can delete it.');
-          set((s) => ({ portfolios: s.portfolios.filter((x) => x.id !== portfolioId) }));
-          return ok('Portfolio deleted.');
-        },
-
-        createGoal(input) {
-          const ctx = viewer();
-          if (!ctx || !access.canCreateProject(ctx.v)) return fail('Contractors can’t create goals.');
-          if (input.level === 'company' && !access.canManageProjects(ctx.v)) return fail('Company goals are created by leadership (`projects.manage`).');
-          if (input.title.trim().length < 4) return fail('Give the goal a title.');
-          const goalId = uid('g');
-          const now = Date.now();
-          set((s) => ({
-            goals: [
-              ...s.goals,
-              { id: goalId, title: input.title.trim(), description: input.description.trim(), ownerId: ctx.user.id, level: input.level, department: input.level === 'team' ? (input.department ?? ctx.user.department) : undefined, parentId: input.parentId, projectIds: input.projectIds.filter((id) => access.canViewProject(ctx.v, project(id))), metric: input.metric, status: 'on_track', targetDate: input.targetDate, createdAt: now, updatedAt: now },
-            ],
-          }));
-          audit({ action: 'projects.goal.created', target: input.title.trim(), detail: input.level });
-          return { ok: true, message: 'Goal created.', goalId };
-        },
-
-        updateGoal(goalId, patch) {
-          const ctx = viewer();
-          const g = get().goals.find((x) => x.id === goalId);
-          if (!ctx || !g) return fail('Goal not found.');
-          if (g.ownerId !== ctx.user.id && !access.canManageProjects(ctx.v)) return fail('Only the goal owner can update it.');
-          set((s) => ({ goals: s.goals.map((x) => (x.id === goalId ? { ...x, ...patch, updatedAt: Date.now() } : x)) }));
-          return ok('Goal updated.');
-        },
-
-        // ───────────────────────── sprints ─────────────────────────
-        createSprint(projectId, input) {
-          const r = requireProjectEdit(projectId);
-          if (r.error) return r.error;
-          if (input.endDate <= input.startDate) return fail('Sprint end must be after its start.');
-          const sprintId = uid('spr');
-          set((s) => ({ sprints: [...s.sprints, { id: sprintId, projectId, name: input.name.trim() || 'Sprint', goal: input.goal.trim(), startDate: input.startDate, endDate: input.endDate, state: 'planned' }] }));
-          return { ok: true, message: `Planned ${input.name}.`, sprintId };
-        },
-
-        startSprint(sprintId) {
-          const sp = get().sprints.find((x) => x.id === sprintId);
-          if (!sp) return fail('Sprint not found.');
-          const r = requireProjectEdit(sp.projectId);
-          if (r.error) return r.error;
-          if (get().sprints.some((x) => x.projectId === sp.projectId && x.state === 'active')) return fail('Complete the active sprint first.');
-          const committed = sprintStats(sp, get().tasks).committed;
-          set((s) => ({ sprints: s.sprints.map((x) => (x.id === sprintId ? { ...x, state: 'active', committedPoints: committed } : x)) }));
-          notify(r.p.members.map((m) => m.userId), { title: `${sp.name} started`, body: `${committed} points committed · ${sp.goal}`, link: `/projects/p/${sp.projectId}?view=sprints` }, r.ctx.user.id);
-          return ok(`${sp.name} is live — ${committed} points committed.`);
-        },
-
-        completeSprint(sprintId, rolloverSprintId) {
-          const sp = get().sprints.find((x) => x.id === sprintId);
-          if (!sp) return fail('Sprint not found.');
-          const r = requireProjectEdit(sp.projectId);
-          if (r.error) return r.error;
-          const stats = sprintStats(sp, get().tasks);
-          const target = rolloverSprintId ? get().sprints.find((x) => x.id === rolloverSprintId && x.projectId === sp.projectId) : undefined;
-          set((s) => ({
-            sprints: s.sprints.map((x) => (x.id === sprintId ? { ...x, state: 'completed', completedPoints: stats.done, committedPoints: x.committedPoints ?? stats.committed } : x)),
-            tasks: s.tasks.map((t) => (t.sprintId === sprintId && !isDone(t) ? { ...t, sprintId: target?.id, activity: [...t.activity, act(r.ctx.user.id, 'rolled_over', target?.name ?? 'backlog')] } : t)),
-          }));
-          audit({ action: 'projects.sprint.completed', target: `${r.p.name} · ${sp.name}`, detail: `${stats.done}/${stats.committed} pts` });
-          return ok(`Closed ${sp.name}: ${stats.done} of ${stats.committed} points done${stats.remaining ? `, ${stats.tasks - stats.doneTasks} tasks rolled to ${target?.name ?? 'the backlog'}` : ''}.`);
-        },
-
-        // ───────────────────────── automations & forms ─────────────────────────
-        upsertRule(projectId, rule) {
-          const r = requireProjectAdmin(projectId);
-          if (r.error) return r.error;
-          if (rule.name.trim().length < 3) return fail('Name the rule.');
-          const ruleId = rule.id ?? uid('rule');
-          set((s) => {
-            const exists = s.rules.some((x) => x.id === ruleId);
-            const next: AutomationRule = { ...(s.rules.find((x) => x.id === ruleId) ?? { runs: 0, createdBy: r.ctx.user.id }), ...rule, id: ruleId, projectId, name: rule.name.trim() } as AutomationRule;
-            return { rules: exists ? s.rules.map((x) => (x.id === ruleId ? next : x)) : [...s.rules, next] };
-          });
-          audit({ action: 'projects.rule.saved', target: `${r.p.name} · ${rule.name.trim()}`, detail: `${rule.trigger} → ${rule.action}` });
-          return { ok: true, message: `Rule “${rule.name.trim()}” saved.`, ruleId };
-        },
-
-        toggleRule(ruleId, enabled) {
-          const rule = get().rules.find((x) => x.id === ruleId);
-          if (!rule) return fail('Rule not found.');
-          const r = requireProjectAdmin(rule.projectId);
-          if (r.error) return r.error;
-          set((s) => ({ rules: s.rules.map((x) => (x.id === ruleId ? { ...x, enabled } : x)) }));
-          return ok(enabled ? 'Rule enabled.' : 'Rule paused.');
-        },
-
-        deleteRule(ruleId) {
-          const rule = get().rules.find((x) => x.id === ruleId);
-          if (!rule) return fail('Rule not found.');
-          const r = requireProjectAdmin(rule.projectId);
-          if (r.error) return r.error;
+        deleteRule(ruleId, as) {
+          const r = get().rules.find((x) => x.id === ruleId);
+          if (!r) return fail('Rule not found.');
+          const g = guardProject(r.projectId, as, canEditProject, READ_ONLY);
+          if (!g.ok) return g;
           set((s) => ({ rules: s.rules.filter((x) => x.id !== ruleId) }));
-          return ok('Rule deleted.');
+          pAct(r.projectId, g.a.id, `removed the automation “${r.name}”`);
+          return ok();
         },
 
-        upsertForm(projectId, form) {
-          const r = requireProjectAdmin(projectId);
-          if (r.error) return r.error;
-          if (form.title.trim().length < 3 || !form.fields.length) return fail('Forms need a title and at least one field.');
-          const formId = form.id ?? uid('frm');
-          set((s) => {
-            const existing = s.forms.find((x) => x.id === formId);
-            const next: IntakeForm = { submissions: 0, createdBy: r.ctx.user.id, ...existing, ...form, id: formId, projectId, title: form.title.trim() };
-            return { forms: existing ? s.forms.map((x) => (x.id === formId ? next : x)) : [...s.forms, next] };
-          });
-          return { ok: true, message: 'Form saved.', formId };
-        },
-
-        submitForm(formId, values) {
-          const ctx = viewer();
-          const form = get().forms.find((f) => f.id === formId);
-          const p = form ? project(form.projectId) : undefined;
-          if (!ctx || !access.canUseProjects(ctx.v) || !form || !p) return fail('Form not found.');
-          if (!form.enabled) return fail('This form is closed.');
-          const missing = form.fields.filter((f) => f.required && !values[f.id]?.trim());
-          if (missing.length) return fail(`Please fill in: ${missing.map((f) => f.label).join(', ')}.`);
-          const field = (k: NonNullable<IntakeForm['fields'][number]['mapsTo']>) => form.fields.find((f) => f.mapsTo === k);
-          const title = values[field('title')?.id ?? '']?.trim() || `${form.title} · ${ctx.user.name}`;
-          const extra = form.fields.filter((f) => !f.mapsTo || f.mapsTo === 'tag').map((f) => `${f.label}: ${values[f.id] ?? '—'}`);
-          const description = [values[field('description')?.id ?? '']?.trim(), ...extra, `Submitted via “${form.title}” by ${ctx.user.name}.`].filter(Boolean).join('\n');
-          const tagValue = values[field('tag')?.id ?? '']?.trim();
-          const dueDate = values[field('dueDate')?.id ?? '']?.trim() || undefined;
-          const created = insertTask(
-            p,
-            {
-              projectId: p.id,
-              sectionId: p.sections.some((s) => s.id === form.targetSectionId) ? form.targetSectionId : p.sections[0].id,
-              title,
-              description,
-              type: 'task',
-              status: 'todo',
-              priority: form.defaultPriority,
-              assigneeId: form.defaultAssigneeId,
-              collaboratorIds: [ctx.user.id],
-              creatorId: ctx.user.id,
-              dueDate,
-              loggedHours: 0,
-              tags: tagValue ? [tagValue.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')] : [],
-              customFieldValues: {},
-              subtasks: [],
-              dependsOn: [],
-              attachments: [],
-              comments: [],
-              likes: [],
-            },
-            ctx.user.id,
-          );
-          set((s) => ({ forms: s.forms.map((f) => (f.id === formId ? { ...f, submissions: f.submissions + 1 } : f)) }));
-          notify([form.defaultAssigneeId, p.ownerId], { title: `New submission · ${form.title}`, body: `${ctx.user.name}: ${title}`, link: taskLink(p.id, created.id) }, ctx.user.id);
-          audit({ action: 'projects.form.submitted', target: `${p.key}-${created.number} ${title}`, detail: form.title });
-          return { ok: true, message: `Submitted — tracked as ${p.key}-${created.number}.`, taskId: created.id };
-        },
-
-        runScheduledRules() {
-          const today = todayISO();
-          const rules = get().rules.filter((r) => r.enabled && r.trigger === 'due_date_passed');
-          if (!rules.length) return 0;
+        runDueSoonSweep() {
+          const a = sessionActor();
+          if (!a) return 0;
+          const now = Date.now();
           let fired = 0;
-          const ruleIds = new Set<string>();
-          const tasks = get().tasks.map((t) => {
-            if (isDone(t) || !t.dueDate || t.dueDate >= today) return t;
-            if (t.activity.some((a) => a.action === 'rule:due_date_passed')) return t;
-            const mine = rules.filter((r) => r.projectId === t.projectId);
-            if (!mine.length) return t;
-            let next = { ...t };
-            for (const r of mine) {
-              if (r.action === 'add_tag' && r.actionValue && !next.tags.includes(r.actionValue)) next.tags = [...next.tags, r.actionValue];
-              if (r.action === 'set_priority' && r.actionValue) next.priority = r.actionValue as TaskPriority;
-              if (r.action === 'notify_owner') {
-                const p = project(t.projectId);
-                if (p) notify([p.ownerId, t.assigneeId], { title: `Overdue · ${p.key}-${t.number}`, body: t.title, link: taskLink(p.id, t.id) });
+          const rules = get().rules.filter((r) => r.enabled && r.trigger.kind === 'due-soon');
+          for (const r of rules) {
+            const p = project(r.projectId);
+            if (!p || !canEditProject(p, a)) continue;
+            for (const t of get().tasks.filter((x) => x.projectId === p.id)) {
+              if (ruleMatches(get().rules.find((x) => x.id === r.id)!, { kind: 'due-soon' }, t, now)) {
+                runAutomations(t.id, { kind: 'due-soon' }, a);
+                fired += 1;
               }
-              ruleIds.add(r.id);
             }
-            fired += 1;
-            return { ...next, activity: [...next.activity, act('system', 'rule:due_date_passed', mine.map((r) => r.name).join(', '))] };
-          });
-          if (fired) set((s) => ({ tasks, rules: s.rules.map((r) => (ruleIds.has(r.id) ? { ...r, runs: r.runs + 1, lastRunAt: Date.now() } : r)) }));
+          }
           return fired;
         },
 
-        markInboxRead() {
-          const ctx = viewer();
-          if (!ctx) return;
-          patchUserState(ctx.user.id, (u) => ({ ...u, inboxReadAt: Date.now() }));
+        /* ═════════════════════ inbox ═════════════════════ */
+        markInboxRead(id, read = true) {
+          const me = sessionActor()?.id;
+          set((s) => ({ inbox: s.inbox.map((i) => (i.id === id && i.userId === me ? { ...i, read } : i)) }));
+        },
+        markAllInboxRead(ids) {
+          const me = sessionActor()?.id;
+          const only = ids ? new Set(ids) : null;
+          set((s) => ({ inbox: s.inbox.map((i) => (i.userId === me && (!only || only.has(i.id)) ? { ...i, read: true } : i)) }));
+        },
+        archiveInbox(id, archived = true) {
+          const me = sessionActor()?.id;
+          set((s) => ({ inbox: s.inbox.map((i) => (i.id === id && i.userId === me ? { ...i, archived, read: true } : i)) }));
         },
 
-        resetProjectsDemo() {
-          set(createProjectsSeed());
+        /* ═════════════════════ portfolios ═════════════════════ */
+        createPortfolio(input, as) {
+          const a = actorOr(as);
+          if (!a) return fail('You are not signed in.');
+          if (a.contractor) return fail('Contractors can’t create portfolios.');
+          const name = input.name.trim();
+          if (name.length < 3) return fail('Name the portfolio (3+ characters).');
+          const visible = new Set(get().projects.filter((p) => canViewProject(p, a)).map((p) => p.id));
+          const pf: Portfolio = { id: uid('pf'), name: name.slice(0, 60), description: (input.description ?? '').trim(), ownerId: a.id, color: input.color, projectIds: input.projectIds.filter((x) => visible.has(x)), createdAt: Date.now() };
+          set((s) => ({ portfolios: [...s.portfolios, pf] }));
+          return ok({ portfolioId: pf.id });
+        },
+
+        updatePortfolio(id, patch, as) {
+          const a = actorOr(as);
+          if (!a) return fail('You are not signed in.');
+          const pf = get().portfolios.find((x) => x.id === id);
+          if (!pf) return fail('Portfolio not found.');
+          if (pf.ownerId !== a.id && !isProjectsAdmin(a)) return fail('Only the portfolio owner can edit it.');
+          const visible = new Set(get().projects.filter((p) => canViewProject(p, a)).map((p) => p.id));
+          set((s) => ({
+            portfolios: s.portfolios.map((x) =>
+              x.id === id
+                ? {
+                    ...x,
+                    ...(patch.name !== undefined && patch.name.trim() ? { name: patch.name.trim().slice(0, 60) } : {}),
+                    ...(patch.description !== undefined ? { description: patch.description.trim() } : {}),
+                    ...(patch.color !== undefined ? { color: patch.color } : {}),
+                    // keep projects the editor can't see; only change visible ones
+                    ...(patch.projectIds !== undefined ? { projectIds: [...x.projectIds.filter((p) => !visible.has(p)), ...patch.projectIds.filter((p) => visible.has(p))] } : {}),
+                  }
+                : x,
+            ),
+          }));
+          return ok();
+        },
+
+        deletePortfolio(id, as) {
+          const a = actorOr(as);
+          if (!a) return fail('You are not signed in.');
+          const pf = get().portfolios.find((x) => x.id === id);
+          if (!pf) return fail('Portfolio not found.');
+          if (pf.ownerId !== a.id) return fail('Only the portfolio owner can delete it.');
+          set((s) => ({ portfolios: s.portfolios.filter((x) => x.id !== id) }));
+          return ok();
+        },
+
+        resetDemo() {
+          set({ ...createProjectsSeed() });
         },
       };
     },
     {
-      name: 'nexus-projects',
+      name: 'nexus-projects-v2',
       version: PROJECTS_DATA_VERSION,
       storage: createJSONStorage(() => localStorage),
       partialize: (s): ProjectsData => ({
         version: s.version,
+        seededAt: s.seededAt,
         projects: s.projects,
         tasks: s.tasks,
-        statusUpdates: s.statusUpdates,
-        portfolios: s.portfolios,
-        goals: s.goals,
-        sprints: s.sprints,
+        updates: s.updates,
         rules: s.rules,
-        forms: s.forms,
-        userState: s.userState,
+        inbox: s.inbox,
+        portfolios: s.portfolios,
+        users: s.users,
+        personalSeq: s.personalSeq,
       }),
       migrate: (persisted, version) => (version === PROJECTS_DATA_VERSION ? (persisted as ProjectsData) : createProjectsSeed()),
     },
   ),
 );
 
-let initialized = false;
-/** Run time-based automations once per session (overdue tags), like a scheduler would. */
-export function initProjects() {
-  if (initialized) return;
-  initialized = true;
-  useProjects.getState().runScheduledRules();
-}
+/** Snapshot accessor for non-React callers (bridge). */
+export const projectsState = () => useProjects.getState();

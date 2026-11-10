@@ -1,4 +1,5 @@
 import { useMemo, useState, type CSSProperties } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import {
   ArrowRight,
   Ban,
@@ -7,23 +8,25 @@ import {
   CircleCheck,
   CircleX,
   Clock,
-  Eye,
-  EyeOff,
   History,
   Hourglass,
+  Inbox,
   Info,
   PartyPopper,
+  ScrollText,
   ShieldAlert,
   TriangleAlert,
+  Users,
   X,
   type LucideIcon,
 } from 'lucide-react';
+import { NeoEmpty, NeoKpi, NeoKpis, NeoPanel, NeoTabs } from '@/components/neo';
 import { useHub } from '@/store/hub';
 import { usePermissions, useSessionUser } from '@/store/selectors';
 import { useNow } from '@/hooks/useNow';
 import { toast } from '@/store/toast';
 import { Modal } from '@/components/ui/Modal';
-import { AppIcon, Avatar, ClearanceBadge, EmptyState } from '@/components/ui/primitives';
+import { AppIcon, Avatar, ClearanceBadge } from '@/components/ui/primitives';
 import { appPermissionId } from '@/data/permissions';
 import {
   canReviewRequest,
@@ -37,10 +40,15 @@ import {
 import { firstName, formatDateTime, pluralize, relativeTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import type { AccessRequest, GrantDuration, HubApp, RequestStatus, Role, User } from '@/types';
-import { Actor, DAY, DurationPicker, FilterChip, LockNote, ModalIcon, RiskBadge, useDisclosure } from './shared';
+import { adminHref } from './adminTabs';
+import { useAdminChrome } from './chrome';
+import { Actor, DAY, DurationPicker, FilterChip, LockNote, ModalIcon, RiskBadge, useDisclosure, type ChipTone } from './shared';
 
 type ReviewCheck = { ok: boolean; reason?: string };
 type HistoryFilter = 'all' | Exclude<RequestStatus, 'pending'>;
+type View = 'queue' | 'others' | 'history';
+
+const parseView = (v: string | null): View => (v === 'others' || v === 'history' ? v : 'queue');
 
 const HISTORY_PAGE = 8;
 const QUICK_NOTES = [
@@ -50,10 +58,10 @@ const QUICK_NOTES = [
   'Justification is too vague — add the ticket or project.',
 ];
 
-const STATUS_META: Record<Exclude<RequestStatus, 'pending'>, { cls: string; label: string; Icon: LucideIcon }> = {
-  approved: { cls: 'badge--success', label: 'Approved', Icon: CircleCheck },
-  denied: { cls: 'badge--danger', label: 'Denied', Icon: CircleX },
-  cancelled: { cls: 'badge--muted', label: 'Cancelled', Icon: Ban },
+const STATUS_META: Record<Exclude<RequestStatus, 'pending'>, { tone: ChipTone; label: string; Icon: LucideIcon }> = {
+  approved: { tone: 'success', label: 'Approved', Icon: CircleCheck },
+  denied: { tone: 'danger', label: 'Denied', Icon: CircleX },
+  cancelled: { tone: 'slate', label: 'Cancelled', Icon: Ban },
 };
 
 export function RequestsTab() {
@@ -66,10 +74,19 @@ export function RequestsTab() {
   const apps = useHub((s) => s.apps);
   const userMap = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
   const appMap = useMemo(() => new Map(apps.map((a) => [a.id, a])), [apps]);
-  const [showAll, setShowAll] = useState(false);
+  const [sp, setSp] = useSearchParams();
+  const view = parseView(sp.get('view'));
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
   const [historyLimit, setHistoryLimit] = useState(HISTORY_PAGE);
   const deny = useDisclosure<string>();
+  const canAudit = hasPermission(perms, 'hub.audit.view');
+
+  const setView = (v: View) => {
+    const next = new URLSearchParams(sp);
+    if (v === 'queue') next.delete('view');
+    else next.set('view', v);
+    setSp(next, { replace: true });
+  };
 
   const { mine, others } = useMemo(() => {
     const pending = requests.filter((r) => r.status === 'pending').sort((a, b) => a.createdAt - b.createdAt);
@@ -111,56 +128,92 @@ export function RequestsTab() {
     }),
     [history],
   );
+  const week = useMemo(() => {
+    const recent = history.filter((r) => (r.reviewedAt ?? r.createdAt) >= now - 7 * DAY && r.status !== 'cancelled');
+    return { total: recent.length, approved: recent.filter((r) => r.status === 'approved').length, denied: recent.filter((r) => r.status === 'denied').length };
+  }, [history, now]);
   const filteredHistory = historyFilter === 'all' ? history : history.filter((r) => r.status === historyFilter);
+  const stale = !!summary.oldest && now - summary.oldest > DAY;
 
   const denyReq = deny.value ? requests.find((r) => r.id === deny.value) : undefined;
 
+  useAdminChrome({
+    toolbar: (
+      <>
+        <NeoTabs<View>
+          label="Request views"
+          value={view}
+          onChange={setView}
+          items={[
+            { value: 'queue', label: 'Your queue', icon: <Inbox />, count: mine.length },
+            { value: 'others', label: 'Other reviewers', icon: <Users />, count: others.length },
+            { value: 'history', label: 'History', icon: <History />, count: history.length },
+          ]}
+        />
+        <div className="grow" />
+        <span className="adm-toolbar-hint">{view === 'history' ? 'Newest decisions first' : 'Oldest first · delegated approval'}</span>
+      </>
+    ),
+    actions: canAudit ? (
+      <Link to={adminHref('audit', { q: 'access.request' })} className="neo-btn neo-btn--soft">
+        <ScrollText /> <span className="neo-btn__label">Decision trail</span>
+      </Link>
+    ) : undefined,
+  });
+
   return (
-    <div className="adm-panel">
-      <div className="adm-req-summary" role="status" aria-live="polite">
-        <SummaryStat tone="accent" label="Waiting on you" value={mine.length} />
-        <SummaryStat tone="muted" label="With other reviewers" value={others.length} />
-        <SummaryStat tone="danger" label="High risk" value={summary.high} />
-        <SummaryStat
-          tone={summary.oldest && now - summary.oldest > DAY ? 'warning' : 'muted'}
+    <div className="adm-view">
+      <NeoKpis label="Review queue">
+        <NeoKpi
+          icon={<Inbox />}
+          label="Waiting on you"
+          value={mine.length}
+          sub={mine.length ? 'Delegated to you as an app holder' : 'Inbox zero'}
+          tone={mine.length ? 'warning' : undefined}
+          onClick={() => setView('queue')}
+        />
+        <NeoKpi icon={<Users />} label="Other reviewers" value={others.length} sub="Read-only for you" onClick={() => setView('others')} />
+        <NeoKpi icon={<ShieldAlert />} label="High risk" value={summary.high} sub="In your queue" tone={summary.high ? 'danger' : undefined} />
+        <NeoKpi
+          icon={<Clock />}
           label="Oldest in queue"
           value={summary.oldest ? relativeTime(summary.oldest, now).replace(' ago', '') : '—'}
+          sub={summary.oldest ? (stale ? 'Over 24h — act soon' : 'Within a day') : 'Nothing waiting'}
+          tone={stale ? 'warning' : undefined}
         />
-        <span className="spacer" />
-        {others.length > 0 && (
-          <button type="button" className={cx('chip', showAll && 'is-active')} aria-pressed={showAll} onClick={() => setShowAll((v) => !v)}>
-            {showAll ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-            {showAll ? 'Hide others' : 'Show all pending'}
-            <span className="count">{mine.length + others.length}</span>
-          </button>
-        )}
-      </div>
+        <NeoKpi
+          icon={<History />}
+          label="Decided · 7d"
+          value={week.total}
+          sub={`${week.approved} approved · ${week.denied} denied`}
+          onClick={() => setView('history')}
+        />
+      </NeoKpis>
 
-      <section className="section adm-section-first" aria-labelledby="adm-queue-h">
-        <div className="section-head">
-          <h2 id="adm-queue-h" className="section-title">
-            Your review queue <span className="count">{mine.length}</span>
-          </h2>
-          <span className="text-xs faint adm-hide-sm">Oldest first · delegated approval</span>
-        </div>
-        {mine.length === 0 ? (
-          <div className="card adm-inbox-zero">
-            <EmptyState
+      {view === 'queue' &&
+        (mine.length === 0 ? (
+          <NeoPanel className="adm-inbox-zero">
+            <NeoEmpty
               icon={<PartyPopper />}
               title="Inbox zero"
               action={
-                others.length > 0 && !showAll ? (
-                  <button type="button" className="btn btn--sm" onClick={() => setShowAll(true)}>
-                    <Eye aria-hidden="true" /> View {pluralize(others.length, 'other pending request')}
+                <div className="adm-empty-actions">
+                  {others.length > 0 && (
+                    <button type="button" className="neo-btn neo-btn--soft" onClick={() => setView('others')}>
+                      <Users /> View {pluralize(others.length, 'other pending request')}
+                    </button>
+                  )}
+                  <button type="button" className="neo-btn neo-btn--ghost" onClick={() => setView('history')}>
+                    <History /> Decision history
                   </button>
-                ) : undefined
+                </div>
               }
             >
               Nothing is waiting on you. New requests for apps you hold will land here — and in your notifications.
-            </EmptyState>
-          </div>
+            </NeoEmpty>
+          </NeoPanel>
         ) : (
-          <div className="adm-req-list stagger">
+          <div className="adm-req-list neo-stagger">
             {mine.map(({ r, check }, i) => (
               <RequestCard
                 key={r.id}
@@ -175,18 +228,17 @@ export function RequestsTab() {
               />
             ))}
           </div>
-        )}
-      </section>
+        ))}
 
-      {showAll && others.length > 0 && (
-        <section className="section" aria-labelledby="adm-others-h">
-          <div className="section-head">
-            <h2 id="adm-others-h" className="section-title">
-              Waiting on other reviewers <span className="count">{others.length}</span>
-            </h2>
-            <span className="text-xs faint adm-hide-sm">Read-only</span>
-          </div>
-          <div className="adm-req-list stagger">
+      {view === 'others' &&
+        (others.length === 0 ? (
+          <NeoPanel>
+            <NeoEmpty icon={<Users />} title="Nothing with other reviewers">
+              Every pending request is either yours to decide or already handled.
+            </NeoEmpty>
+          </NeoPanel>
+        ) : (
+          <div className="adm-req-list neo-stagger">
             {others.map(({ r, check }, i) => (
               <RequestCard
                 key={r.id}
@@ -201,58 +253,59 @@ export function RequestsTab() {
               />
             ))}
           </div>
-        </section>
-      )}
+        ))}
 
-      <section className="section" aria-labelledby="adm-hist-h">
-        <div className="section-head adm-wrap-head">
-          <h2 id="adm-hist-h" className="section-title">
-            <History aria-hidden="true" /> History
-          </h2>
-          <div className="chips" role="group" aria-label="Filter history">
-            {(['all', 'approved', 'denied', 'cancelled'] as const).map((f) => (
-              <FilterChip
-                key={f}
-                active={historyFilter === f}
-                count={historyCounts[f]}
-                onClick={() => {
-                  setHistoryFilter(f);
-                  setHistoryLimit(HISTORY_PAGE);
-                }}
-              >
-                {f === 'all' ? 'All' : STATUS_META[f].label}
-              </FilterChip>
-            ))}
-          </div>
-        </div>
-        {filteredHistory.length === 0 ? (
-          <div className="card">
-            <EmptyState icon={<History />} title="No decisions yet">
-              Approved, denied and cancelled requests will appear here.
-            </EmptyState>
-          </div>
-        ) : (
-          <>
-            <ul className="adm-hist-list">
-              {filteredHistory.slice(0, historyLimit).map((r) => (
-                <HistoryRow
-                  key={r.id}
-                  r={r}
-                  requester={userMap.get(r.userId)}
-                  reviewer={r.reviewedBy ? userMap.get(r.reviewedBy) : undefined}
-                  app={appMap.get(r.appId)}
-                  now={now}
-                />
+      {view === 'history' && (
+        <NeoPanel
+          hud="Decisions"
+          title="Request history"
+          icon={<History />}
+          actions={
+            <div className="adm-chips" role="group" aria-label="Filter history">
+              {(['all', 'approved', 'denied', 'cancelled'] as const).map((f) => (
+                <FilterChip
+                  key={f}
+                  active={historyFilter === f}
+                  count={historyCounts[f]}
+                  onClick={() => {
+                    setHistoryFilter(f);
+                    setHistoryLimit(HISTORY_PAGE);
+                  }}
+                >
+                  {f === 'all' ? 'All' : STATUS_META[f].label}
+                </FilterChip>
               ))}
-            </ul>
-            {filteredHistory.length > historyLimit && (
-              <button type="button" className="btn btn--ghost btn--block adm-more" onClick={() => setHistoryLimit((n) => n + HISTORY_PAGE)}>
-                Show more <span className="faint">({filteredHistory.length - historyLimit} older)</span>
-              </button>
-            )}
-          </>
-        )}
-      </section>
+            </div>
+          }
+          className="adm-hist-panel"
+        >
+          {filteredHistory.length === 0 ? (
+            <NeoEmpty compact icon={<History />} title="No decisions yet">
+              Approved, denied and cancelled requests will appear here.
+            </NeoEmpty>
+          ) : (
+            <>
+              <ul className="adm-hist-list">
+                {filteredHistory.slice(0, historyLimit).map((r) => (
+                  <HistoryRow
+                    key={r.id}
+                    r={r}
+                    requester={userMap.get(r.userId)}
+                    reviewer={r.reviewedBy ? userMap.get(r.reviewedBy) : undefined}
+                    app={appMap.get(r.appId)}
+                    now={now}
+                  />
+                ))}
+              </ul>
+              {filteredHistory.length > historyLimit && (
+                <button type="button" className="neo-btn neo-btn--ghost neo-btn--block adm-more" onClick={() => setHistoryLimit((n) => n + HISTORY_PAGE)}>
+                  Show more <span className="neo-faint">({filteredHistory.length - historyLimit} older)</span>
+                </button>
+              )}
+            </>
+          )}
+        </NeoPanel>
+      )}
 
       <DenyModal
         key={deny.value ?? 'none'}
@@ -262,15 +315,6 @@ export function RequestsTab() {
         requester={denyReq ? userMap.get(denyReq.userId) : undefined}
         app={denyReq ? appMap.get(denyReq.appId) : undefined}
       />
-    </div>
-  );
-}
-
-function SummaryStat({ label, value, tone }: { label: string; value: number | string; tone: 'accent' | 'muted' | 'danger' | 'warning' }) {
-  return (
-    <div className={cx('adm-sumstat', `adm-tone--${tone}`)}>
-      <span className="adm-sumstat__value">{value}</span>
-      <span className="adm-micro">{label}</span>
     </div>
   );
 }
@@ -319,7 +363,7 @@ function RequestCard({
 
   return (
     <article
-      className={cx('card adm-req', readOnly && 'is-readonly', `adm-req--${risk}`)}
+      className={cx('neo-card adm-req', readOnly && 'is-readonly', `adm-req--${risk}`)}
       style={{ '--i': index } as CSSProperties}
       aria-label={`Access request from ${name} for ${appName}`}
     >
@@ -330,9 +374,13 @@ function RequestCard({
           <div className="row row--wrap adm-gap-6">
             <strong className="adm-req__name">{name}</strong>
             {requester && <ClearanceBadge level={clearanceOf(requester, roles)} compact />}
-            {requester && !requester.active && <span className="badge badge--muted">Deactivated</span>}
+            {requester && !requester.active && (
+              <span className="neo-chip neo-chip--sm" data-tone="slate">
+                Deactivated
+              </span>
+            )}
           </div>
-          <div className="text-sm muted truncate">{requester ? `${requester.title} · ${requester.department}` : request.userId}</div>
+          <div className="adm-req__sub truncate">{requester ? `${requester.title} · ${requester.department}` : request.userId}</div>
         </div>
         <div className="adm-req__meta">
           <RiskBadge level={risk} />
@@ -352,10 +400,10 @@ function RequestCard({
         )}
         <div className="grow">
           <div className="adm-req__app-name truncate">{appName}</div>
-          <div className="text-xs faint truncate">{app ? `${app.category} · owned by ${app.owner}` : request.appId}</div>
+          <div className="adm-req__app-meta truncate">{app ? `${app.category} · owned by ${app.owner}` : request.appId}</div>
         </div>
         <div className="adm-req__dur">
-          <span className="adm-micro">Requested</span>
+          <span className="neo-hud">Requested</span>
           <span className="adm-req__dur-value">
             <Hourglass aria-hidden="true" /> {DURATION_LABEL[request.duration]}
           </span>
@@ -378,16 +426,16 @@ function RequestCard({
 
       <fieldset className="adm-req__controls" disabled={readOnly} aria-label={readOnly ? 'Review controls (unavailable)' : 'Review controls'}>
         <div className="adm-req__dur-pick">
-          <span className="adm-micro">Grant for</span>
+          <span className="neo-hud">Grant for</span>
           <DurationPicker value={readOnly ? request.duration : duration} onChange={setDuration} requested={request.duration} label={`Grant duration for ${name}`} />
         </div>
         <div className="adm-req__actions">
-          <button type="button" className="btn btn--danger" onClick={() => onDeny(request.id)} aria-label={`Deny ${name}’s request for ${appName}`}>
+          <button type="button" className="neo-btn neo-btn--danger" onClick={() => onDeny(request.id)} aria-label={`Deny ${name}’s request for ${appName}`}>
             <X aria-hidden="true" /> Deny
           </button>
           <button
             type="button"
-            className="btn btn--success"
+            className="neo-btn neo-btn--success"
             onClick={approve}
             disabled={!app}
             aria-label={`Approve ${appName} for ${name}, ${DURATION_LABEL[duration]}`}
@@ -428,11 +476,11 @@ function HistoryRow({
         <div className="grow">
           <div className="adm-hist__line">
             <strong className="truncate">{requester?.name ?? 'Unknown user'}</strong>
-            <ArrowRight aria-hidden="true" className="faint" />
+            <ArrowRight aria-hidden="true" className="neo-faint" />
             {app && <AppIcon app={app} size={20} />}
             <span className="truncate">{app?.name ?? r.appId}</span>
           </div>
-          <div className="text-xs faint">
+          <div className="adm-hist__sub">
             Asked for {DURATION_LABEL[r.duration].toLowerCase()} ·{' '}
             <time dateTime={new Date(r.createdAt).toISOString()} title={formatDateTime(r.createdAt)}>
               {relativeTime(r.createdAt, now)}
@@ -441,18 +489,18 @@ function HistoryRow({
         </div>
       </div>
       <div className="adm-hist__decision">
-        <span className={cx('badge', meta.cls)}>
+        <span className="neo-chip" data-tone={meta.tone}>
           <meta.Icon aria-hidden="true" />
           {meta.label}
         </span>
         {r.grantedDuration && (
-          <span className="badge badge--info">
+          <span className="neo-chip" data-tone="blue">
             <Hourglass aria-hidden="true" />
             {DURATION_LABEL[r.grantedDuration]}
           </span>
         )}
       </div>
-      <div className="adm-hist__by text-xs muted">
+      <div className="adm-hist__by">
         {r.status === 'cancelled' ? (
           <span>Withdrawn by the requester</span>
         ) : (
@@ -536,10 +584,10 @@ function DenyModal({
           </span>
         </div>
         <div className="stack stack--sm">
-          <span className="adm-micro">Quick replies</span>
+          <span className="neo-hud">Quick replies</span>
           <div className="row row--wrap adm-gap-6">
             {QUICK_NOTES.map((q) => (
-              <button key={q} type="button" className={cx('chip', 'adm-chip-wrap-text', note === q && 'is-active')} onClick={() => setNote(q)}>
+              <button key={q} type="button" className="neo-suggest adm-quick-note" aria-pressed={note === q} onClick={() => setNote(q)}>
                 {q}
               </button>
             ))}

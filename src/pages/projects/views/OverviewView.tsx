@@ -1,495 +1,664 @@
-import { useMemo, useState, type CSSProperties } from 'react';
-import { Link } from 'react-router';
-import { BookOpen, CalendarDays, Diamond, FileText, GraduationCap, Layers, Lock, Megaphone, Send, Sparkles, Target } from 'lucide-react';
-import { useHub } from '@/store/hub';
-import { useTalent } from '@/talent/store';
-import { useWiki } from '@/wiki/store';
+/**
+ * Overview — the project's mission brief: trajectory (plan vs actual),
+ * brief, status updates, milestones, linked OKRs (Performance & OKRs bridge),
+ * people, details and recent activity.
+ */
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { ArrowUpRight, Diamond, Hash, Megaphone, Pencil, Sparkles, Target, UserCog } from 'lucide-react';
+import { Bar, NeoEmpty, NeoSearch, NovaChip, Ring } from '@/components/neo';
 import { Modal } from '@/components/ui/Modal';
-import { EmptyState } from '@/components/ui/primitives';
-import { daysBetween, todayISO } from '@/hr/calendar';
-import { relativeTime } from '@/lib/format';
+import { useNow } from '@/hooks/useNow';
+import { currentViewer, loadBridge, type BridgeKeyResult } from '@/lib/appBridge';
 import { cx } from '@/lib/cx';
-import { HEALTH_META } from '@/projects/constants';
-import { computeProgress, draftStatusUpdate, goalProgress, suggestHealth } from '@/projects/engine';
+import { relativeTime } from '@/lib/format';
+import { toast } from '@/store/toast';
+import { canEditProject, PRIVACY_LABEL, ROLE_LABEL } from '@/projects/access';
+import { DAY, diffDays, formatDue, parseIso, shortDate, todayIso } from '@/projects/dates';
+import { forecastFinish, projectMetrics, STATUS_LABEL, suggestStatus } from '@/projects/metrics';
+import { PRIORITY_NAME } from '@/projects/nlp';
 import { useProjects } from '@/projects/store';
-import type { IntakeForm, ProjectHealth, StatusUpdate } from '@/projects/types';
-import type { ViewProps } from '../ProjectView';
-import { api, Bar, DuePill, fmtDay, HealthPill, Pill, ProgressRing, report, SectionTitle, TypeGlyph, UserAvatar } from '../shared';
+import type { Project, ProjectRole, StatusUpdate, Task } from '@/projects/types';
+import { useActor, useProjectsUI, useUsersMap } from '../ctx';
+import { DueChip, MarkdownLite, PriorityGlyph, StatusPill, UserAvatar } from '../ui';
 
-export function OverviewView({ project, allTasks, canEdit, today, openTask }: ViewProps) {
-  const updates = useProjects((s) => s.statusUpdates);
-  const goals = useProjects((s) => s.goals);
-  const portfolios = useProjects((s) => s.portfolios);
-  const forms = useProjects((s) => s.forms);
-  const projects = useProjects((s) => s.projects);
-  const allStoreTasks = useProjects((s) => s.tasks);
-  const onboarding = useTalent((s) => s.onboarding);
-  const articles = useWiki((s) => s.articles);
-  const [composerOpen, setComposerOpen] = useState(false);
-  const [formOpen, setFormOpen] = useState<IntakeForm | null>(null);
+const KR_TONE: Record<string, string> = { 'on-track': 'emerald', 'at-risk': 'amber', 'off-track': 'rose', done: 'violet' };
+const KR_LABEL: Record<string, string> = { 'on-track': 'On track', 'at-risk': 'At risk', 'off-track': 'Off track', done: 'Done' };
+const ROLE_RANK: Record<ProjectRole, number> = { owner: 0, editor: 1, commenter: 2, viewer: 3 };
 
-  const progress = useMemo(() => computeProgress(allTasks, today), [allTasks, today]);
-  const suggested = suggestHealth(progress, project, today);
-  const feed = useMemo(() => updates.filter((u) => u.projectId === project.id).sort((a, b) => b.at - a.at), [updates, project.id]);
-  const linkedGoals = useMemo(() => goals.filter((g) => g.projectIds.includes(project.id)), [goals, project.id]);
-  const linkedPortfolios = useMemo(() => portfolios.filter((p) => p.projectIds.includes(project.id)), [portfolios, project.id]);
-  const projectForms = useMemo(() => forms.filter((f) => f.projectId === project.id), [forms, project.id]);
-  const milestones = useMemo(() => allTasks.filter((t) => t.type === 'milestone').sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999')), [allTasks]);
-  const upcoming = useMemo(
-    () =>
-      allTasks
-        .filter((t) => t.status !== 'done' && t.dueDate)
-        .sort((a, b) => a.dueDate!.localeCompare(b.dueDate!))
-        .slice(0, 6),
-    [allTasks],
-  );
-  const journey = project.links?.onboardingJourneyId ? onboarding.find((j) => j.id === project.links?.onboardingJourneyId) : undefined;
-  const playbook = project.links?.wikiSlug ? articles.find((a) => a.slug === project.links?.wikiSlug) : undefined;
-  const daysLeft = daysBetween(today, project.dueDate);
+/** Key results the viewer can see, loaded through the Performance bridge. */
+function useKeyResults(enabled = true, query = '') {
+  const [krs, setKrs] = useState<BridgeKeyResult[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!enabled) return;
+    const viewer = currentViewer();
+    if (!viewer) return;
+    let alive = true;
+    loadBridge('performance')
+      .then((api) => {
+        if (!alive) return;
+        setKrs(api.listKeyResults(viewer, query ? { query } : undefined));
+        setFailed(false);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setKrs([]);
+        setFailed(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [enabled, query]);
+  return { krs, failed };
+}
+
+export function OverviewView({ project, tasks, onPostUpdate, onShare }: { project: Project; tasks: Task[]; onPostUpdate: () => void; onShare: () => void }) {
+  const actor = useActor();
+  const now = useNow(60_000);
+  const allUpdates = useProjects((s) => s.updates);
+  const updates = useMemo(() => allUpdates.filter((u) => u.projectId === project.id).sort((a, b) => b.at - a.at), [allUpdates, project.id]);
+  const canEdit = actor ? canEditProject(project, actor) : false;
 
   return (
-    <div className="pj-overview">
-      <div className="pj-overview__main">
-        <section className="pj-panelcard">
-          <SectionTitle>About</SectionTitle>
-          <p className="pj-overview__desc">{project.description || 'No description yet — project admins can add one in settings.'}</p>
-          <div className="pj-overview__facts">
-            <span>
-              <small>Owner</small>
-              <UserAvatar userId={project.ownerId} size={20} name />
-            </span>
-            <span>
-              <small>Timeline</small>
-              {fmtDay(project.startDate)} → {fmtDay(project.dueDate)}
-            </span>
-            <span>
-              <small>{daysLeft >= 0 ? 'Days left' : 'Overrun'}</small>
-              <b className={cx(daysLeft < 0 && 'pj-danger-text')}>{Math.abs(daysLeft)}</b>
-            </span>
-            <span>
-              <small>Default view</small>
-              {project.defaultView}
-            </span>
-          </div>
-        </section>
-
-        <section className="pj-panelcard">
-          <SectionTitle right={suggested !== project.health ? <Pill color={HEALTH_META[suggested].color} dot title="Suggested from live task data">Nova suggests {HEALTH_META[suggested].label}</Pill> : undefined}>Progress</SectionTitle>
-          <div className="pj-progress">
-            <ProgressRing pct={progress.pct} size={96} stroke={9} color={project.color}>
-              <b>{progress.pct}%</b>
-              <small>
-                {progress.done}/{progress.total}
-              </small>
-            </ProgressRing>
-            <div className="pj-progress__stats">
-              <Stat label="In progress" value={progress.inProgress} />
-              <Stat label="Due in 7 days" value={progress.dueSoon} />
-              <Stat label="Overdue" value={progress.overdue} tone={progress.overdue ? 'danger' : undefined} />
-              <Stat label="Blocked" value={progress.blocked} tone={progress.blocked ? 'warning' : undefined} />
-              <Stat label="Milestones" value={`${progress.milestonesDone}/${progress.milestonesTotal}`} />
-            </div>
-          </div>
-        </section>
-
-        <section className="pj-panelcard">
-          <SectionTitle
-            count={feed.length}
-            right={
-              canEdit ? (
-                <button type="button" className="btn btn--sm btn--primary pj-btn-violet" onClick={() => setComposerOpen(true)}>
-                  <Sparkles /> Post update
-                </button>
-              ) : undefined
-            }
-          >
-            Status updates
-          </SectionTitle>
-          {feed.length === 0 ? (
-            <EmptyState icon={<Megaphone />} title="No status updates yet">
-              {canEdit ? 'Post the first one — Nova pre-fills it from live task data.' : 'Editors post weekly updates here.'}
-            </EmptyState>
-          ) : (
-            <ol className="pj-feed">
-              {feed.map((u) => (
-                <StatusCard key={u.id} update={u} />
-              ))}
-            </ol>
-          )}
-        </section>
+    <div className="neo-pad pj-ov">
+      <Trajectory project={project} tasks={tasks} now={now} canEdit={canEdit} onPostUpdate={onPostUpdate} />
+      <div className="pj-ov__grid">
+        <div className="pj-ov__main">
+          <Brief project={project} canEdit={canEdit} />
+          <Updates updates={updates} canEdit={canEdit} onPostUpdate={onPostUpdate} />
+        </div>
+        <aside className="pj-ov__side" aria-label="Project facts">
+          <Milestones project={project} tasks={tasks} now={now} />
+          <LinkedOkrs project={project} canEdit={canEdit} />
+          <People project={project} onShare={onShare} />
+          <Details project={project} />
+          <Activity project={project} />
+        </aside>
       </div>
-
-      <aside className="pj-overview__side">
-        {(journey || playbook || project.links?.requisitionId) && (
-          <section className="pj-panelcard">
-            <SectionTitle>Linked across Helix</SectionTitle>
-            <ul className="pj-links">
-              {journey && (
-                <li>
-                  <Link to={`/hr/onboarding/${journey.id}`} className="pj-link">
-                    <GraduationCap />
-                    <span className="grow truncate">
-                      HR onboarding journey
-                      <small>
-                        {journey.name} · starts {fmtDay(journey.startDate)} · {journey.status}
-                      </small>
-                    </span>
-                  </Link>
-                </li>
-              )}
-              {playbook && (
-                <li>
-                  <Link to={`/wiki/doc/${playbook.slug}`} className="pj-link">
-                    <BookOpen />
-                    <span className="grow truncate">
-                      Knowledge Base playbook
-                      <small>{playbook.title}</small>
-                    </span>
-                  </Link>
-                </li>
-              )}
-              {project.links?.requisitionId && (
-                <li>
-                  <Link to={`/talent/reqs/${project.links.requisitionId}`} className="pj-link">
-                    <FileText />
-                    <span className="grow truncate">
-                      Talent requisition
-                      <small>{project.links.requisitionId}</small>
-                    </span>
-                  </Link>
-                </li>
-              )}
-            </ul>
-          </section>
-        )}
-
-        <section className="pj-panelcard">
-          <SectionTitle count={milestones.length}>Milestones</SectionTitle>
-          {milestones.length === 0 ? (
-            <p className="pj-empty-row">Add a milestone task to mark key dates.</p>
-          ) : (
-            <ol className="pj-milestones">
-              {milestones.map((m) => (
-                <li key={m.id}>
-                  <button type="button" className={cx('pj-milestone', m.status === 'done' && 'is-done')} onClick={() => openTask(m.id)}>
-                    <Diamond />
-                    <span className="grow truncate">{m.title}</span>
-                    <DuePill dueDate={m.dueDate} status={m.status} today={today} />
-                  </button>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
-
-        <section className="pj-panelcard">
-          <SectionTitle>
-            <CalendarDays /> Upcoming deadlines
-          </SectionTitle>
-          {upcoming.length === 0 ? (
-            <p className="pj-empty-row">Nothing scheduled.</p>
-          ) : (
-            <ul className="pj-deadlines">
-              {upcoming.map((t) => (
-                <li key={t.id}>
-                  <button type="button" className="pj-deadline" onClick={() => openTask(t.id)}>
-                    <TypeGlyph type={t.type} />
-                    <span className="grow truncate">{t.title}</span>
-                    <UserAvatar userId={t.assigneeId} size={18} />
-                    <DuePill dueDate={t.dueDate} status={t.status} today={today} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="pj-panelcard">
-          <SectionTitle count={linkedGoals.length}>
-            <Target /> Goals
-          </SectionTitle>
-          {linkedGoals.length === 0 ? (
-            <p className="pj-empty-row">
-              Not linked to a goal yet. <Link to="/projects/goals">Browse goals</Link>
-            </p>
-          ) : (
-            <ul className="pj-mini-goals">
-              {linkedGoals.map((g) => {
-                const pct = goalProgress(g, projects, allStoreTasks, today);
-                return (
-                  <li key={g.id}>
-                    <Link to="/projects/goals" className="pj-mini-goal">
-                      <span className="row row--between" style={{ gap: 8 }}>
-                        <span className="truncate">{g.title}</span>
-                        <HealthPill health={g.status} compact />
-                      </span>
-                      <Bar pct={pct} color={HEALTH_META[g.status].color} />
-                      <small>
-                        {pct}% · {g.level === 'company' ? 'Company goal' : `${g.department} goal`} · due {fmtDay(g.targetDate)}
-                      </small>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        <section className="pj-panelcard">
-          <SectionTitle count={linkedPortfolios.length}>
-            <Layers /> Portfolios
-          </SectionTitle>
-          {linkedPortfolios.length === 0 ? (
-            <p className="pj-empty-row">Not part of a portfolio.</p>
-          ) : (
-            <ul className="pj-links">
-              {linkedPortfolios.map((p) => (
-                <li key={p.id}>
-                  <Link to="/projects/portfolios" className="pj-link">
-                    <i className="pj-chip__dot" style={{ background: p.color }} />
-                    <span className="grow truncate">
-                      {p.name}
-                      <small>
-                        {p.projectIds.length} projects · <UserAvatar userId={p.ownerId} size={14} name />
-                      </small>
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="pj-panelcard">
-          <SectionTitle count={projectForms.length}>
-            <FileText /> Intake forms
-          </SectionTitle>
-          {projectForms.length === 0 ? (
-            <p className="pj-empty-row">Project admins can publish a request form in settings.</p>
-          ) : (
-            <ul className="pj-forms">
-              {projectForms.map((f) => (
-                <li key={f.id} className="pj-formcard">
-                  <div className="grow" style={{ minWidth: 0 }}>
-                    <div className="pj-formcard__title">
-                      {f.title}
-                      {!f.enabled && (
-                        <span className="badge badge--muted">
-                          <Lock /> Closed
-                        </span>
-                      )}
-                    </div>
-                    <small className="muted">
-                      {f.submissions} submission{f.submissions === 1 ? '' : 's'} · {f.fields.length} fields
-                    </small>
-                  </div>
-                  <button type="button" className="btn btn--sm" disabled={!f.enabled} onClick={() => setFormOpen(f)}>
-                    <Send /> Submit
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </aside>
-
-      {composerOpen && <StatusComposer projectId={project.id} onClose={() => setComposerOpen(false)} />}
-      {formOpen && <FormSubmitModal form={formOpen} onClose={() => setFormOpen(null)} onSubmitted={(id) => openTask(id)} />}
     </div>
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number | string; tone?: 'danger' | 'warning' }) {
-  return (
-    <span className={cx('pj-stat', tone && `pj-stat--${tone}`)}>
-      <b>{value}</b>
-      <small>{label}</small>
-    </span>
-  );
-}
+/* ───────────────────────── trajectory ───────────────────────── */
 
-function StatusCard({ update }: { update: StatusUpdate }) {
+function Trajectory({ project, tasks, now, canEdit, onPostUpdate }: { project: Project; tasks: Task[]; now: number; canEdit: boolean; onPostUpdate: () => void }) {
+  const ui = useProjectsUI();
+  const m = useMemo(() => projectMetrics(project, tasks, now), [project, tasks, now]);
+  const forecast = useMemo(() => forecastFinish(tasks, now), [tasks, now]);
+  const nova = suggestStatus(project, m);
+  const start = parseIso(project.startDate).getTime();
+  const end = parseIso(project.dueDate).getTime() + DAY;
+  const span = Math.max(DAY, end - start);
+  const at = (ts: number) => Math.max(0, Math.min(1, (ts - start) / span));
+  const milestones = tasks.filter((t) => t.kind === 'milestone' && t.dueDate).sort((a, b) => a.dueDate!.localeCompare(b.dueDate!));
+  const today = todayIso(now);
+  const daysLeft = diffDays(today, project.dueDate);
+  const slip = forecast ? diffDays(project.dueDate, forecast) : null;
+  const gap = m.progress - m.elapsed;
+  const pace = gap >= 0.02 ? `${Math.round(gap * 100)} pts ahead of plan` : gap > -0.02 ? 'Right on plan' : `${Math.round(-gap * 100)} pts behind plan`;
+  const showNova = project.status !== 'complete' && nova !== project.status;
+
   return (
-    <li className="pj-status" style={{ '--pill': HEALTH_META[update.health].color } as CSSProperties}>
-      <div className="pj-status__rail" aria-hidden="true">
-        <i />
+    <section className="neo-card pj-traj neo-rise" aria-label="Trajectory">
+      <div className="pj-traj__ring">
+        <Ring value={m.progress} size={104} stroke={8} label={`${Math.round(m.progress * 100)}% complete`}>
+          <span className="pj-traj__pct">
+            {Math.round(m.progress * 100)}
+            <small>%</small>
+          </span>
+        </Ring>
+        <span className="neo-hud">
+          {m.done}/{m.total} done
+        </span>
       </div>
-      <div className="pj-status__body">
-        <div className="pj-status__head">
-          <HealthPill health={update.health} />
-          <span className="pj-status__title">{update.title}</span>
-          <span className="spacer" />
-          <span className="pj-status__by">
-            <UserAvatar userId={update.authorId} size={18} name /> · {relativeTime(update.at)} · {update.progressPct}%
+      <div className="pj-traj__main">
+        <div className="pj-traj__top">
+          <span className="neo-hud">Mission trajectory</span>
+          <span className="pj-traj__pace" data-pace={gap >= -0.02 ? 'ok' : gap > -0.12 ? 'warn' : 'bad'}>
+            {pace}
           </span>
         </div>
-        <p className="pj-status__summary">{update.summary}</p>
-        <div className="pj-status__cols">
-          {update.highlights.length > 0 && (
-            <div>
-              <small>Highlights</small>
-              <ul>
-                {update.highlights.map((h, i) => (
-                  <li key={i}>{h}</li>
-                ))}
-              </ul>
-            </div>
+        <div className="pj-traj__track" role="img" aria-label={`${Math.round(m.progress * 100)}% complete with ${Math.round(m.elapsed * 100)}% of the timeline elapsed`}>
+          <i className="pj-traj__time" style={{ width: `${m.elapsed * 100}%` }} />
+          <i className="pj-traj__done" style={{ width: `${m.progress * 100}%` }} />
+          {now >= start && now <= end && (
+            <i className="pj-traj__now" style={{ left: `${at(now) * 100}%` }}>
+              <span>Today</span>
+            </i>
           )}
-          {update.blockers.length > 0 && (
-            <div className="pj-status__blockers">
-              <small>Blockers</small>
-              <ul>
-                {update.blockers.map((h, i) => (
-                  <li key={i}>{h}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {update.nextSteps.length > 0 && (
-            <div>
-              <small>Next steps</small>
-              <ul>
-                {update.nextSteps.map((h, i) => (
-                  <li key={i}>{h}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      </div>
-    </li>
-  );
-}
-
-function StatusComposer({ projectId, onClose }: { projectId: string; onClose: () => void }) {
-  const users = useHub((s) => s.users);
-  const project = useProjects((s) => s.projects.find((p) => p.id === projectId))!;
-  const tasks = useProjects((s) => s.tasks);
-  const draft = useMemo(() => draftStatusUpdate(project, tasks.filter((t) => t.projectId === projectId), users, todayISO()), [project, tasks, users, projectId]);
-  const [health, setHealth] = useState<ProjectHealth>(draft.health);
-  const [title, setTitle] = useState(draft.title);
-  const [summary, setSummary] = useState(draft.summary);
-  const [highlights, setHighlights] = useState(draft.highlights.join('\n'));
-  const [blockers, setBlockers] = useState(draft.blockers.join('\n'));
-  const [nextSteps, setNextSteps] = useState(draft.nextSteps.join('\n'));
-  const lines = (s: string) => s.split('\n').map((x) => x.trim()).filter(Boolean);
-
-  const post = () => {
-    const res = api().postStatusUpdate(projectId, { health, title, summary, highlights: lines(highlights), blockers: lines(blockers), nextSteps: lines(nextSteps), progressPct: draft.progressPct });
-    if (report(res)) onClose();
-  };
-
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title="Post a status update"
-      subtitle="Drafted by Nova from live task data — edit freely."
-      icon={<Sparkles className="pj-modal-icon" />}
-      width={640}
-      footer={
-        <>
-          <button type="button" className="btn btn--ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="btn btn--primary pj-btn-violet" onClick={post} disabled={title.trim().length < 4}>
-            <Send /> Post update
-          </button>
-        </>
-      }
-    >
-      <div className="pj-form">
-        <div className="pj-health-picker" role="radiogroup" aria-label="Health">
-          {(Object.keys(HEALTH_META) as ProjectHealth[]).map((h) => (
-            <button key={h} type="button" role="radio" aria-checked={health === h} className={cx('pj-health-opt', health === h && 'is-active')} style={{ '--pill': HEALTH_META[h].color } as CSSProperties} onClick={() => setHealth(h)}>
-              <i /> {HEALTH_META[h].label}
+          {milestones.map((ms) => (
+            <button
+              key={ms.id}
+              type="button"
+              className={cx('pj-traj__ms', ms.completedAt && 'is-done', !ms.completedAt && ms.dueDate! < today && 'is-late')}
+              style={{ left: `${at(parseIso(ms.dueDate!).getTime() + DAY / 2) * 100}%` }}
+              onClick={() => ui.openTask(ms.id)}
+              data-tip={`${ms.title} · ${shortDate(ms.dueDate!)}`}
+              aria-label={`Milestone: ${ms.title}, ${formatDue(ms.dueDate!)}${ms.completedAt ? ', done' : ''}`}
+            >
+              <Diamond />
             </button>
           ))}
         </div>
-        <label className="field">
-          <span className="field-label">Headline</span>
-          <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
-        </label>
-        <label className="field">
-          <span className="field-label">Summary</span>
-          <textarea className="textarea" rows={3} value={summary} onChange={(e) => setSummary(e.target.value)} />
-        </label>
-        <div className="pj-form__grid pj-form__grid--3">
-          <label className="field">
-            <span className="field-label">Highlights</span>
-            <textarea className="textarea" rows={4} value={highlights} onChange={(e) => setHighlights(e.target.value)} placeholder="One per line" />
-          </label>
-          <label className="field">
-            <span className="field-label">Blockers</span>
-            <textarea className="textarea" rows={4} value={blockers} onChange={(e) => setBlockers(e.target.value)} placeholder="One per line" />
-          </label>
-          <label className="field">
-            <span className="field-label">Next steps</span>
-            <textarea className="textarea" rows={4} value={nextSteps} onChange={(e) => setNextSteps(e.target.value)} placeholder="One per line" />
-          </label>
+        <div className="pj-traj__ends">
+          <span>Start · {shortDate(project.startDate)}</span>
+          <span>Due · {shortDate(project.dueDate)}</span>
         </div>
-        <p className="field-hint">
-          Snapshot: {draft.progressPct}% complete · posting sets the project health to <b>{HEALTH_META[health].label}</b> and notifies all members.
+        <dl className="pj-traj__facts">
+          <div>
+            <dt>Forecast</dt>
+            <dd data-tone={slip === null ? undefined : slip > 0 ? 'warn' : 'ok'}>
+              {forecast ? shortDate(forecast) : 'No signal'}
+              <small>{slip === null ? 'needs recent completions' : slip > 0 ? `${slip}d after due` : slip === 0 ? 'on the due date' : `${-slip}d early`}</small>
+            </dd>
+          </div>
+          <div>
+            <dt>Time left</dt>
+            <dd data-tone={daysLeft < 0 && project.status !== 'complete' ? 'bad' : undefined}>
+              {daysLeft >= 0 ? `${daysLeft}d` : `${-daysLeft}d over`}
+              <small>{Math.round(m.elapsed * 100)}% elapsed</small>
+            </dd>
+          </div>
+          <div>
+            <dt>Overdue</dt>
+            <dd data-tone={m.overdue ? 'bad' : 'ok'}>
+              {m.overdue}
+              <small>{m.dueThisWeek} due this week</small>
+            </dd>
+          </div>
+          <div>
+            <dt>Blocked</dt>
+            <dd data-tone={m.blocked ? 'warn' : 'ok'}>
+              {m.blocked}
+              <small>{m.open} open</small>
+            </dd>
+          </div>
+        </dl>
+      </div>
+      {showNova && (
+        <div className="pj-traj__nova neo-nova">
+          <span className="neo-nova__glow" />
+          <Sparkles className="pj-traj__nova-ico" />
+          <span className="pj-traj__nova-text">
+            Nova reads this project as <StatusPill status={nova} /> — it’s marked {STATUS_LABEL[project.status].toLowerCase()}.
+          </span>
+          {canEdit && (
+            <button type="button" className="neo-btn neo-btn--nova neo-btn--xs" onClick={onPostUpdate} data-qa="nova-nudge">
+              <Megaphone /> Post an update
+            </button>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ───────────────────────── brief ───────────────────────── */
+
+function Brief({ project, canEdit }: { project: Project; canEdit: boolean }) {
+  const update = useProjects((s) => s.updateProject);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(project.brief);
+  useEffect(() => {
+    if (!editing) setDraft(project.brief);
+  }, [project.brief, editing]);
+  const save = () => {
+    const r = update(project.id, { brief: draft.trim() });
+    if (toast.result(r, 'Brief saved')) setEditing(false);
+  };
+  return (
+    <section className="neo-card pj-ov__card" aria-label="Brief">
+      <div className="neo-section-head">
+        <h2 className="neo-title">Brief</h2>
+        {canEdit && !editing && (
+          <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={() => setEditing(true)} data-qa="edit-brief">
+            <Pencil /> Edit
+          </button>
+        )}
+      </div>
+      {editing ? (
+        <div className="pj-ov__briefedit">
+          <textarea
+            className="neo-textarea pj-ov__briefinput"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            autoFocus
+            aria-label="Project brief"
+            placeholder="What are we doing, why does it matter, and how will we know we’re done? **Bold** and - bullets work."
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                save();
+              }
+              if (e.key === 'Escape') {
+                e.stopPropagation();
+                setEditing(false);
+              }
+            }}
+          />
+          <div className="pj-tp__edit-acts">
+            <span className="neo-faint text-xs grow">
+              <kbd className="kbd">⌘</kbd>
+              <kbd className="kbd">↵</kbd> save · <kbd className="kbd">Esc</kbd> cancel
+            </span>
+            <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={() => setEditing(false)}>
+              Cancel
+            </button>
+            <button type="button" className="neo-btn neo-btn--plasma neo-btn--xs" onClick={save}>
+              Save brief
+            </button>
+          </div>
+        </div>
+      ) : project.brief.trim() ? (
+        <MarkdownLite text={project.brief} className="pj-ov__brief" />
+      ) : (
+        <NeoEmpty
+          compact
+          icon={<Pencil />}
+          title="No brief yet"
+          action={
+            canEdit ? (
+              <button type="button" className="neo-btn neo-btn--soft neo-btn--sm" onClick={() => setEditing(true)}>
+                Write the brief
+              </button>
+            ) : undefined
+          }
+        >
+          A short brief keeps everyone aligned on the why, the scope and what done looks like.
+        </NeoEmpty>
+      )}
+    </section>
+  );
+}
+
+/* ───────────────────────── status updates ───────────────────────── */
+
+function Updates({ updates, canEdit, onPostUpdate }: { updates: StatusUpdate[]; canEdit: boolean; onPostUpdate: () => void }) {
+  const users = useUsersMap();
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  return (
+    <section className="neo-card pj-ov__card" aria-label="Status updates">
+      <div className="neo-section-head">
+        <h2 className="neo-title">Status updates</h2>
+        <span className="neo-count">{updates.length}</span>
+        {canEdit && (
+          <button type="button" className="neo-btn neo-btn--soft neo-btn--xs" onClick={onPostUpdate} data-qa="post-status">
+            <Megaphone /> Post update
+          </button>
+        )}
+      </div>
+      {updates.length === 0 ? (
+        <NeoEmpty
+          compact
+          icon={<Megaphone />}
+          title="No updates yet"
+          action={
+            canEdit ? (
+              <button type="button" className="neo-btn neo-btn--nova neo-btn--sm" onClick={onPostUpdate}>
+                <Sparkles /> Draft one with Nova
+              </button>
+            ) : undefined
+          }
+        >
+          Weekly updates tell stakeholders what shipped, what’s at risk and what’s next. Nova can draft one from the project’s real data.
+        </NeoEmpty>
+      ) : (
+        <ol className="pj-upd">
+          {updates.map((u, i) => {
+            const expanded = i === 0 || open[u.id];
+            const author = users.get(u.authorId);
+            return (
+              <li key={u.id} className={cx('pj-upd__item', i === 0 && 'is-latest')} data-status={u.status}>
+                <span className="pj-upd__orb" aria-hidden="true" />
+                <div className="pj-upd__card">
+                  <div className="pj-upd__head">
+                    <StatusPill status={u.status} />
+                    {u.byNova && <NovaChip>Drafted by Nova</NovaChip>}
+                    <span className="grow" />
+                    <span className="pj-upd__time" title={new Date(u.at).toLocaleString()}>
+                      {relativeTime(u.at)}
+                    </span>
+                  </div>
+                  <h3 className="pj-upd__title">{u.title}</h3>
+                  {u.body && (
+                    <div className={cx('pj-upd__body', !expanded && 'is-clamped')}>
+                      <MarkdownLite text={u.body} />
+                    </div>
+                  )}
+                  <div className="pj-upd__foot">
+                    <UserAvatar id={u.authorId} size={20} />
+                    <span>{author?.name ?? 'Someone'}</span>
+                    {i > 0 && u.body && (
+                      <button type="button" className="pj-linkish" onClick={() => setOpen((o) => ({ ...o, [u.id]: !o[u.id] }))} aria-expanded={!!expanded}>
+                        {expanded ? 'Show less' : 'Read update'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+/* ───────────────────────── milestones ───────────────────────── */
+
+function Milestones({ project, tasks, now }: { project: Project; tasks: Task[]; now: number }) {
+  const ui = useProjectsUI();
+  const today = todayIso(now);
+  const list = tasks
+    .filter((t) => t.kind === 'milestone')
+    .sort((a, b) => Number(!!a.completedAt) - Number(!!b.completedAt) || (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'));
+  return (
+    <section className="neo-card pj-ov__card" aria-label="Key milestones">
+      <div className="neo-section-head">
+        <h2 className="neo-title">Key milestones</h2>
+        <span className="neo-count">
+          {list.filter((t) => t.completedAt).length}/{list.length}
+        </span>
+      </div>
+      {list.length === 0 ? (
+        <p className="neo-faint text-sm">
+          No milestones yet. Turn a task into a milestone from its <span className="neo-mono">…</span> menu, or add one with{' '}
+          <button type="button" className="pj-linkish" onClick={() => ui.quickAdd({ projectId: project.id })}>
+            Add task
+          </button>
+          .
         </p>
+      ) : (
+        <ul className="pj-msl">
+          {list.map((t) => {
+            const late = !t.completedAt && t.dueDate && t.dueDate < today;
+            return (
+              <li key={t.id}>
+                <button type="button" className={cx('pj-msl__item', t.completedAt && 'is-done', late && 'is-late')} onClick={() => ui.openTask(t.id)}>
+                  <Diamond className="pj-msl__ico" />
+                  <span className="pj-msl__title truncate">{t.title}</span>
+                  {t.dueDate && <DueChip due={t.dueDate} done={!!t.completedAt} />}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/* ───────────────────────── linked OKRs ───────────────────────── */
+
+function LinkedOkrs({ project, canEdit }: { project: Project; canEdit: boolean }) {
+  const navigate = useNavigate();
+  const [picking, setPicking] = useState(false);
+  const { krs, failed } = useKeyResults(true);
+  const byId = useMemo(() => new Map((krs ?? []).map((k) => [k.id, k])), [krs]);
+  const ids = project.keyResultIds;
+
+  return (
+    <section className="neo-card pj-ov__card" aria-label="Linked OKRs">
+      <div className="neo-section-head">
+        <Target className="pj-ico" />
+        <h2 className="neo-title">Linked OKRs</h2>
+        {canEdit && (
+          <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={() => setPicking(true)} data-qa="link-okrs">
+            {ids.length ? 'Edit' : 'Link'}
+          </button>
+        )}
+      </div>
+      {failed && <p className="neo-faint text-sm">Performance &amp; OKRs is unavailable right now — linked key results will show here once it’s back.</p>}
+      {!failed && ids.length === 0 && (
+        <div className="pj-okr__empty">
+          <p className="neo-faint text-sm">Connect this project to the key results it moves, so progress rolls up into Performance &amp; OKRs.</p>
+          {canEdit && (
+            <button type="button" className="neo-btn neo-btn--soft neo-btn--sm" onClick={() => setPicking(true)}>
+              <Target /> Link key results
+            </button>
+          )}
+        </div>
+      )}
+      {!failed && ids.length > 0 && (
+        <ul className="pj-okr">
+          {ids.map((id) => {
+            const kr = byId.get(id);
+            if (!krs)
+              return (
+                <li key={id} className="pj-okr__item is-loading">
+                  <span className="pj-skel" style={{ width: '70%' }} />
+                  <span className="pj-skel" style={{ width: '40%' }} />
+                </li>
+              );
+            if (!kr)
+              return (
+                <li key={id} className="pj-okr__item is-hidden">
+                  <span className="pj-okr__title neo-mono">{id}</span>
+                  <span className="pj-okr__obj">Not visible to you</span>
+                </li>
+              );
+            return (
+              <li key={id}>
+                <button type="button" className="pj-okr__item neo-spot" onClick={() => navigate(`/performance/okrs/${kr.objectiveId}`)} title="Open in Performance & OKRs">
+                  <span className="pj-okr__row">
+                    <span className="pj-okr__title">{kr.title}</span>
+                    <ArrowUpRight className="pj-okr__go" />
+                  </span>
+                  <span className="pj-okr__obj truncate">{kr.objectiveTitle}</span>
+                  <span className="pj-okr__row">
+                    <Bar value={kr.progress} className="pj-okr__bar" label={`${Math.round(kr.progress * 100)}%`} />
+                    <span className="pj-okr__pct neo-num">{Math.round(kr.progress * 100)}%</span>
+                    <span className="neo-chip neo-chip--sm" data-tone={KR_TONE[kr.status] ?? 'slate'}>
+                      {KR_LABEL[kr.status] ?? kr.status}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <KeyResultPicker open={picking} onClose={() => setPicking(false)} project={project} />
+    </section>
+  );
+}
+
+function KeyResultPicker({ open, onClose, project }: { open: boolean; onClose: () => void; project: Project }) {
+  const link = useProjects((s) => s.linkKeyResults);
+  const users = useUsersMap();
+  const [q, setQ] = useState('');
+  const [sel, setSel] = useState<string[]>(project.keyResultIds);
+  const { krs, failed } = useKeyResults(open);
+  useEffect(() => {
+    if (open) {
+      setSel(project.keyResultIds);
+      setQ('');
+    }
+  }, [open, project.keyResultIds]);
+
+  const groups = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    const list = (krs ?? []).filter((k) => !s || `${k.title} ${k.objectiveTitle} ${users.get(k.ownerId)?.name ?? ''}`.toLowerCase().includes(s));
+    const m = new Map<string, { title: string; items: BridgeKeyResult[] }>();
+    for (const k of list) {
+      const g = m.get(k.objectiveId) ?? { title: k.objectiveTitle, items: [] };
+      g.items.push(k);
+      m.set(k.objectiveId, g);
+    }
+    return [...m.entries()];
+  }, [krs, q, users]);
+
+  const toggle = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  const save = () => {
+    if (toast.result(link(project.id, sel), sel.length ? `Linked ${sel.length} key ${sel.length === 1 ? 'result' : 'results'}` : 'Key results unlinked')) onClose();
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Link key results"
+      subtitle={`Which OKRs does ${project.name} move?`}
+      width={600}
+      className="neo-portal pj-modal"
+      footer={
+        <>
+          <span className="neo-faint text-sm grow">{sel.length} selected</span>
+          <button type="button" className="neo-btn neo-btn--ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="neo-btn neo-btn--plasma" onClick={save} disabled={failed} data-qa="save-okrs">
+            Save links
+          </button>
+        </>
+      }
+    >
+      <NeoSearch value={q} onChange={setQ} placeholder="Search key results, objectives or owners…" autoFocus />
+      <div className="pj-krpick" role="listbox" aria-multiselectable="true" aria-label="Key results">
+        {failed && <p className="neo-faint text-sm">Performance &amp; OKRs is unavailable right now. Try again in a moment.</p>}
+        {!failed && krs === null && <p className="neo-faint text-sm">Loading key results…</p>}
+        {!failed && krs !== null && groups.length === 0 && <p className="neo-faint text-sm">{q ? `No key results match “${q}”.` : 'No key results are visible to you yet.'}</p>}
+        {groups.map(([oid, g]) => (
+          <div key={oid} className="pj-krpick__group">
+            <div className="neo-menu__label">{g.title}</div>
+            {g.items.map((k) => {
+              const on = sel.includes(k.id);
+              return (
+                <button key={k.id} type="button" role="option" aria-selected={on} className={cx('pj-krpick__item', on && 'is-on')} onClick={() => toggle(k.id)}>
+                  <span className="pj-krpick__box" aria-hidden="true">
+                    {on && <Target />}
+                  </span>
+                  <span className="grow" style={{ minWidth: 0 }}>
+                    <span className="pj-krpick__title">{k.title}</span>
+                    <span className="pj-krpick__meta">
+                      {users.get(k.ownerId)?.name ?? 'Owner'} · {k.period}
+                    </span>
+                  </span>
+                  <span className="pj-krpick__prog">
+                    <Bar value={k.progress} />
+                    <span className="neo-faint text-xs neo-num">{Math.round(k.progress * 100)}%</span>
+                  </span>
+                  <span className="neo-chip neo-chip--sm" data-tone={KR_TONE[k.status] ?? 'slate'}>
+                    {KR_LABEL[k.status] ?? k.status}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </Modal>
   );
 }
 
-export function FormSubmitModal({ form, onClose, onSubmitted }: { form: IntakeForm; onClose: () => void; onSubmitted?: (taskId: string) => void }) {
-  const [values, setValues] = useState<Record<string, string>>({});
-  const set = (id: string, v: string) => setValues((x) => ({ ...x, [id]: v }));
-  const submit = () => {
-    const res = api().submitForm(form.id, values);
-    if (report(res)) {
-      onClose();
-      if (res.taskId) onSubmitted?.(res.taskId);
-    }
-  };
+/* ───────────────────────── people / details / activity ───────────────────────── */
+
+function People({ project, onShare }: { project: Project; onShare: () => void }) {
+  const users = useUsersMap();
+  const members = [...project.members].sort((a, b) => ROLE_RANK[a.role] - ROLE_RANK[b.role] || (users.get(a.userId)?.name ?? '').localeCompare(users.get(b.userId)?.name ?? ''));
+  const shown = members.slice(0, 7);
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title={form.title}
-      subtitle={form.description}
-      icon={<FileText className="pj-modal-icon" />}
-      width={560}
-      footer={
-        <>
-          <button type="button" className="btn btn--ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="btn btn--primary pj-btn-violet" onClick={submit}>
-            <Send /> Submit request
-          </button>
-        </>
-      }
-    >
-      <div className="pj-form">
-        {form.fields.map((f) => (
-          <label key={f.id} className="field">
-            <span className="field-label">
-              {f.label}
-              {f.required && <span className="pj-danger-text"> *</span>}
-            </span>
-            {f.type === 'textarea' ? (
-              <textarea className="textarea" rows={3} value={values[f.id] ?? ''} onChange={(e) => set(f.id, e.target.value)} />
-            ) : f.type === 'select' ? (
-              <select className="select" value={values[f.id] ?? ''} onChange={(e) => set(f.id, e.target.value)}>
-                <option value="">Choose…</option>
-                {(f.options ?? []).map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input type={f.type === 'date' ? 'date' : 'text'} className="input" value={values[f.id] ?? ''} onChange={(e) => set(f.id, e.target.value)} />
-            )}
-          </label>
-        ))}
-        <p className="field-hint">Your request becomes a task in the project; you’ll be added as a collaborator and notified of progress.</p>
+    <section className="neo-card pj-ov__card" aria-label="Members and roles">
+      <div className="neo-section-head">
+        <h2 className="neo-title">Members &amp; roles</h2>
+        <span className="neo-count">{members.length}</span>
+        <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={onShare} data-qa="manage-members">
+          <UserCog /> Manage
+        </button>
       </div>
-    </Modal>
+      <ul className="pj-ppl">
+        {shown.map((m) => {
+          const u = users.get(m.userId);
+          return (
+            <li key={m.userId} className="pj-ppl__item">
+              <UserAvatar id={m.userId} size={30} presence />
+              <span className="grow" style={{ minWidth: 0 }}>
+                <span className="pj-ppl__name truncate">{u?.name ?? 'Former member'}</span>
+                <span className="pj-ppl__sub truncate">{u?.title ?? ''}</span>
+              </span>
+              <span className="pj-ppl__role" data-role={m.role}>
+                {ROLE_LABEL[m.role]}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      {members.length > shown.length && (
+        <button type="button" className="pj-linkish text-sm" onClick={onShare}>
+          and {members.length - shown.length} more
+        </button>
+      )}
+    </section>
+  );
+}
+
+function Details({ project }: { project: Project }) {
+  const navigate = useNavigate();
+  const users = useUsersMap();
+  return (
+    <section className="neo-card pj-ov__card" aria-label="Details">
+      <div className="neo-section-head">
+        <h2 className="neo-title">Details</h2>
+      </div>
+      <dl className="neo-kv pj-ov__kv">
+        <dt>Owner</dt>
+        <dd className="pj-ov__who">
+          <UserAvatar id={project.ownerId} size={20} /> {users.get(project.ownerId)?.name ?? 'Unknown'}
+        </dd>
+        <dt>Department</dt>
+        <dd>{project.department}</dd>
+        <dt>Visibility</dt>
+        <dd>{PRIVACY_LABEL[project.privacy]}</dd>
+        <dt>Priority</dt>
+        <dd className="pj-ov__who">
+          <PriorityGlyph priority={project.priority} /> {PRIORITY_NAME[project.priority]}
+        </dd>
+        <dt>Timeline</dt>
+        <dd>
+          {shortDate(project.startDate)} → {shortDate(project.dueDate)}
+        </dd>
+        <dt>Pulse</dt>
+        <dd>
+          {project.channelId ? (
+            <button type="button" className="pj-linkish pj-ov__who" onClick={() => navigate(`/chat/c/${project.channelId}`)}>
+              <Hash /> {project.channelId.replace(/^ch-/, '')}
+            </button>
+          ) : (
+            <span className="neo-faint">No channel linked</span>
+          )}
+        </dd>
+        <dt>Key</dt>
+        <dd className="neo-mono">{project.key}</dd>
+      </dl>
+    </section>
+  );
+}
+
+function Activity({ project }: { project: Project }) {
+  const users = useUsersMap();
+  const items = [...project.activity].sort((a, b) => b.at - a.at).slice(0, 6);
+  if (!items.length) return null;
+  return (
+    <section className="neo-card pj-ov__card" aria-label="Project activity">
+      <div className="neo-section-head">
+        <h2 className="neo-title">Activity</h2>
+      </div>
+      <ol className="pj-feed">
+        {items.map((a) => (
+          <li key={a.id}>
+            <div className="pj-feed__item">
+              <UserAvatar id={a.actorId} size={22} />
+              <span className="grow" style={{ minWidth: 0 }}>
+                <span className="pj-feed__text">
+                  <strong>{a.actorId === 'automation' ? 'Automation' : (users.get(a.actorId)?.name.split(' ')[0] ?? 'Someone')}</strong> {a.text}
+                </span>
+              </span>
+              <span className="pj-feed__time">{relativeTime(a.at)}</span>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }

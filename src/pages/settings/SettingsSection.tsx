@@ -1,10 +1,22 @@
 import type { ReactNode } from 'react';
+import { NeoPanel } from '@/components/neo';
 import { cx } from '@/lib/cx';
 
-/** A titled settings card that doubles as an anchor target for the section nav. */
+const SECTION_HUD: Record<string, string> = {
+  profile: 'Identity & availability',
+  appearance: 'Theme & workspace',
+  widgets: 'Preferences · Launchpad',
+  notifications: 'Preferences · Alerts',
+  access: 'Security & permissions',
+  shortcuts: 'Keyboard navigation',
+  demo: 'Sandbox controls',
+};
+
+/** A titled settings NeoPanel that doubles as an anchor target for the section nav. */
 export function SettingsSection({
   id,
   icon,
+  hud,
   title,
   description,
   aside,
@@ -13,6 +25,7 @@ export function SettingsSection({
 }: {
   id: string;
   icon: ReactNode;
+  hud?: ReactNode;
   title: string;
   description?: ReactNode;
   aside?: ReactNode;
@@ -20,21 +33,17 @@ export function SettingsSection({
   className?: string;
 }) {
   return (
-    <section id={id} tabIndex={-1} className={cx('set-section card', className)} aria-labelledby={`${id}-title`}>
-      <header className="set-section__head">
-        <span className="set-section__icon" aria-hidden="true">
-          {icon}
-        </span>
-        <div className="set-section__heading">
-          <h2 id={`${id}-title`} className="set-section__title">
-            {title}
-          </h2>
-          {description && <p className="set-section__desc">{description}</p>}
-        </div>
-        {aside && <div className="set-section__aside">{aside}</div>}
-      </header>
+    <NeoPanel
+      id={id}
+      icon={icon}
+      hud={hud ?? SECTION_HUD[id] ?? 'Settings'}
+      title={<span id={`${id}-title`}>{title}</span>}
+      actions={aside}
+      className={cx('set-section', className)}
+    >
+      {description && <p className="set-section__desc">{description}</p>}
       <div className="set-section__body">{children}</div>
-    </section>
+    </NeoPanel>
   );
 }
 

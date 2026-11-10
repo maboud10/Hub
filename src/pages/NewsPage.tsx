@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useLocation, useSearchParams } from 'react-router';
-import { Eye, Megaphone, Newspaper, Pin, ShieldCheck, Trash2, TriangleAlert } from 'lucide-react';
+import { Eye, Megaphone, Newspaper, Pin, RotateCcw, ShieldCheck, Trash2, TriangleAlert } from 'lucide-react';
 import type { Announcement, AnnouncementCategory } from '@/types';
 import { useHub } from '@/store/hub';
 import { useCan, useRoles, useSessionUser, useVisibleAnnouncements } from '@/store/selectors';
 import { toast } from '@/store/toast';
 import { Can } from '@/components/auth/Can';
 import { Modal } from '@/components/ui/Modal';
-import { EmptyState, RoleChip } from '@/components/ui/primitives';
+import { RoleChip } from '@/components/ui/primitives';
+import { NeoEmpty, NeoHome, NeoPage, NeoPanel } from '@/components/neo';
 import { useNow } from '@/hooks/useNow';
 import { relativeTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
@@ -70,6 +71,7 @@ export function NewsPage() {
   }, [posts, me]);
 
   const filtered = useMemo(() => (cat === 'all' ? posts : posts.filter((p) => p.category === cat)), [posts, cat]);
+  const pinnedPosts = useMemo(() => posts.filter((p) => p.pinned), [posts]);
   const latest = posts.reduce<Announcement | null>((a, p) => (!a || p.createdAt > a.createdAt ? p : a), null);
   const myRoles = useMemo(() => roles.filter((r) => me?.roleIds.includes(r.id)), [roles, me]);
 
@@ -84,155 +86,213 @@ export function NewsPage() {
     setDeleteOpen(false);
   };
 
+  const jumpToPost = (post: Announcement) => {
+    if (cat !== 'all' && cat !== post.category) setCat('all');
+    requestAnimationFrame(() => {
+      document.getElementById(`post-${post.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  };
+
   const deleteReactions = deleteTarget ? Object.values(deleteTarget.reactions).reduce((n, l) => n + l.length, 0) : 0;
+  const ActiveCatIcon = cat !== 'all' ? CATEGORY_ICON[cat] : Newspaper;
 
   return (
-    <div className="page news-page">
-      <header className="page-head">
-        <div>
-          <div className="eyebrow">Newsroom</div>
-          <h1 className="page-title">Company news</h1>
-          <p className="page-sub">
-            {canPublish
-              ? 'Publish, pin and target updates. As a publisher you see every post — including ones aimed at other roles.'
-              : 'Announcements targeted to you and your teams, freshest first.'}
-          </p>
-        </div>
-        <dl className="news-kpis" aria-label="Feed summary">
-          <div className="news-kpi">
-            <dt className="stat-label">Updates</dt>
-            <dd className="stat-value">{posts.length}</dd>
-          </div>
-          <div className="news-kpi">
-            <dt className="stat-label">Pinned</dt>
-            <dd className="stat-value">{counts.pinned}</dd>
-          </div>
-          <div className={cx('news-kpi', counts.critical > 0 && 'news-kpi--alert')}>
-            <dt className="stat-label">Critical</dt>
-            <dd className="stat-value">{counts.critical}</dd>
-          </div>
-        </dl>
-      </header>
-
-      <div className="news-layout">
-        <div className="news-main">
-          <Can perm="hub.news.publish">
-            <Composer open={composerOpen} onOpenChange={setComposerOpen} />
-          </Can>
-
-          <div className="news-feed-head">
-            <h2 className="section-title">
-              <Newspaper aria-hidden="true" className="accent-ink" /> Latest <span className="count">{filtered.length}</span>
-            </h2>
-            <div className="chips news-filters" role="group" aria-label="Filter by category">
-              <button type="button" className={cx('chip', cat === 'all' && 'is-active')} aria-pressed={cat === 'all'} onClick={() => setCat('all')}>
-                All <span className="count">{posts.length}</span>
-              </button>
-              {NEWS_CATEGORIES.map((c) => {
-                const Icon = CATEGORY_ICON[c];
-                const n = counts.byCat.get(c) ?? 0;
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    className={cx('chip', cat === c && 'is-active', n === 0 && 'news-chip--empty')}
-                    aria-pressed={cat === c}
-                    onClick={() => setCat(cat === c ? 'all' : c)}
-                  >
-                    <Icon aria-hidden="true" /> {c} <span className="count">{n}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {filtered.length ? (
-            <ol className="news-feed stagger" aria-label="Announcements">
-              {filtered.map((post, i) => (
-                <li key={post.id} style={{ '--i': i } as CSSProperties}>
-                  <PostCard
-                    post={post}
-                    usersById={usersById}
-                    rolesById={rolesById}
-                    meId={me?.id ?? null}
-                    canPublish={canPublish}
-                    now={now}
-                    onDelete={askDelete}
-                  />
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <div className="card">
-              <EmptyState
-                icon={<Megaphone />}
-                title={cat === 'all' ? 'No announcements yet' : `Nothing in ${cat} yet`}
-                action={
-                  cat !== 'all' ? (
-                    <button type="button" className="btn" onClick={() => setCat('all')}>
-                      Show all categories
-                    </button>
-                  ) : canPublish ? (
-                    <button type="button" className="btn btn--primary" onClick={() => setComposerOpen(true)}>
-                      <Megaphone /> Write the first one
-                    </button>
-                  ) : undefined
-                }
+    <NeoPage
+      app="news"
+      className="news-page"
+      icon={<Newspaper />}
+      eyebrow="Hub · Newsroom"
+      title="Newsroom"
+      sub={
+        canPublish
+          ? 'Publish, pin and target updates. As a publisher you see every post — including ones aimed at other roles.'
+          : 'Announcements targeted to you and your teams, freshest first.'
+      }
+      actions={
+        canPublish ? (
+          <button type="button" className="neo-btn neo-btn--plasma" onClick={() => setComposerOpen((o) => !o)}>
+            <Megaphone /> <span className="neo-btn__label">{composerOpen ? 'Close composer' : 'Publish update'}</span>
+          </button>
+        ) : undefined
+      }
+      toolbar={
+        <div className="news-filters" role="group" aria-label="Filter by category">
+          <button
+            type="button"
+            className="neo-chip neo-chip--lg"
+            data-tone={cat === 'all' ? 'app' : 'slate'}
+            aria-pressed={cat === 'all'}
+            onClick={() => setCat('all')}
+          >
+            All <span className="news-chip__n">{posts.length}</span>
+          </button>
+          {NEWS_CATEGORIES.map((c) => {
+            const Icon = CATEGORY_ICON[c];
+            const n = counts.byCat.get(c) ?? 0;
+            return (
+              <button
+                key={c}
+                type="button"
+                className={cx('neo-chip neo-chip--lg', n === 0 && cat !== c && 'news-chip--empty')}
+                data-tone={cat === c ? 'app' : 'slate'}
+                aria-pressed={cat === c}
+                onClick={() => setCat(cat === c ? 'all' : c)}
               >
-                {cat === 'all' ? 'When something is announced for your roles, it lands here.' : 'Try another category — or check back later.'}
-              </EmptyState>
-            </div>
+                <Icon aria-hidden="true" /> {c} <span className="news-chip__n">{n}</span>
+              </button>
+            );
+          })}
+          {cat !== 'all' && (
+            <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs news-filters__reset" onClick={() => setCat('all')}>
+              <RotateCcw /> Show all
+            </button>
           )}
         </div>
+      }
+    >
+      <NeoHome
+        className="news-home"
+        sideLabel="About this feed"
+        main={
+          <div className="news-main">
+            <Can perm="hub.news.publish">
+              <Composer open={composerOpen} onOpenChange={setComposerOpen} />
+            </Can>
 
-        <aside className="news-rail" aria-label="About this feed">
-          <section className="card card--tight news-rail__card">
-            <h2 className="news-rail__title">
-              <Eye aria-hidden="true" /> Why you see these
-            </h2>
-            {canPublish ? (
-              <p className="text-sm muted">
-                You hold <strong>Publish announcements</strong>, so the feed shows everything —{' '}
-                <strong>{counts.targeted}</strong> {counts.targeted === 1 ? 'post is' : 'posts are'} targeted to specific roles. Look for the audience
-                badge on each post.
-              </p>
-            ) : (
-              <p className="text-sm muted">Posts for everyone, plus those targeted to the roles you hold:</p>
-            )}
-            <div className="row row--wrap">
-              {myRoles.map((r) => (
-                <RoleChip key={r.id} name={r.name} color={r.color} />
-              ))}
-            </div>
-          </section>
+            <NeoPanel
+              className="news-feed-panel"
+              icon={<ActiveCatIcon />}
+              hud={cat === 'all' ? 'Company feed' : 'Category filter'}
+              title={cat === 'all' ? 'Latest announcements' : `${cat} updates`}
+              actions={<span className="neo-count">{filtered.length}</span>}
+            >
+              {filtered.length ? (
+                <ol className="news-feed neo-stagger" aria-label="Announcements">
+                  {filtered.map((post, i) => (
+                    <li key={post.id} style={{ '--i': i } as CSSProperties}>
+                      <PostCard
+                        post={post}
+                        usersById={usersById}
+                        rolesById={rolesById}
+                        meId={me?.id ?? null}
+                        canPublish={canPublish}
+                        now={now}
+                        onDelete={askDelete}
+                      />
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <NeoEmpty
+                  icon={<Megaphone />}
+                  title={cat === 'all' ? 'No announcements yet' : `Nothing in ${cat} yet`}
+                  action={
+                    cat !== 'all' ? (
+                      <button type="button" className="neo-btn neo-btn--soft" onClick={() => setCat('all')}>
+                        Show all categories
+                      </button>
+                    ) : canPublish ? (
+                      <button type="button" className="neo-btn neo-btn--plasma" onClick={() => setComposerOpen(true)}>
+                        <Megaphone /> Write the first one
+                      </button>
+                    ) : undefined
+                  }
+                >
+                  {cat === 'all' ? 'When something is announced for your roles, it lands here.' : 'Try another category — or check back later.'}
+                </NeoEmpty>
+              )}
+            </NeoPanel>
+          </div>
+        }
+        side={
+          <>
+            <NeoPanel
+              className="news-rail__card"
+              icon={<Pin />}
+              hud="Top of feed"
+              title="Pinned"
+              actions={<span className="neo-count">{pinnedPosts.length}</span>}
+            >
+              {pinnedPosts.length ? (
+                <ul className="news-pinned-list">
+                  {pinnedPosts.map((p) => {
+                    const CatIcon = CATEGORY_ICON[p.category];
+                    return (
+                      <li key={p.id}>
+                        <button type="button" className="news-pinned-item neo-spot" onClick={() => jumpToPost(p)}>
+                          <span className="news-pinned-item__top">
+                            <span className="tag news-cat" data-cat={p.category}>
+                              <CatIcon aria-hidden="true" /> {p.category}
+                            </span>
+                            <span className="neo-mono neo-faint text-xs">{relativeTime(p.createdAt, now)}</span>
+                          </span>
+                          <span className="news-pinned-item__title">{p.title}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-sm muted">Nothing pinned right now — publishers can pin priority updates to the top of everyone’s feed.</p>
+              )}
+            </NeoPanel>
 
-          <section className="card card--tight news-rail__card">
-            <h2 className="news-rail__title">
-              <ShieldCheck aria-hidden="true" /> Signal
-            </h2>
-            <ul className="news-signal">
-              <li>
-                <TriangleAlert aria-hidden="true" className="news-signal__icon news-signal__icon--danger" />
-                <span className="grow">Critical alerts</span>
-                <span className="mono">{counts.critical}</span>
-              </li>
-              <li>
-                <Pin aria-hidden="true" className="news-signal__icon" />
-                <span className="grow">Pinned to top</span>
-                <span className="mono">{counts.pinned}</span>
-              </li>
-              <li>
-                <span className="news-signal__icon news-signal__emoji" aria-hidden="true">
-                  👍
-                </span>
-                <span className="grow">Posts you reacted to</span>
-                <span className="mono">{counts.myReactions}</span>
-              </li>
-            </ul>
-            {latest && <p className="field-hint">Last update {relativeTime(latest.createdAt, now)}</p>}
-          </section>
-        </aside>
-      </div>
+            <NeoPanel className="news-rail__card" icon={<Eye />} hud="Audience" title="Why you see these">
+              {canPublish ? (
+                <p className="text-sm muted">
+                  You hold <strong>Publish announcements</strong>, so the feed shows everything —{' '}
+                  <strong>{counts.targeted}</strong> {counts.targeted === 1 ? 'post is' : 'posts are'} targeted to specific roles. Look for the audience
+                  badge on each post.
+                </p>
+              ) : (
+                <p className="text-sm muted">Posts for everyone, plus those targeted to the roles you hold:</p>
+              )}
+              <div className="row row--wrap" style={{ marginTop: 10 }}>
+                {myRoles.map((r) => (
+                  <RoleChip key={r.id} name={r.name} color={r.color} />
+                ))}
+              </div>
+            </NeoPanel>
+
+            <NeoPanel className="news-rail__card" icon={<ShieldCheck />} hud="Telemetry" title="Feed signal">
+              <dl className="news-kpis" aria-label="Feed summary">
+                <div className="news-kpi">
+                  <dt className="stat-label">Updates</dt>
+                  <dd className="stat-value">{posts.length}</dd>
+                </div>
+                <div className="news-kpi">
+                  <dt className="stat-label">Pinned</dt>
+                  <dd className="stat-value">{counts.pinned}</dd>
+                </div>
+                <div className={cx('news-kpi', counts.critical > 0 && 'news-kpi--alert')}>
+                  <dt className="stat-label">Critical</dt>
+                  <dd className="stat-value">{counts.critical}</dd>
+                </div>
+              </dl>
+              <ul className="news-signal">
+                <li>
+                  <TriangleAlert aria-hidden="true" className="news-signal__icon news-signal__icon--danger" />
+                  <span className="grow">Critical alerts</span>
+                  <span className="mono">{counts.critical}</span>
+                </li>
+                <li>
+                  <Pin aria-hidden="true" className="news-signal__icon" />
+                  <span className="grow">Pinned to top</span>
+                  <span className="mono">{counts.pinned}</span>
+                </li>
+                <li>
+                  <span className="news-signal__icon news-signal__emoji" aria-hidden="true">
+                    👍
+                  </span>
+                  <span className="grow">Posts you reacted to</span>
+                  <span className="mono">{counts.myReactions}</span>
+                </li>
+              </ul>
+              {latest && <p className="field-hint">Last update {relativeTime(latest.createdAt, now)}</p>}
+            </NeoPanel>
+          </>
+        }
+      />
 
       <Modal
         open={deleteOpen}
@@ -266,6 +326,6 @@ export function NewsPage() {
           </div>
         )}
       </Modal>
-    </div>
+    </NeoPage>
   );
 }

@@ -1,30 +1,29 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Link, useParams } from 'react-router';
 import {
-  AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Bookmark,
   BookOpen,
   Check,
   CheckCircle2,
-  ChevronRight,
   Clock,
   GraduationCap,
   Layers,
+  ListChecks,
   Rocket,
 } from 'lucide-react';
-import { EmptyState, Segmented } from '@/components/ui/primitives';
+import { Bar, NeoEmpty, NeoHome, NeoPanel, Ring } from '@/components/neo';
 import { toast } from '@/store/toast';
 import { cx } from '@/lib/cx';
 import { computeFreshness } from '@/wiki/constants';
 import { useMyWikiState, useVisibleCollections } from '@/wiki/selectors';
 import { useWiki } from '@/wiki/store';
-import type { FreshFilter } from './SpaceView';
-import { FreshnessPill, ProgressRing, SpacePill } from './wikiUi';
+import { FreshnessPill, FreshTabs, SpacePill, TagFilter, WikiHeadActions, type FreshFilter } from './wikiUi';
 
 export function CollectionsIndex() {
   const collections = useVisibleCollections();
+  const myState = useMyWikiState();
   const [freshFilter, setFreshFilter] = useState<FreshFilter>('all');
   const [selectedTag, setSelectedTag] = useState<string>('all');
 
@@ -53,123 +52,78 @@ export function CollectionsIndex() {
     });
   }, [collections, freshFilter, selectedTag]);
 
+  const readSet = new Set(myState.readSlugs);
+
   return (
-    <div className="stack stack--lg">
-      <div className="wk-filter-bar">
-        <div className="stack stack--sm">
-          <h2 className="section-title" style={{ margin: 0 }}>
-            <Layers style={{ width: 19, height: 19, color: 'var(--wk-ink)' }} />
-            Curated Reading Packs
-            <span className="count">{filteredPacks.length}</span>
-          </h2>
-          <p className="text-sm muted" style={{ margin: 0 }}>
-            Structured playbook sequences with persisted reading progress for onboarding, on-call, and people leadership.
-          </p>
-        </div>
-
-        <Segmented<FreshFilter>
-          label="Filter reading packs by freshness"
-          value={freshFilter}
-          onChange={setFreshFilter}
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'verified', label: 'Verified', icon: <CheckCircle2 style={{ color: 'var(--success)' }} /> },
-            { value: 'attention', label: 'Needs review', icon: <AlertTriangle style={{ color: 'var(--warning)' }} /> },
-          ]}
-        />
+    <div className="wk-stack">
+      <div className="wk-filters">
+        <FreshTabs label="Filter reading packs by freshness" value={freshFilter} onChange={setFreshFilter} />
+        <span className="neo-hud">
+          {filteredPacks.length} of {collections.length} packs
+        </span>
       </div>
-
-      {allTags.length > 0 && (
-        <div className="chips" role="group" aria-label="Filter packs by tag">
-          <button
-            type="button"
-            className={cx('chip', selectedTag === 'all' && 'is-active')}
-            onClick={() => setSelectedTag('all')}
-          >
-            All topics
-          </button>
-          {allTags.map(([tag, count]) => (
-            <button
-              key={tag}
-              type="button"
-              className={cx('chip', selectedTag === tag && 'is-active')}
-              onClick={() => setSelectedTag(selectedTag === tag ? 'all' : tag)}
-            >
-              #{tag} <span className="count">{count}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      <TagFilter tags={allTags} value={selectedTag} onChange={setSelectedTag} label="Filter packs by tag" allLabel="All topics" />
 
       {filteredPacks.length > 0 ? (
-        <div className="wk-packs-grid">
-          {filteredPacks.map(({ collection, articles, readCount, totalCount, pct, totalMins }) => (
+        <div className="wk-packs neo-stagger">
+          {filteredPacks.map(({ collection, articles, readCount, totalCount, pct, totalMins }, i) => (
             <Link
               key={collection.id}
               to={`/wiki/collections/${collection.slug}`}
-              className="wk-pack-card"
-              style={{ '--pk-h': collection.hue } as CSSProperties}
+              className="wk-pack"
+              style={{ '--pk-h': collection.hue, '--i': i } as CSSProperties}
             >
-              <div className="row row--between" style={{ gap: 12, alignItems: 'flex-start' }}>
-                <div className="row row--wrap" style={{ gap: 6 }}>
-                  <span className="tag">{collection.audienceLabel}</span>
+              <span className="wk-pack__top">
+                <span className="wk-pack__chips">
+                  <span className="wk-tag">{collection.audienceLabel}</span>
                   {collection.onboardingPack && (
-                    <span className="badge" style={{ '--b-rgb': '45 212 191' } as CSSProperties}>
-                      <Rocket /> Week-1 Onboarding
+                    <span className="neo-chip neo-chip--sm" data-tone="app">
+                      <Rocket /> Week-1 onboarding
                     </span>
                   )}
-                </div>
-                <ProgressRing done={readCount} total={totalCount} size={56} sublabel="read" />
-              </div>
+                </span>
+                <Ring value={totalCount ? readCount / totalCount : 0} size={54} stroke={5} label={`${readCount} of ${totalCount} read`}>
+                  {pct}%
+                </Ring>
+              </span>
 
-              <div className="stack stack--sm">
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 650, margin: 0 }}>
-                  {collection.title}
-                </h3>
-                <p className="text-sm muted" style={{ margin: 0, lineHeight: 1.5 }}>
-                  {collection.description}
-                </p>
-              </div>
+              <span className="wk-pack__title">{collection.title}</span>
+              <span className="wk-pack__desc">{collection.description}</span>
 
-              <div className="stack stack--sm" style={{ marginTop: 2 }}>
+              <ol className="wk-pack__steps">
                 {articles.slice(0, 3).map((a, idx) => (
-                  <div key={a.id} className="row" style={{ gap: 8, fontSize: 12.5, color: 'var(--text-2)' }}>
-                    <span className="mono faint">0{idx + 1}</span>
-                    <span className="truncate">{a.title}</span>
-                    <span className="spacer" />
-                    <span className="mono faint">{a.readMins}m</span>
-                  </div>
+                  <li key={a.id} className={cx('wk-pack__step', readSet.has(a.slug) && 'is-read')}>
+                    <span className="wk-pack__step-n">{readSet.has(a.slug) ? <Check /> : String(idx + 1).padStart(2, '0')}</span>
+                    <span className="wk-pack__step-t">{a.title}</span>
+                    <span className="wk-pack__step-m">{a.readMins}m</span>
+                  </li>
                 ))}
-                {articles.length > 3 && (
-                  <span className="text-xs faint">+{articles.length - 3} more playbooks in pack</span>
-                )}
-              </div>
+                {articles.length > 3 && <li className="wk-pack__more">+{articles.length - 3} more playbooks in pack</li>}
+              </ol>
 
-              <div style={{ marginTop: 'auto', paddingTop: 10 }}>
-                <div className="progress">
-                  <span style={{ width: `${pct}%`, background: 'var(--wk-grad)' }} />
-                </div>
-                <div className="row row--between" style={{ marginTop: 8 }}>
-                  <span className="text-xs muted">
+              <span className="wk-pack__foot">
+                <Bar value={totalCount ? readCount / totalCount : 0} label={`${pct}% of ${collection.title} read`} />
+                <span className="wk-pack__meta">
+                  <span>
                     {readCount} of {totalCount} completed · ~{totalMins} mins
                   </span>
-                  <span className="text-xs mono" style={{ color: 'var(--wk-ink)', fontWeight: 600 }}>
-                    Open pack <ArrowRight style={{ width: 12, height: 12, verticalAlign: '-2px' }} />
+                  <span className="wk-pack__go">
+                    Open pack <ArrowRight aria-hidden="true" />
                   </span>
-                </div>
-              </div>
+                </span>
+              </span>
             </Link>
           ))}
         </div>
       ) : (
-        <div className="card">
-          <EmptyState
+        <NeoPanel>
+          <NeoEmpty
             icon={<Layers />}
             title="No reading packs match these filters"
             action={
               <button
                 type="button"
-                className="btn btn--sm"
+                className="neo-btn neo-btn--soft neo-btn--sm"
                 onClick={() => {
                   setFreshFilter('all');
                   setSelectedTag('all');
@@ -180,8 +134,8 @@ export function CollectionsIndex() {
             }
           >
             Clear the active freshness or tag filter to see all reading packs cleared for your role.
-          </EmptyState>
-        </div>
+          </NeoEmpty>
+        </NeoPanel>
       )}
     </div>
   );
@@ -225,24 +179,26 @@ export function CollectionDetail() {
 
   if (!pack) {
     return (
-      <div className="card">
-        <EmptyState
+      <NeoPanel>
+        <NeoEmpty
           icon={<BookOpen />}
           title="Reading Pack unavailable"
           action={
-            <Link to="/wiki/collections" className="btn btn--primary">
+            <Link to="/wiki/collections" className="neo-btn neo-btn--soft">
               <ArrowLeft /> Browse Reading Packs
             </Link>
           }
         >
           This reading pack does not exist or its playbooks belong to spaces outside your role clearance.
-        </EmptyState>
-      </div>
+        </NeoEmpty>
+      </NeoPanel>
     );
   }
 
   const readSet = new Set(myState.readSlugs);
   const nextUnread = pack.articles.find((a) => !readSet.has(a.slug));
+  const remainingMins = pack.articles.filter((a) => !readSet.has(a.slug)).reduce((sum, a) => sum + a.readMins, 0);
+  const verifiedCount = pack.articles.filter((a) => computeFreshness(a).state === 'verified').length;
 
   const markAllRead = () => {
     for (const a of pack.articles) {
@@ -252,192 +208,160 @@ export function CollectionDetail() {
   };
 
   return (
-    <div className="stack stack--lg">
-      <nav className="wk-breadcrumb" aria-label="Breadcrumb">
-        <Link to="/wiki">Knowledge Base</Link>
-        <ChevronRight />
-        <Link to="/wiki/collections">Reading Packs</Link>
-        <ChevronRight />
-        <span style={{ color: 'var(--text)', fontWeight: 600 }}>{pack.collection.title}</span>
-      </nav>
-
-      {/* Pack Header Card */}
-      <div
-        className="card hud"
-        style={
-          {
-            background: `radial-gradient(520px 200px at 100% 0%, hsl(${pack.collection.hue} 82% 58% / 0.16), transparent 72%), var(--tile-bg)`,
-          } as CSSProperties
-        }
-      >
-        <div className="row row--between row--wrap" style={{ gap: 20, alignItems: 'center' }}>
-          <div className="row" style={{ gap: 18, alignItems: 'center', minWidth: 0, flex: '1 1 320px' }}>
-            <ProgressRing done={pack.readCount} total={pack.totalCount} size={72} sublabel="done" />
-            <div className="stack stack--sm" style={{ minWidth: 0 }}>
-              <div className="row row--wrap" style={{ gap: 8 }}>
-                <span className="tag">{pack.collection.audienceLabel}</span>
-                {pack.collection.onboardingPack && (
-                  <span className="badge" style={{ '--b-rgb': '45 212 191' } as CSSProperties}>
-                    <Rocket /> Synced Onboarding Pack
-                  </span>
-                )}
-                <span className="text-xs muted">
-                  <Clock style={{ width: 12, height: 12, verticalAlign: '-2px' }} /> ~{pack.totalMins} mins total
-                </span>
-              </div>
-              <h2 className="page-title" style={{ fontSize: 'clamp(22px, 2.8vw, 30px)' }}>
-                {pack.collection.title}
-              </h2>
-              <p className="muted text-sm" style={{ margin: 0, maxWidth: '65ch' }}>
-                {pack.collection.description}
-              </p>
-            </div>
-          </div>
-
-          <div className="row row--wrap" style={{ gap: 8 }}>
-            {nextUnread ? (
-              <Link to={`/wiki/doc/${nextUnread.slug}`} className="wk-btn-cortex">
-                Continue: {nextUnread.title} <ArrowRight />
-              </Link>
-            ) : (
-              <span className="badge badge--success" style={{ height: 36, padding: '0 14px', fontSize: 13 }}>
-                <CheckCircle2 /> Pack 100% Complete
-              </span>
-            )}
-            {pack.readCount < pack.totalCount && (
-              <button type="button" className="btn btn--sm" onClick={markAllRead}>
-                <Check /> Mark all read
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div style={{ marginTop: 18 }}>
-          <div className="row row--between text-xs muted" style={{ marginBottom: 6 }}>
-            <span>
-              Reading completion: <strong style={{ color: 'var(--text)' }}>{pack.readCount}</strong> of{' '}
-              <strong style={{ color: 'var(--text)' }}>{pack.totalCount}</strong> playbooks
-            </span>
-            <span className="mono">{pack.pct}%</span>
-          </div>
-          <div className="progress">
-            <span style={{ width: `${pack.pct}%`, background: 'var(--wk-grad)' }} />
-          </div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="stack">
-        <div className="wk-filter-bar" style={{ marginBottom: 6 }}>
-          <Segmented<FreshFilter>
-            label="Filter steps by freshness"
-            value={freshFilter}
-            onChange={setFreshFilter}
-            options={[
-              { value: 'all', label: `All (${pack.articles.length})` },
-              { value: 'verified', label: 'Verified', icon: <CheckCircle2 style={{ color: 'var(--success)' }} /> },
-              { value: 'attention', label: 'Needs review', icon: <AlertTriangle style={{ color: 'var(--warning)' }} /> },
-            ]}
-          />
-        </div>
-        {packTags.length > 0 && (
-          <div className="chips" role="group" aria-label="Filter steps by tag">
-            <button
-              type="button"
-              className={cx('chip', selectedTag === 'all' && 'is-active')}
-              onClick={() => setSelectedTag('all')}
-            >
-              All tags
-            </button>
-            {packTags.map(([tag, count]) => (
-              <button
-                key={tag}
-                type="button"
-                className={cx('chip', selectedTag === tag && 'is-active')}
-                onClick={() => setSelectedTag(selectedTag === tag ? 'all' : tag)}
-              >
-                #{tag} <span className="count">{count}</span>
-              </button>
-            ))}
-          </div>
+    <>
+      <WikiHeadActions>
+        {pack.readCount < pack.totalCount && (
+          <button type="button" className="neo-btn neo-btn--soft" onClick={markAllRead}>
+            <Check /> <span className="neo-btn__label">Mark all read</span>
+          </button>
         )}
-      </div>
+        {nextUnread ? (
+          <Link to={`/wiki/doc/${nextUnread.slug}`} className="neo-btn neo-btn--plasma" title={`Continue: ${nextUnread.title}`}>
+            <ArrowRight /> <span className="neo-btn__label">{pack.readCount > 0 ? 'Continue reading' : 'Start pack'}</span>
+          </Link>
+        ) : (
+          <span className="neo-chip neo-chip--lg" data-tone="success">
+            <CheckCircle2 /> Pack complete
+          </span>
+        )}
+      </WikiHeadActions>
 
-      {/* Numbered Reading Steps */}
-      <div className="wk-step-list">
-        {visibleSteps.map(({ article, stepNumber }) => {
-          const isRead = readSet.has(article.slug);
-          const isSaved = myState.bookmarks.includes(article.slug);
-          const sp = spaceMap.get(article.spaceId);
-
-          return (
-            <div key={article.id} className={cx('wk-step-row', isRead && 'is-read')}>
-              <span className="wk-step-num">
-                {isRead ? <Check style={{ width: 17, height: 17 }} /> : String(stepNumber).padStart(2, '0')}
-              </span>
-
-              <div className="stack stack--sm" style={{ minWidth: 0 }}>
-                <div className="row row--wrap" style={{ gap: 7 }}>
-                  {sp && <SpacePill space={sp} />}
-                  <FreshnessPill article={article} />
-                  <span className="text-xs mono muted">
-                    <Clock style={{ width: 12, height: 12, verticalAlign: '-2px' }} /> {article.readMins} min read
-                  </span>
-                  {article.relatedCourseIds.length > 0 && (
-                    <span className="badge badge--info">
-                      <GraduationCap /> +{article.relatedCourseIds.length} Academy lab
-                    </span>
-                  )}
-                </div>
-
-                <Link
-                  to={`/wiki/doc/${article.slug}`}
-                  style={{
-                    fontFamily: 'var(--font-display)',
-                    fontSize: 17,
-                    fontWeight: 650,
-                    color: 'var(--text)',
-                    textDecoration: 'none',
-                  }}
-                >
-                  {article.title}
-                </Link>
-
-                <p className="text-sm muted clamp-2" style={{ margin: 0 }}>
-                  {article.tldr}
-                </p>
-              </div>
-
-              <div className="row row--wrap" style={{ gap: 8 }}>
-                <button
-                  type="button"
-                  className={cx('btn btn--sm', isRead && 'btn--success')}
-                  onClick={() => {
-                    markRead(article.slug, !isRead);
-                    toast.info(isRead ? 'Marked unread' : `Marked “${article.title}” as read ✓`);
-                  }}
-                >
-                  <CheckCircle2 />
-                  {isRead ? 'Read ✓' : 'Mark read'}
-                </button>
-
-                <button
-                  type="button"
-                  className={cx('wk-bookmark-btn', isSaved && 'is-saved')}
-                  aria-label={isSaved ? 'Remove bookmark' : 'Bookmark'}
-                  onClick={() => toast.result(toggleBookmark(article.slug))}
-                >
-                  <Bookmark fill={isSaved ? 'currentColor' : 'none'} />
-                </button>
-
-                <Link to={`/wiki/doc/${article.slug}`} className="btn btn--sm">
-                  Read playbook <ArrowRight />
-                </Link>
-              </div>
+      <NeoHome
+        sideLabel="Pack progress"
+        main={
+          <NeoPanel
+            flush
+            hud="Reading order"
+            title={`${pack.totalCount} playbooks · ~${pack.totalMins} min`}
+            icon={<ListChecks />}
+            className="wk-steps-panel"
+          >
+            {/* Filters */}
+            <div className="wk-steps-panel__filters">
+              <FreshTabs
+                label="Filter steps by freshness"
+                value={freshFilter}
+                onChange={setFreshFilter}
+                counts={{ all: pack.articles.length, verified: verifiedCount, attention: pack.articles.length - verifiedCount }}
+              />
+              <TagFilter tags={packTags} value={selectedTag} onChange={setSelectedTag} label="Filter steps by tag" />
             </div>
-          );
-        })}
-      </div>
-    </div>
+
+            {/* Numbered Reading Steps */}
+            {visibleSteps.length > 0 ? (
+              <ol className="wk-steps">
+                {visibleSteps.map(({ article, stepNumber }) => {
+                  const isRead = readSet.has(article.slug);
+                  const isSaved = myState.bookmarks.includes(article.slug);
+                  const sp = spaceMap.get(article.spaceId);
+
+                  return (
+                    <li key={article.id} className={cx('wk-step', isRead && 'is-read')}>
+                      <span className="wk-step__num">{isRead ? <Check /> : String(stepNumber).padStart(2, '0')}</span>
+
+                      <div className="wk-step__body">
+                        <div className="wk-step__chips">
+                          {sp && <SpacePill space={sp} />}
+                          <FreshnessPill article={article} compact />
+                          <span className="wk-step__mins">
+                            <Clock aria-hidden="true" /> {article.readMins} min read
+                          </span>
+                          {article.relatedCourseIds.length > 0 && (
+                            <span className="neo-chip neo-chip--sm" data-tone="blue">
+                              <GraduationCap /> +{article.relatedCourseIds.length} Academy lab
+                            </span>
+                          )}
+                        </div>
+                        <Link to={`/wiki/doc/${article.slug}`} className="wk-step__title">
+                          {article.title}
+                        </Link>
+                        <p className="wk-step__tldr">{article.tldr}</p>
+                      </div>
+
+                      <div className="wk-step__acts">
+                        <button
+                          type="button"
+                          className={cx('neo-btn neo-btn--xs', isRead ? 'neo-btn--success' : 'neo-btn--ghost')}
+                          onClick={() => {
+                            markRead(article.slug, !isRead);
+                            toast.info(isRead ? 'Marked unread' : `Marked “${article.title}” as read ✓`);
+                          }}
+                        >
+                          <CheckCircle2 />
+                          {isRead ? 'Read' : 'Mark read'}
+                        </button>
+                        <button
+                          type="button"
+                          className={cx('neo-iconbtn wk-bm', isSaved && 'is-on')}
+                          aria-label={isSaved ? 'Remove bookmark' : 'Bookmark'}
+                          aria-pressed={isSaved}
+                          onClick={() => toast.result(toggleBookmark(article.slug))}
+                        >
+                          <Bookmark fill={isSaved ? 'currentColor' : 'none'} />
+                        </button>
+                        <Link to={`/wiki/doc/${article.slug}`} className="neo-btn neo-btn--soft neo-btn--xs">
+                          Read <ArrowRight />
+                        </Link>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : (
+              <NeoEmpty compact icon={<Layers />} title="No steps match these filters">
+                Reset the freshness or tag filter to see the whole sequence.
+              </NeoEmpty>
+            )}
+          </NeoPanel>
+        }
+        side={
+          <>
+            <NeoPanel hud="Your progress" title={pack.readCount === pack.totalCount ? 'All done — nice work' : 'Keep the streak going'}>
+              <div className="wk-progress">
+                <Ring value={pack.totalCount ? pack.readCount / pack.totalCount : 0} size={112} stroke={9} label={`${pack.pct}% complete`}>
+                  <span className="wk-progress__ring">
+                    <b>{pack.pct}%</b>
+                    <small>complete</small>
+                  </span>
+                </Ring>
+                <div className="wk-progress__stats">
+                  <span>
+                    <b>{pack.readCount}</b>
+                    <small>read</small>
+                  </span>
+                  <span>
+                    <b>{pack.totalCount - pack.readCount}</b>
+                    <small>to go</small>
+                  </span>
+                  <span>
+                    <b>~{remainingMins}m</b>
+                    <small>left</small>
+                  </span>
+                </div>
+                <Bar value={pack.totalCount ? pack.readCount / pack.totalCount : 0} label="Reading completion" />
+              </div>
+              {nextUnread && (
+                <Link to={`/wiki/doc/${nextUnread.slug}`} className="wk-next">
+                  <span className="neo-hud">Up next · {nextUnread.readMins} min</span>
+                  <b>{nextUnread.title}</b>
+                  <ArrowRight className="wk-next__go" aria-hidden="true" />
+                </Link>
+              )}
+            </NeoPanel>
+            <NeoPanel hud="About this pack" title={pack.collection.audienceLabel} icon={pack.collection.onboardingPack ? <Rocket /> : <Layers />}>
+              <p className="wk-about__desc">{pack.collection.description}</p>
+              {pack.collection.onboardingPack && (
+                <p className="wk-about__note">
+                  <Rocket aria-hidden="true" /> Synced with the HR Portal onboarding journey — finishing steps here keeps both in step.
+                </p>
+              )}
+              <Link to="/wiki/collections" className="neo-btn neo-btn--ghost neo-btn--sm">
+                <ArrowLeft /> All reading packs
+              </Link>
+            </NeoPanel>
+          </>
+        }
+      />
+    </>
   );
 }

@@ -49,6 +49,7 @@ export function MyRequests({ onRequest }: { onRequest: (type?: LeaveTypeId) => v
   return (
     <HrPanel
       className="hr-to-mine"
+      hud="In flight & history"
       title="My requests"
       icon={<CalendarCheck aria-hidden="true" />}
       sub={total ? `${pending.length} waiting · ${upcoming.length} coming up` : undefined}

@@ -45,7 +45,7 @@ export function PolicyCompliance() {
   };
 
   return (
-    <HrPanel className="hr-ops-pol" title="Policy compliance" icon={<ScrollText aria-hidden="true" />} sub={`Must-read policies across ${staff.length} employees. Re-acknowledgement is needed whenever a new version is published.`}>
+    <HrPanel className="hr-ops-pol" hud="Governance" title="Policy compliance" icon={<ScrollText aria-hidden="true" />} sub={`Must-read policies across ${staff.length} employees. Re-acknowledgement is needed whenever a new version is published.`}>
       <div className="table-wrap hr-ops-pol__wrap">
         <table className="table hr-ops-pol__table">
           <thead>

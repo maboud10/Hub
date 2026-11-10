@@ -27,6 +27,7 @@ export function AllowancesPanel({ onClaim }: { onClaim: (allowance?: AllowanceId
   return (
     <HrPanel
       className="hr-bn-allow-panel"
+      hud="Yearly budgets"
       title="Allowances"
       icon={<Wallet aria-hidden="true" />}
       sub={`${aed(ALLOWANCES_TOTAL)} a year to grow, stay well and work comfortably. ${aed(left)} left to claim this year.`}
@@ -104,6 +105,7 @@ export function ClaimsHistory({ onClaim }: { onClaim: (allowance?: AllowanceId) 
   return (
     <HrPanel
       className="hr-bn-claims-panel"
+      hud="Reimbursements"
       title="My claims"
       icon={<Receipt aria-hidden="true" />}
       sub={mine.length ? `From receipt to payslip. ${pending ? `${pending} waiting for People Ops.` : 'Nothing waiting right now.'}` : 'Every claim you make shows up here, all the way to your payslip.'}

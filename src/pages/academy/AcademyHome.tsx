@@ -1,30 +1,52 @@
 import { useMemo, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
+  AlertTriangle,
   ArrowRight,
+  Award,
   BookOpen,
   Check,
-  Clock,
   Compass,
   ExternalLink,
   Flame,
-  GraduationCap,
   MessageSquareQuote,
   Play,
   Rocket,
+  Route as RouteIcon,
   ShieldCheck,
   Sparkles,
-  Zap,
+  Users,
 } from 'lucide-react';
-import { FORMAT_LABEL, LEVEL_META } from '@/academy/constants';
-import { useMyLearning } from '@/academy/selectors';
+import {
+  NeoBanner,
+  NeoBanners,
+  NeoEmpty,
+  NeoHome,
+  NeoKpi,
+  NeoKpis,
+  NeoNovaPrompt,
+  NeoPanel,
+} from '@/components/neo';
+import { TRACK_META } from '@/academy/constants';
+import { useAcademyCaps, useMyLearning, useTeamCompliance } from '@/academy/selectors';
 import { useHub } from '@/store/hub';
 import { useSessionUser } from '@/store/selectors';
 import { useTalent } from '@/talent/store';
-import { Avatar } from '@/components/ui/primitives';
-import { firstName } from '@/lib/format';
+import { firstName, formatDate } from '@/lib/format';
 import { cx } from '@/lib/cx';
-import { DuePill, ProgressRing, SkillRadarChart, SourceBadge, TrackBadge } from './shared';
+import {
+  CourseCard,
+  DuePill,
+  ProgressRing,
+  SkillRadarChart,
+  SourceBadge,
+  TrackBadge,
+  dueWords,
+  formatMins,
+  minutesLeft,
+  useCertParam,
+  useNovaPick,
+} from './shared';
 
 const PHASE_LABEL: Record<string, string> = {
   'pre-boarding': 'Pre-boarding',
@@ -35,12 +57,32 @@ const PHASE_LABEL: Record<string, string> = {
   'day-90': 'Day 90',
 };
 
+const NOVA_SUGGESTIONS = [
+  'Passkeys & zero-trust',
+  'Incident command',
+  'Giving feedback',
+  'AI safety with Gemini',
+];
+
 export function AcademyHome() {
   const me = useSessionUser();
   const users = useHub((s) => s.users);
   const journeys = useTalent((s) => s.onboarding);
   const navigate = useNavigate();
-  const { all, active, radar, paths } = useMyLearning();
+  const caps = useAcademyCaps();
+  const { all, active, requiredOpen, certificates, totalXp, rank, radar, paths } = useMyLearning();
+  const teamScope = caps.manage && !caps.manager ? 'company' : 'team';
+  const complianceRows = useTeamCompliance(teamScope);
+  const novaPick = useNovaPick();
+  const { open: openCert } = useCertParam();
+
+  const overdueItems = useMemo(() => requiredOpen.filter((x) => x.overdue), [requiredOpen]);
+  const overdueSelfCount = overdueItems.length;
+  const teamOverdueCount = useMemo(
+    () => complianceRows.reduce((sum, row) => sum + row.overdueCount, 0),
+    [complianceRows],
+  );
+  const showManageBanner = (caps.manage || caps.manager) && teamOverdueCount > 0;
 
   // Locate active onboarding journey for signed-in learner (via hubUserId or onboarding enrollment)
   const onboardingCtx = useMemo(() => {
@@ -70,7 +112,6 @@ export function AcademyHome() {
           })
       : [];
 
-    // Also append any onboarding-enrolled courses not already listed in journey.tasks
     for (const item of onboardingEnrollments) {
       if (!checklist.some((c) => c.courseId === item.course.id)) {
         checklist.push({
@@ -92,303 +133,404 @@ export function AcademyHome() {
     };
   }, [me, journeys, all]);
 
-  // Recommended next courses (not yet enrolled, prioritizing featured & user's track/skills)
+  // Recommended next courses (not yet enrolled, prioritizing Nova pick, featured & XP)
   const recommended = useMemo(() => {
     const unenrolled = all.filter((x) => !x.enrollment);
     return unenrolled
-      .sort((a, b) => Number(!!b.course.featured) - Number(!!a.course.featured) || b.course.xp - a.course.xp)
+      .sort(
+        (a, b) =>
+          Number(b.course.id === novaPick?.course.id) - Number(a.course.id === novaPick?.course.id) ||
+          Number(!!b.course.featured) - Number(!!a.course.featured) ||
+          b.course.xp - a.course.xp,
+      )
       .slice(0, 3);
-  }, [all]);
+  }, [all, novaPick]);
+
+  const minsLeftTotal = useMemo(
+    () => active.reduce((sum, item) => sum + minutesLeft(item.course, item.progressPct), 0),
+    [active],
+  );
+
+  const hasBanners = overdueSelfCount > 0 || requiredOpen.length > 0 || showManageBanner;
 
   return (
-    <div className="stack stack--lg">
-      {/* 1. Connected HR Onboarding Curriculum Banner */}
-      {onboardingCtx && onboardingCtx.totalCount > 0 && (
-        <section className="ac-onb-banner hud" aria-label="Connected HR Onboarding Curriculum">
-          <div className="ac-onb-banner__top">
-            <div className="ac-onb-banner__head">
-              <div className="eyebrow" style={{ marginBottom: 6 }}>
-                <Rocket size={13} /> Live HR Portal Sync · Day 1 → Day 30 Curriculum
-              </div>
-              <div className="ac-onb-banner__title">
-                <span>Your New-Hire Onboarding Bridge</span>
-                <span className="badge badge--success">
-                  {onboardingCtx.doneCount}/{onboardingCtx.totalCount} milestones complete
-                </span>
-              </div>
-              <p className="text-sm muted" style={{ marginTop: 6, maxWidth: '68ch' }}>
-                Every certification quiz you pass here in Helix Academy automatically ticks off the matching milestone on your HR Portal onboarding checklist and endorses your NEXUS profile skills.
-              </p>
-            </div>
-            <div className="ac-onb-banner__links">
-              {onboardingCtx.journey && (
-                <Link to={`/hr/onboarding/${onboardingCtx.journey.id}`} className="btn btn--sm ac-btn-indigo">
-                  <Rocket /> Open HR Onboarding Journey <ExternalLink size={13} />
-                </Link>
-              )}
-              <Link to="/wiki/collections/col-new-hire" className="btn btn--sm">
-                <BookOpen /> First-Week Reading Pack
-              </Link>
-            </div>
-          </div>
+    <div className="neo-stack">
+      {hasBanners && (
+        <NeoBanners>
+          {overdueSelfCount > 0 ? (
+            <NeoBanner
+              tone="danger"
+              icon={<AlertTriangle />}
+              title={`${overdueSelfCount} overdue required training${overdueSelfCount === 1 ? '' : 's'}`}
+              meta={`${requiredOpen.length} required due`}
+              to={`/academy/course/${overdueItems[0].course.id}`}
+            >
+              Finish {overdueItems[0].course.title} and pass the assessment to restore compliance standing.
+            </NeoBanner>
+          ) : requiredOpen.length > 0 ? (
+            <NeoBanner
+              tone="warning"
+              icon={<ShieldCheck />}
+              title={`${requiredOpen.length} required training${requiredOpen.length === 1 ? '' : 's'} due`}
+              meta={
+                requiredOpen[0].daysUntilDue !== null
+                  ? `Next due ${dueWords(requiredOpen[0].daysUntilDue)}`
+                  : 'Assigned curriculum'
+              }
+              to={`/academy/course/${requiredOpen[0].course.id}`}
+            >
+              Up next: {requiredOpen[0].course.title} — pass the certification quiz to earn +{requiredOpen[0].course.xp} XP.
+            </NeoBanner>
+          ) : null}
 
-          <div className="ac-onb-steps">
-            {onboardingCtx.checklist.map((step) => (
-              <button
-                key={step.id}
-                type="button"
-                className={cx('ac-onb-step', step.done && 'is-done')}
-                onClick={() => navigate(`/academy/course/${step.courseId}`)}
-              >
-                <span className="ac-onb-step__check">{step.done ? <Check /> : <Play />}</span>
-                <div className="grow">
-                  <div className="ac-onb-step__phase">{step.phase}</div>
-                  <div className="ac-onb-step__name">{step.title}</div>
-                </div>
-                <ArrowRight size={14} className="faint" style={{ flex: 'none' }} />
-              </button>
-            ))}
-          </div>
-        </section>
+          {showManageBanner && (
+            <NeoBanner
+              tone="warning"
+              icon={<Users />}
+              title={`${teamOverdueCount} overdue training${teamOverdueCount === 1 ? '' : 's'} across your ${
+                teamScope === 'company' ? 'organization' : 'team'
+              }`}
+              meta="Compliance studio"
+              to="/academy/manage"
+            >
+              Review learner progress, send nudges, or adjust assignments in the Team &amp; Compliance studio.
+            </NeoBanner>
+          )}
+        </NeoBanners>
       )}
 
-      {/* 2. Main Split: Action Queue (Left) + Interactive Skill Radar (Right) */}
-      <div className="ac-home-grid">
-        <section className="stack" style={{ minWidth: 0 }}>
-          <div className="section-head" style={{ marginBottom: 2 }}>
-            <h2 className="section-title">
-              <Flame size={18} style={{ color: '#818cf8' }} /> Action Queue — Required & In Progress
-              <span className="count">{active.length}</span>
-            </h2>
-            <Link to="/academy/catalog" className="btn btn--ghost btn--sm">
-              Explore catalog <ArrowRight />
-            </Link>
-          </div>
-
-          {active.length === 0 ? (
-            <div className="card" style={{ textAlign: 'center', padding: '34px 20px' }}>
-              <ShieldCheck size={34} style={{ color: 'var(--success)', margin: '0 auto 10px' }} />
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 650 }}>
-                Zero open trainings — you’re 100% caught up!
-              </div>
-              <p className="text-sm muted" style={{ maxWidth: 420, margin: '6px auto 16px' }}>
-                All mandatory certifications and assigned courses are complete. Dive into an advanced scenario lab or role path below.
-              </p>
-              <Link to="/academy/catalog" className="btn ac-btn-indigo btn--sm">
-                <Compass /> Browse Learning Paths
-              </Link>
-            </div>
-          ) : (
-            <div className="ac-queue-list">
-              {active.map((item) => {
-                const { course, enrollment, progressPct, daysUntilDue, overdue, dueSoon } = item;
-                const assigner = enrollment?.assignedBy ? users.find((u) => u.id === enrollment.assignedBy) : undefined;
-                const started = (enrollment?.completedLessonIds.length ?? 0) > 0 || enrollment?.status === 'in-progress';
-                const totalStages = course.lessons.length + (course.quiz.length ? 1 : 0);
-
-                return (
-                  <article
-                    key={course.id}
-                    className={cx('ac-course-row', overdue && 'ac-course-row--overdue')}
-                    style={{ '--th': course.hue } as CSSProperties}
-                  >
-                    <div className="ac-course-row__head">
-                      <div className="stack stack--sm" style={{ minWidth: 0 }}>
-                        <div className="row row--wrap" style={{ gap: 6 }}>
-                          <TrackBadge track={course.track} short />
-                          {enrollment && (
-                            <SourceBadge
-                              source={enrollment.source}
-                              managerName={assigner ? firstName(assigner.name) : undefined}
-                            />
-                          )}
-                          {enrollment?.required && <span className="tag">Required</span>}
-                          <DuePill
-                            dueDate={enrollment?.dueDate}
-                            daysUntilDue={daysUntilDue}
-                            overdue={overdue}
-                            dueSoon={dueSoon}
-                          />
-                        </div>
-                        <Link to={`/academy/course/${course.id}`} className="ac-course-row__title">
-                          {course.title}
-                        </Link>
-                        <p className="text-xs muted clamp-2">{course.tagline}</p>
-                      </div>
-                    </div>
-
-                    {enrollment?.note && (
-                      <div className="ac-course-row__note">
-                        <MessageSquareQuote />
-                        <span>
-                          {assigner ? <strong style={{ color: 'var(--text)' }}>{firstName(assigner.name)}: </strong> : null}
-                          {enrollment.note}
-                        </span>
-                      </div>
-                    )}
-
-                    <div className="ac-course-row__foot">
-                      <div className="ac-progress-inline">
-                        <div className="ac-bar" style={{ '--th': course.hue } as CSSProperties}>
-                          <i style={{ width: `${Math.max(4, progressPct)}%` }} />
-                        </div>
-                        <span className="mono text-xs muted">
-                          {enrollment?.completedLessonIds.length ?? 0}/{totalStages} stages · {progressPct}%
-                        </span>
-                      </div>
-
-                      <div className="row" style={{ gap: 10 }}>
-                        <span className="mono text-xs faint">
-                          {course.durationMins}m · +{course.xp} XP
-                        </span>
-                        <Link to={`/academy/course/${course.id}`} className="btn btn--sm ac-btn-indigo">
-                          <Play /> {started ? 'Continue' : 'Start'}
-                        </Link>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* 3. Interactive SVG Skill Radar & Mastery Breakdown */}
-        <SkillRadarChart
-          domains={radar}
-          skills={me?.skills ?? []}
-          onSelectTrack={(track) => navigate(`/academy/catalog?track=${track}`)}
+      <NeoKpis label="Learning overview">
+        <NeoKpi
+          icon={<Sparkles />}
+          label="Rank & level"
+          value={`Lv.${rank.level} · ${rank.title}`}
+          sub={`${totalXp}/${rank.nextXp} XP`}
         />
-      </div>
+        <NeoKpi
+          icon={<ShieldCheck />}
+          label="Required due"
+          value={requiredOpen.length}
+          sub={
+            overdueSelfCount > 0
+              ? `${overdueSelfCount} overdue · action needed`
+              : requiredOpen.length > 0
+                ? `${requiredOpen.length} open requirement${requiredOpen.length === 1 ? '' : 's'}`
+                : 'All required trainings current'
+          }
+          tone={overdueSelfCount > 0 ? 'danger' : requiredOpen.length > 0 ? 'warning' : undefined}
+        />
+        <NeoKpi
+          icon={<Flame />}
+          label="In progress"
+          value={active.length}
+          sub={active.length > 0 ? `~${formatMins(minsLeftTotal)} remaining` : 'Pick a course to start'}
+        />
+        <NeoKpi
+          icon={<Award />}
+          label="Certificates"
+          value={certificates.length}
+          sub={`of ${all.length} credentials earned`}
+          to="/academy/certificates"
+        />
+      </NeoKpis>
 
-      {/* 4. Curated Role Learning Paths Preview */}
-      <section className="section" style={{ marginTop: 8 }}>
-        <div className="section-head">
-          <h2 className="section-title">
-            <GraduationCap size={19} style={{ color: '#818cf8' }} /> Curated Role Learning Paths
-            <span className="count">{paths.length}</span>
-          </h2>
-          <Link to="/academy/catalog" className="btn btn--ghost btn--sm">
-            All paths & courses <ArrowRight />
-          </Link>
-        </div>
+      <NeoHome
+        sideLabel="Skill mastery, paths & credentials"
+        main={
+          <>
+            <NeoNovaPrompt
+              hud="Nova · Learning coach"
+              title="What do you want to learn or practice?"
+              badge="Courses · scenarios · certs"
+              placeholder="e.g. Passkeys & zero-trust, incident command, structured feedback, or Gemini safety…"
+              suggestions={NOVA_SUGGESTIONS}
+              submitLabel="Find courses"
+              onSubmit={(q) => navigate(`/academy/catalog?q=${encodeURIComponent(q)}`)}
+            />
 
-        <div className="ac-paths-grid">
-          {paths.map(({ path, items, done, total, pct, totalMins }) => {
-            const nextCourse = items.find((x) => x.progressPct < 100)?.course ?? items[0]?.course;
-            return (
-              <div key={path.id} className="ac-path-card" style={{ '--th': path.hue } as CSSProperties}>
-                <div className="ac-path-card__top">
-                  <div className="stack stack--sm" style={{ minWidth: 0 }}>
-                    <div className="row row--wrap" style={{ gap: 6 }}>
-                      <TrackBadge track={path.track} short />
-                      <span className="tag">{path.badgeTitle}</span>
-                    </div>
-                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 650 }}>{path.title}</h3>
-                    <p className="text-xs muted">{path.tagline}</p>
+            {onboardingCtx && onboardingCtx.totalCount > 0 && (
+              <NeoPanel
+                icon={<Rocket />}
+                hud="Day 1 → Day 30 sync"
+                title="New-hire onboarding bridge"
+                actions={
+                  <div className="row row--wrap" style={{ gap: 6 }}>
+                    <span className="neo-chip" data-tone="emerald">
+                      {onboardingCtx.doneCount}/{onboardingCtx.totalCount} milestones
+                    </span>
+                    {onboardingCtx.journey && (
+                      <Link
+                        to={`/hr/onboarding/${onboardingCtx.journey.id}`}
+                        className="neo-btn neo-btn--soft neo-btn--xs"
+                      >
+                        HR journey <ExternalLink size={12} />
+                      </Link>
+                    )}
+                    <Link to="/wiki/collections/col-new-hire" className="neo-btn neo-btn--ghost neo-btn--xs">
+                      <BookOpen /> Reading pack
+                    </Link>
                   </div>
-                  <ProgressRing pct={pct} hue={path.hue} size={52} />
+                }
+              >
+                <p className="ac-panel-lead">
+                  Every certification quiz you pass here automatically ticks off the matching milestone on your HR Portal onboarding checklist and endorses your NEXUS profile skills.
+                </p>
+                <div className="ac-onb-steps">
+                  {onboardingCtx.checklist.map((step) => (
+                    <button
+                      key={step.id}
+                      type="button"
+                      className={cx('ac-onb-step', step.done && 'is-done')}
+                      onClick={() => navigate(`/academy/course/${step.courseId}`)}
+                    >
+                      <span className="ac-onb-step__check">{step.done ? <Check /> : <Play />}</span>
+                      <div className="grow" style={{ minWidth: 0 }}>
+                        <div className="ac-onb-step__phase">{step.phase}</div>
+                        <div className="ac-onb-step__name">{step.title}</div>
+                      </div>
+                      <ArrowRight size={14} className="faint" style={{ flex: 'none' }} />
+                    </button>
+                  ))}
                 </div>
+              </NeoPanel>
+            )}
 
-                <div className="ac-path-steps">
-                  {items.map((step, i) => {
-                    const isDone = step.progressPct === 100;
+            <NeoPanel
+              icon={<Flame />}
+              hud="Action queue"
+              title="Continue learning & required training"
+              actions={
+                <Link to="/academy/catalog" className="neo-btn neo-btn--ghost neo-btn--xs">
+                  Catalog <ArrowRight />
+                </Link>
+              }
+            >
+              {active.length === 0 ? (
+                <NeoEmpty
+                  compact
+                  icon={<ShieldCheck />}
+                  title="Zero open trainings — you’re 100% caught up"
+                  action={
+                    <Link to="/academy/catalog" className="neo-btn neo-btn--soft neo-btn--sm">
+                      <Compass /> Explore learning paths
+                    </Link>
+                  }
+                >
+                  All mandatory certifications and assigned courses are complete. Dive into an advanced scenario lab below.
+                </NeoEmpty>
+              ) : (
+                <div className="ac-queue-list">
+                  {active.map((item) => {
+                    const { course, enrollment, progressPct, daysUntilDue, overdue, dueSoon } = item;
+                    const assigner = enrollment?.assignedBy
+                      ? users.find((u) => u.id === enrollment.assignedBy)
+                      : undefined;
+                    const started =
+                      (enrollment?.completedLessonIds.length ?? 0) > 0 || enrollment?.status === 'in-progress';
+                    const totalStages = course.lessons.length + (course.quiz.length ? 1 : 0);
+
+                    return (
+                      <article
+                        key={course.id}
+                        className={cx('ac-course-row neo-spot', overdue && 'ac-course-row--overdue')}
+                        style={{ '--th': course.hue } as CSSProperties}
+                      >
+                        <div className="ac-course-row__head">
+                          <div className="stack stack--sm" style={{ minWidth: 0 }}>
+                            <div className="row row--wrap" style={{ gap: 6 }}>
+                              <TrackBadge track={course.track} short />
+                              {enrollment && (
+                                <SourceBadge
+                                  source={enrollment.source}
+                                  managerName={assigner ? firstName(assigner.name) : undefined}
+                                />
+                              )}
+                              {enrollment?.required && (
+                                <span className="neo-chip" data-tone="warning">
+                                  Required
+                                </span>
+                              )}
+                              <DuePill
+                                dueDate={enrollment?.dueDate}
+                                daysUntilDue={daysUntilDue}
+                                overdue={overdue}
+                                dueSoon={dueSoon}
+                              />
+                            </div>
+                            <Link to={`/academy/course/${course.id}`} className="ac-course-row__title">
+                              {course.title}
+                            </Link>
+                            <p className="text-xs muted clamp-2">{course.tagline}</p>
+                          </div>
+                        </div>
+
+                        {enrollment?.note && (
+                          <div className="ac-course-row__note">
+                            <MessageSquareQuote />
+                            <span>
+                              {assigner ? (
+                                <strong style={{ color: 'var(--text)' }}>{firstName(assigner.name)}: </strong>
+                              ) : null}
+                              {enrollment.note}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="ac-course-row__foot">
+                          <div className="ac-progress-inline">
+                            <div className="ac-bar" style={{ '--th': course.hue } as CSSProperties}>
+                              <i style={{ width: `${Math.max(4, progressPct)}%` }} />
+                            </div>
+                            <span className="mono text-xs muted">
+                              {enrollment?.completedLessonIds.length ?? 0}/{totalStages} stages · {progressPct}%
+                            </span>
+                          </div>
+
+                          <div className="row" style={{ gap: 10 }}>
+                            <span className="mono text-xs faint">
+                              {course.durationMins}m · +{course.xp} XP
+                            </span>
+                            <Link
+                              to={`/academy/course/${course.id}`}
+                              className="neo-btn neo-btn--plasma neo-btn--sm"
+                            >
+                              <Play /> {started ? 'Continue' : 'Start'}
+                            </Link>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </NeoPanel>
+
+            {recommended.length > 0 && (
+              <NeoPanel
+                icon={<Sparkles />}
+                hud="Next up"
+                title="Recommended for you"
+                actions={
+                  <Link to="/academy/catalog" className="neo-btn neo-btn--ghost neo-btn--xs">
+                    All courses <ArrowRight />
+                  </Link>
+                }
+              >
+                <div className="ac-cgrid neo-stagger">
+                  {recommended.map((item, i) => (
+                    <CourseCard
+                      key={item.course.id}
+                      item={item}
+                      i={i}
+                      compact
+                      pick={novaPick?.course.id === item.course.id}
+                    />
+                  ))}
+                </div>
+              </NeoPanel>
+            )}
+          </>
+        }
+        side={
+          <>
+            <NeoPanel
+              hud="Mastery breakdown"
+              title="Skill radar"
+              actions={
+                <Link to="/academy/catalog" className="neo-btn neo-btn--ghost neo-btn--xs">
+                  Tracks <ArrowRight />
+                </Link>
+              }
+            >
+              <SkillRadarChart
+                domains={radar}
+                skills={me?.skills ?? []}
+                onSelectTrack={(track) => navigate(`/academy/catalog?track=${track}`)}
+              />
+            </NeoPanel>
+
+            <NeoPanel
+              hud="Role sequences"
+              title="Learning paths"
+              actions={
+                <Link to="/academy/catalog#ac-paths" className="neo-btn neo-btn--ghost neo-btn--xs">
+                  All <ArrowRight />
+                </Link>
+              }
+            >
+              <div className="ac-side-list">
+                {paths.map(({ path, items, done, total, pct, totalMins }) => {
+                  const nextCourse = items.find((x) => x.progressPct < 100)?.course ?? items[0]?.course;
+                  return (
+                    <Link
+                      key={path.id}
+                      to={nextCourse ? `/academy/course/${nextCourse.id}` : '/academy/catalog'}
+                      className="ac-side-row neo-spot"
+                      style={{ '--th': path.hue } as CSSProperties}
+                    >
+                      <ProgressRing pct={pct} hue={path.hue} size={42} stroke={3.5} />
+                      <div className="ac-side-row__body">
+                        <div className="ac-side-row__top">
+                          <TrackBadge track={path.track} short />
+                          <span className="neo-hud">
+                            {done}/{total} · {totalMins}m
+                          </span>
+                        </div>
+                        <div className="ac-side-row__title">{path.title}</div>
+                        <div className="ac-side-row__sub">{path.badgeTitle}</div>
+                      </div>
+                      <ArrowRight size={14} className="ac-side-row__chev" />
+                    </Link>
+                  );
+                })}
+              </div>
+            </NeoPanel>
+
+            <NeoPanel
+              hud="Verified vault"
+              title="Recent certificates"
+              actions={
+                <Link to="/academy/certificates" className="neo-btn neo-btn--ghost neo-btn--xs">
+                  All <ArrowRight />
+                </Link>
+              }
+            >
+              {certificates.length === 0 ? (
+                <NeoEmpty compact icon={<RouteIcon />} title="No certificates yet">
+                  Pass any course assessment to mint a verifiable Helix credential.
+                </NeoEmpty>
+              ) : (
+                <div className="ac-side-list">
+                  {certificates.slice(0, 3).map((cert) => {
+                    const meta = TRACK_META[cert.track];
                     return (
                       <button
-                        key={step.course.id}
+                        key={cert.id}
                         type="button"
-                        className={cx('ac-path-step', isDone && 'is-done')}
-                        onClick={() => navigate(`/academy/course/${step.course.id}`)}
+                        className="ac-side-row neo-spot"
+                        style={{ '--th': meta.hue } as CSSProperties}
+                        onClick={() => openCert(cert.id)}
                       >
-                        <span className="ac-path-step__idx">{isDone ? <Check /> : i + 1}</span>
-                        <span className="truncate grow">{step.course.title}</span>
-                        <span className="mono text-xs faint">{step.course.durationMins}m</span>
+                        <span className="ac-seal ac-seal--sm" style={{ '--th': meta.hue } as CSSProperties}>
+                          <Award />
+                        </span>
+                        <div className="ac-side-row__body">
+                          <div className="ac-side-row__title">{cert.courseTitle}</div>
+                          <div className="ac-side-row__sub neo-mono">
+                            {cert.credentialCode} · {cert.score}% · {formatDate(cert.issuedAt)}
+                          </div>
+                        </div>
+                        <ArrowRight size={14} className="ac-side-row__chev" />
                       </button>
                     );
                   })}
                 </div>
-
-                <div className="row row--between" style={{ marginTop: 'auto', paddingTop: 4 }}>
-                  <span className="text-xs muted">
-                    {done}/{total} complete · {totalMins} mins · {path.targetAudience}
-                  </span>
-                  {nextCourse && (
-                    <Link to={`/academy/course/${nextCourse.id}`} className="btn btn--sm">
-                      {pct === 100 ? 'Review' : pct > 0 ? 'Continue' : 'Start Path'}
-                    </Link>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 5. Recommended Next Courses Rail */}
-      {recommended.length > 0 && (
-        <section className="section" style={{ marginTop: 6 }}>
-          <div className="section-head">
-            <h2 className="section-title">
-              <Sparkles size={18} style={{ color: '#818cf8' }} /> Recommended Next for You
-            </h2>
-            <Link to="/academy/catalog" className="btn btn--ghost btn--sm">
-              Full catalog <ArrowRight />
-            </Link>
-          </div>
-
-          <div className="ac-courses-grid">
-            {recommended.map(({ course }) => {
-              const instructor = users.find((u) => u.id === course.instructorId);
-              const levelMeta = LEVEL_META[course.level];
-              return (
-                <article key={course.id} className="ac-course-card" style={{ '--th': course.hue } as CSSProperties}>
-                  <div className="row row--between row--wrap" style={{ gap: 6 }}>
-                    <TrackBadge track={course.track} short />
-                    <span className={`badge badge--${levelMeta.badgeTone}`}>{levelMeta.label}</span>
-                  </div>
-
-                  <Link to={`/academy/course/${course.id}`} className="ac-course-card__title">
-                    {course.title}
-                  </Link>
-                  <p className="text-xs muted clamp-2">{course.tagline}</p>
-
-                  <div className="row row--wrap" style={{ gap: 5 }}>
-                    {course.skills.slice(0, 3).map((sk) => (
-                      <span key={sk} className="tag">
-                        {sk}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="ac-course-card__meta">
-                    <span>
-                      <Clock /> {course.durationMins} mins
-                    </span>
-                    <span>
-                      <Zap /> +{course.xp} XP
-                    </span>
-                    <span>{FORMAT_LABEL[course.format]}</span>
-                  </div>
-
-                  <div className="ac-course-card__foot">
-                    {instructor ? (
-                      <div className="row" style={{ gap: 8, minWidth: 0 }}>
-                        <Avatar user={instructor} size={26} />
-                        <span className="text-xs muted truncate">{instructor.name}</span>
-                      </div>
-                    ) : (
-                      <span />
-                    )}
-                    <Link to={`/academy/course/${course.id}`} className="btn btn--sm ac-btn-indigo">
-                      Start <ArrowRight />
-                    </Link>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      )}
+              )}
+            </NeoPanel>
+          </>
+        }
+      />
     </div>
   );
 }
+

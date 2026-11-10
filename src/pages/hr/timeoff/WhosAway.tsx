@@ -146,6 +146,7 @@ export function WhosAway() {
   return (
     <HrPanel
       className="hr-to-away"
+      hud="Team radar"
       title="Who’s away"
       icon={<CalendarDays aria-hidden="true" />}
       sub={scope === 'company' ? (caps.manage ? 'Everyone at Helix, as People Ops' : `Your department: ${me?.department ?? ''}`) : 'Your manager, teammates and reports. Private leave shows as “Away”.'}

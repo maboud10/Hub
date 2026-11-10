@@ -1,179 +1,219 @@
 /**
- * Helix Projects ("Mission Control") domain model — inspired by Asana, Linear
- * and Monday: projects with sections & multiple views, numbered tasks with
- * subtasks, dependencies, approvals and milestones, My Tasks triage buckets,
- * sprints with burndown, portfolios, goals (OKRs), status updates, intake
- * forms and no-code automation rules.
+ * Helix Projects — domain model.
+ *
+ * Dates are local calendar days (`yyyy-mm-dd`), timestamps are epoch ms.
+ * Everything per-person (stars, last view, day plan…) lives in `users[userId]`
+ * so personas can switch in the same browser.
  */
 import type { Department } from '@/types';
 
-export type ProjectView = 'overview' | 'list' | 'board' | 'timeline' | 'calendar' | 'workload' | 'sprints';
-export type ProjectPrivacy = 'public' | 'team' | 'private';
-export type ProjectHealth = 'on_track' | 'at_risk' | 'off_track' | 'on_hold' | 'complete';
-/** Project-level role (members). Owners administer, editors change work, commenters discuss, viewers read. */
+export type ProjectStatus = 'on-track' | 'at-risk' | 'off-track' | 'on-hold' | 'complete';
+export type Privacy = 'public' | 'team' | 'private';
 export type ProjectRole = 'owner' | 'editor' | 'commenter' | 'viewer';
+export type Priority = 'urgent' | 'high' | 'medium' | 'low' | 'none';
+export type TaskKind = 'task' | 'milestone' | 'approval';
+export type ApprovalState = 'pending' | 'approved' | 'changes' | 'rejected';
+export type SectionStage = 'todo' | 'doing' | 'done';
+export type ViewId = 'overview' | 'list' | 'board' | 'timeline' | 'calendar' | 'graph' | 'dashboard' | 'files' | 'automations';
 
-export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'done';
-export type TaskPriority = 'urgent' | 'high' | 'medium' | 'low' | 'none';
-export type TaskType = 'task' | 'milestone' | 'approval' | 'bug';
-export type ApprovalDecision = 'pending' | 'approved' | 'changes_requested' | 'rejected';
-export type Recurrence = 'daily' | 'weekly' | 'biweekly' | 'monthly';
-export type MyTasksBucket = 'today' | 'upcoming' | 'later';
+export const VIEW_IDS: ViewId[] = ['overview', 'list', 'board', 'timeline', 'calendar', 'graph', 'dashboard', 'files', 'automations'];
 
-export interface ProjectMember {
+export interface Member {
   userId: string;
   role: ProjectRole;
   addedAt: number;
   addedBy: string;
 }
 
-export interface ProjectSection {
+export interface Section {
   id: string;
   name: string;
-  /** Kanban work-in-progress limit (board view warns when exceeded). */
-  wipLimit?: number;
+  /** Work-in-progress limit for the board column. */
+  wip?: number;
+  /** `done` columns complete the task when it lands there. */
+  stage?: SectionStage;
 }
 
-export interface CustomFieldOption {
+export interface Attachment {
   id: string;
-  label: string;
-  color: string;
-}
-
-export interface CustomFieldDef {
-  id: string;
+  kind: 'drive' | 'link';
+  /** Helix Drive file id (kind = drive). */
+  fileId?: string;
+  url?: string;
   name: string;
-  type: 'select' | 'number' | 'text';
-  options?: CustomFieldOption[];
-  /** Numeric fields can be summed in list/board footers. */
-  unit?: string;
+  /** doc | sheet | slides | pdf | image | video | code | archive | link … */
+  fileKind: string;
+  addedBy: string;
+  at: number;
 }
 
-export interface Project {
+export interface Comment {
   id: string;
-  /** Short key used for task numbers, e.g. PRISM-42. */
-  key: string;
-  name: string;
-  description: string;
-  icon: string;
-  color: string;
-  department: Department;
-  ownerId: string;
-  members: ProjectMember[];
-  privacy: ProjectPrivacy;
-  health: ProjectHealth;
-  startDate: string;
-  dueDate: string;
-  sections: ProjectSection[];
-  customFields: CustomFieldDef[];
-  defaultView: ProjectView;
-  templateId?: string;
-  archived: boolean;
-  /** Cross-module links: HR onboarding journey, Talent requisition, Knowledge Base playbook. */
-  links?: { onboardingJourneyId?: string; requisitionId?: string; wikiSlug?: string };
-  nextTaskNumber: number;
-  createdAt: number;
-  updatedAt: number;
+  authorId: string;
+  body: string;
+  at: number;
+  mentions: string[];
+  /** emoji → user ids */
+  reactions: Record<string, string[]>;
+}
+
+export interface Activity {
+  id: string;
+  at: number;
+  actorId: string;
+  /** Short verb phrase, e.g. "moved this to In review". */
+  text: string;
 }
 
 export interface Subtask {
   id: string;
   title: string;
   done: boolean;
-  assigneeId?: string;
-  dueDate?: string;
 }
 
-export interface TaskComment {
-  id: string;
-  authorId: string;
-  body: string;
-  at: number;
-  mentions: string[];
-  /** emoji -> user ids */
-  reactions: Record<string, string[]>;
-}
-
-export interface TaskAttachment {
-  id: string;
-  kind: 'drive' | 'wiki' | 'link';
-  /** Drive item id (kind = drive). */
-  driveFileId?: string;
-  /** Knowledge Base slug (kind = wiki). */
-  wikiSlug?: string;
-  url?: string;
-  title: string;
-  addedBy: string;
-  at: number;
-}
-
-export interface TaskActivity {
-  id: string;
-  at: number;
-  actorId: string;
-  action: string;
-  detail?: string;
-}
-
-export interface TaskApproval {
+export interface Approval {
   approverId: string;
-  decision: ApprovalDecision;
+  state: ApprovalState;
   decidedAt?: number;
   note?: string;
 }
 
+export interface TaskSource {
+  app: string;
+  label: string;
+  to: string;
+}
+
 export interface Task {
   id: string;
-  projectId: string;
-  sectionId: string;
+  /** `null` = personal task (My Work only). */
+  projectId: string | null;
+  sectionId: string | null;
   number: number;
   title: string;
   description: string;
-  type: TaskType;
-  status: TaskStatus;
-  priority: TaskPriority;
-  assigneeId?: string;
-  collaboratorIds: string[];
+  kind: TaskKind;
+  priority: Priority;
+  assigneeId: string | null;
   creatorId: string;
+  followers: string[];
   startDate?: string;
   dueDate?: string;
-  completedAt?: number;
-  estimateHours?: number;
-  loggedHours: number;
-  storyPoints?: number;
+  /** `HH:mm` (24h) */
+  dueTime?: string;
+  /** Hours */
+  estimate?: number;
   tags: string[];
-  customFieldValues: Record<string, string | number>;
   subtasks: Subtask[];
-  /** Task ids this task is blocked by. */
-  dependsOn: string[];
-  attachments: TaskAttachment[];
-  comments: TaskComment[];
-  likes: string[];
-  approval?: TaskApproval;
-  sprintId?: string;
-  recurring?: Recurrence;
-  /** Ordering inside its section (ascending). */
+  /** Ids of tasks that must finish first. */
+  blockedBy: string[];
+  attachments: Attachment[];
+  comments: Comment[];
+  activity: Activity[];
+  approval?: Approval;
+  completedAt?: number;
+  completedBy?: string;
   order: number;
-  activity: TaskActivity[];
   createdAt: number;
   updatedAt: number;
+  source?: TaskSource;
 }
 
 export interface StatusUpdate {
   id: string;
   projectId: string;
   authorId: string;
-  health: ProjectHealth;
+  status: ProjectStatus;
   title: string;
-  summary: string;
-  highlights: string[];
-  blockers: string[];
-  nextSteps: string[];
-  /** Snapshot of progress % when posted. */
-  progressPct: number;
+  body: string;
   at: number;
+  byNova?: boolean;
 }
 
+export interface Project {
+  id: string;
+  key: string;
+  name: string;
+  /** Emoji glyph */
+  icon: string;
+  color: string;
+  department: Department;
+  ownerId: string;
+  privacy: Privacy;
+  status: ProjectStatus;
+  priority: Priority;
+  members: Member[];
+  sections: Section[];
+  /** Markdown-lite brief */
+  brief: string;
+  startDate: string;
+  dueDate: string;
+  /** Linked Pulse channel */
+  channelId?: string;
+  /** Performance & OKRs key results this project contributes to. */
+  keyResultIds: string[];
+  attachments: Attachment[];
+  activity: Activity[];
+  archived: boolean;
+  nextNumber: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/* ---------- Automations ---------- */
+export type TriggerKind = 'moved' | 'completed' | 'assigned' | 'due-soon' | 'created';
+export type ConditionField = 'priority' | 'assignee' | 'tag';
+export type ActionKind = 'move' | 'assign' | 'priority' | 'tag' | 'notify' | 'post';
+
+export interface RuleTrigger {
+  kind: TriggerKind;
+  /** `moved`: target section */
+  sectionId?: string;
+  /** `due-soon`: within N days */
+  days?: number;
+}
+export interface RuleCondition {
+  field: ConditionField;
+  value: string;
+}
+export interface RuleAction {
+  kind: ActionKind;
+  /** section id | user id | priority | tag | channel id | message */
+  value?: string;
+}
+export interface Rule {
+  id: string;
+  projectId: string;
+  name: string;
+  enabled: boolean;
+  trigger: RuleTrigger;
+  conditions: RuleCondition[];
+  actions: RuleAction[];
+  runs: number;
+  lastRunAt?: number;
+  createdBy: string;
+  createdAt: number;
+  /** Task ids a `due-soon` rule already handled (fires once per task). */
+  fired: string[];
+}
+
+/* ---------- Inbox ---------- */
+export type InboxKind = 'assigned' | 'mention' | 'comment' | 'status' | 'approval' | 'decision' | 'completed' | 'automation' | 'due' | 'access';
+export interface InboxItem {
+  id: string;
+  userId: string;
+  kind: InboxKind;
+  actorId: string;
+  taskId?: string;
+  projectId?: string;
+  title: string;
+  body?: string;
+  at: number;
+  read: boolean;
+  archived: boolean;
+}
+
+/* ---------- Portfolios ---------- */
 export interface Portfolio {
   id: string;
   name: string;
@@ -184,129 +224,31 @@ export interface Portfolio {
   createdAt: number;
 }
 
-export interface GoalMetric {
-  label: string;
-  current: number;
-  target: number;
-  unit: string;
+/* ---------- Per-person state ---------- */
+export interface PlanSlot {
+  taskId: string;
+  start: number;
+  end: number;
 }
-
-export interface Goal {
-  id: string;
-  title: string;
-  description: string;
-  ownerId: string;
-  level: 'company' | 'team';
-  department?: Department;
-  parentId?: string;
-  projectIds: string[];
-  metric?: GoalMetric;
-  /** Manual override (0–100). When absent, progress rolls up from metric or linked projects. */
-  manualProgress?: number;
-  status: ProjectHealth;
-  targetDate: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface Sprint {
-  id: string;
-  projectId: string;
-  name: string;
-  goal: string;
-  startDate: string;
-  endDate: string;
-  state: 'planned' | 'active' | 'completed';
-  /** Points completed when the sprint closed (velocity history). */
-  completedPoints?: number;
-  committedPoints?: number;
-}
-
-export type RuleTrigger = 'task_completed' | 'task_moved_to_section' | 'due_date_passed' | 'task_assigned' | 'priority_set_urgent' | 'task_created';
-export type RuleAction = 'move_to_section' | 'set_status' | 'add_tag' | 'assign_to' | 'notify_owner' | 'set_priority' | 'add_collaborator';
-
-export interface AutomationRule {
-  id: string;
-  projectId: string;
-  name: string;
-  trigger: RuleTrigger;
-  /** For `task_moved_to_section`. */
-  triggerSectionId?: string;
-  action: RuleAction;
-  /** Section id, status, tag, user id or priority depending on `action`. */
-  actionValue?: string;
-  enabled: boolean;
-  runs: number;
-  lastRunAt?: number;
-  createdBy: string;
-}
-
-export interface FormField {
-  id: string;
-  label: string;
-  type: 'text' | 'textarea' | 'select' | 'date';
-  options?: string[];
-  required: boolean;
-  /** Map this field to the created task (title/description/dueDate/tag). */
-  mapsTo?: 'title' | 'description' | 'dueDate' | 'tag';
-}
-
-export interface IntakeForm {
-  id: string;
-  projectId: string;
-  title: string;
-  description: string;
-  fields: FormField[];
-  targetSectionId: string;
-  defaultAssigneeId?: string;
-  defaultPriority: TaskPriority;
-  enabled: boolean;
-  submissions: number;
-  createdBy: string;
-}
-
-export interface TemplateTask {
-  title: string;
-  section: string;
-  /** Days after the project start date. */
-  offsetDays: number;
-  priority?: TaskPriority;
-  type?: TaskType;
-  estimateHours?: number;
-  tags?: string[];
-  subtasks?: string[];
-}
-
-export interface ProjectTemplate {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  color: string;
-  category: 'Product' | 'Engineering' | 'People' | 'Operations' | 'Go-to-market' | 'Finance';
-  sections: string[];
-  tasks: TemplateTask[];
-  defaultRules: Pick<AutomationRule, 'name' | 'trigger' | 'action' | 'actionValue'>[];
-  recommendedView: ProjectView;
-}
-
-export interface ProjectsUserState {
-  starredProjectIds: string[];
-  recentProjectIds: string[];
-  /** Explicit My Tasks triage (tasks without an entry are bucketed by due date). */
-  buckets: Record<string, MyTasksBucket>;
-  inboxReadAt: number;
+export interface UserState {
+  starred: string[];
+  lastView: Record<string, ViewId>;
+  sideCollapsed: boolean;
+  browseMode: 'gallery' | 'table';
+  plan?: { date: string; slots: PlanSlot[]; accepted: boolean };
 }
 
 export interface ProjectsData {
   version: number;
+  seededAt: number;
   projects: Project[];
   tasks: Task[];
-  statusUpdates: StatusUpdate[];
+  updates: StatusUpdate[];
+  rules: Rule[];
+  inbox: InboxItem[];
   portfolios: Portfolio[];
-  goals: Goal[];
-  sprints: Sprint[];
-  rules: AutomationRule[];
-  forms: IntakeForm[];
-  userState: Record<string, ProjectsUserState>;
+  users: Record<string, UserState>;
+  personalSeq: number;
 }
+
+export type Result<T extends object = object> = ({ ok: true } & T) | { ok: false; error: string };

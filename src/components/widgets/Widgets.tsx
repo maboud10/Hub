@@ -1,20 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import {
-  Activity,
-  ArrowRight,
-  Cake,
-  CalendarDays,
-  Coffee,
-  Megaphone,
-  Pause,
-  PartyPopper,
-  Play,
-  Square,
-  Timer,
-  Video,
-  Smile,
-} from 'lucide-react';
+import { Activity, ArrowRight, Cake, Coffee, PartyPopper, Pause, Play, Square, TriangleAlert, Video } from 'lucide-react';
+import { Bar, Chip, NeoPanel, Orb, Ring } from '@/components/neo';
 import { useHub } from '@/store/hub';
 import { useUI } from '@/store/ui';
 import { useFocus } from '@/store/focus';
@@ -23,36 +10,35 @@ import { useNow } from '@/hooks/useNow';
 import { buildAgenda } from '@/data/agenda';
 import { firstName, formatTime, mmss, relativeTime, todayKey } from '@/lib/format';
 import { getIcon } from '@/icons';
-import { AppIcon, Avatar, EmptyState } from '@/components/ui/primitives';
+import { AppIcon, Avatar } from '@/components/ui/primitives';
 import { useLaunchApp } from '@/components/apps/useLaunchApp';
 import { startBreak, startFocusSession, stopFocusSession } from '@/components/FocusEngine';
 import { KUDOS_VALUES } from '@/components/KudosDialog';
 import { STATUS_LABEL } from '@/components/apps/AppTile';
 import { cx } from '@/lib/cx';
 
+/**
+ * Launchpad side-column widget: a compact NEO panel with a mono HUD eyebrow,
+ * a short title and an optional "All →" style action.
+ */
 export function Widget({
+  hud,
   title,
-  icon,
   action,
   children,
   className,
 }: {
+  /** Mono, tracked-caps eyebrow (e.g. "Today", "Live", "Anonymous"). */
+  hud: ReactNode;
   title: string;
-  icon: ReactNode;
   action?: ReactNode;
   children: ReactNode;
   className?: string;
 }) {
   return (
-    <section className={cx('widget card', className)} aria-label={title}>
-      <header className="widget__head">
-        <span className="widget__icon">{icon}</span>
-        <h3 className="widget__title">{title}</h3>
-        <span className="spacer" />
-        {action}
-      </header>
+    <NeoPanel className={cx('lp-widget', className)} hud={hud} title={title} actions={action}>
       {children}
-    </section>
+    </NeoPanel>
   );
 }
 
@@ -63,57 +49,60 @@ export function AgendaWidget() {
   const events = useMemo(() => buildAgenda(new Date(now)), [Math.floor(now / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
   const firstRelevant = Math.max(0, events.findIndex((e) => e.end.getTime() > now) - 1);
   const visible = events.slice(firstRelevant);
+  const left = events.filter((e) => e.end.getTime() > now).length;
+  const upNextId = visible.find((v) => v.start.getTime() > now)?.id;
 
   return (
     <Widget
-      title="Today"
-      icon={<CalendarDays />}
+      hud={left ? `Today · ${left} left` : 'Today'}
+      title="Agenda"
+      className="lp-agenda-widget"
       action={
-        <button className="btn btn--sm btn--ghost" onClick={() => launch('calendar')}>
+        <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={() => launch('calendar')}>
           Calendar <ArrowRight />
         </button>
       }
     >
-      <ol className="agenda">
+      <ol className="lp-agenda">
         {visible.map((ev) => {
           const start = ev.start.getTime();
           const end = ev.end.getTime();
           const state = end <= now ? 'past' : start <= now ? 'now' : 'next';
-          const isNext = state === 'next' && visible.find((v) => v.start.getTime() > now)?.id === ev.id;
+          const isNext = ev.id === upNextId;
           const Icon = getIcon(ev.icon);
-          const progress = state === 'now' ? ((now - start) / (end - start)) * 100 : 0;
+          const progress = state === 'now' ? (now - start) / (end - start) : 0;
           return (
-            <li key={ev.id} className={cx('agenda__item', `is-${state}`, isNext && 'is-upnext')}>
-              <time className="agenda__time">{formatTime(ev.start)}</time>
-              <span className="agenda__rail" aria-hidden="true">
+            <li key={ev.id} className={cx('lp-agenda__item', `is-${state}`, isNext && 'is-upnext')}>
+              <time className="lp-agenda__time neo-mono">{formatTime(ev.start)}</time>
+              <span className="lp-agenda__rail" aria-hidden="true">
                 <i />
               </span>
-              <div className="agenda__body">
-                <div className="agenda__title">
-                  <Icon size={14} /> <span className="truncate">{ev.title}</span>
+              <div className="lp-agenda__body">
+                <div className="lp-agenda__title">
+                  <Icon /> <span className="truncate">{ev.title}</span>
                 </div>
-                <div className="agenda__meta">
+                <div className="lp-agenda__meta truncate">
                   {ev.location} · {ev.attendees} {ev.attendees === 1 ? 'person' : 'people'}
                 </div>
-                {state === 'now' && (
-                  <div className="progress" style={{ marginTop: 8 }}>
-                    <span style={{ width: `${progress}%` }} />
-                  </div>
-                )}
+                {state === 'now' && <Bar value={progress} className="lp-agenda__progress" label="Meeting progress" />}
               </div>
               {state === 'now' && (
-                <span className="agenda__cta">
-                  <span className="badge badge--danger">
-                    <span className="dot dot--meeting dot--pulse" /> Live
-                  </span>
+                <span className="lp-agenda__cta">
+                  <Chip tone="danger" size="sm" icon={<Orb tone="danger" pulse size={6} />}>
+                    Live
+                  </Chip>
                   {ev.appId === 'meet' && (
-                    <button className="btn btn--sm btn--primary" onClick={() => launch('meet', `Join “${ev.title}”`)}>
+                    <button type="button" className="neo-btn neo-btn--plasma neo-btn--xs" onClick={() => launch('meet', `Join “${ev.title}”`)}>
                       <Video /> Join
                     </button>
                   )}
                 </span>
               )}
-              {isNext && <span className="badge">in {Math.max(1, Math.round((start - now) / 60_000))}m</span>}
+              {isNext && (
+                <Chip tone="app" size="sm" className="lp-agenda__in">
+                  in {Math.max(1, Math.round((start - now) / 60_000))}m
+                </Chip>
+              )}
             </li>
           );
         })}
@@ -128,65 +117,63 @@ export function FocusWidget() {
   useNow(1000);
   const remaining = mode === 'idle' ? 25 * 60_000 : (pausedRemaining ?? (endsAt ? Math.max(0, endsAt - Date.now()) : 0));
   const pct = mode === 'idle' ? 0 : 1 - remaining / duration;
-  const R = 52;
-  const C = 2 * Math.PI * R;
+  const paused = pausedRemaining !== null;
+  const label = mode === 'idle' ? 'Ready' : mode === 'focus' ? (paused ? 'Paused' : 'Focusing') : 'Break';
 
   return (
-    <Widget title="Focus" icon={<Timer />} className="focus-widget">
-      <div className="focus">
-        <div className={cx('focus__ring', mode !== 'idle' && 'is-running', pausedRemaining !== null && 'is-paused')}>
-          <svg viewBox="0 0 120 120" aria-hidden="true">
-            <defs>
-              <linearGradient id="focus-g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stopColor="var(--accent)" />
-                <stop offset="1" stopColor="var(--accent-2)" />
-              </linearGradient>
-            </defs>
-            <circle cx="60" cy="60" r={R} className="focus__track" />
-            <circle cx="60" cy="60" r={R} className="focus__bar" strokeDasharray={C} strokeDashoffset={C * (1 - pct)} />
-          </svg>
-          <div className="focus__readout">
-            <span className="focus__time" aria-live="off">
+    <Widget
+      hud="Deep work"
+      title="Focus timer"
+      className="lp-focus-widget"
+      action={
+        <span className="lp-keyhint" title="Keyboard shortcut">
+          <kbd className="lp-kbd">F</kbd>
+        </span>
+      }
+    >
+      <div className={cx('lp-focus', mode !== 'idle' && 'is-running', paused && 'is-paused')}>
+        <Ring value={pct} size={92} stroke={7} label={`${label}, ${mmss(remaining)} remaining`} className="lp-focus__ring">
+          <span className="lp-focus__readout">
+            <span className="lp-focus__time neo-mono" aria-live="off">
               {mmss(remaining)}
             </span>
-            <span className="focus__mode">{mode === 'idle' ? 'Ready' : mode === 'focus' ? (pausedRemaining !== null ? 'Paused' : 'Focusing') : 'Break'}</span>
-          </div>
-        </div>
-        <div className="focus__controls">
+            <span className="lp-focus__mode neo-hud">{label}</span>
+          </span>
+        </Ring>
+        <div className="lp-focus__controls">
           {mode === 'idle' ? (
             <>
-              <p className="text-sm muted">Deep-work timer. Sets your status to <strong>Focusing</strong> so colleagues know.</p>
-              <div className="row row--wrap">
-                <button className="btn btn--primary btn--sm" onClick={() => startFocusSession(25)}>
+              <p className="lp-focus__copy">
+                Sets your status to <strong>Focusing</strong> so colleagues know.
+              </p>
+              <div className="lp-focus__btns">
+                <button type="button" className="neo-btn neo-btn--plasma neo-btn--sm" onClick={() => startFocusSession(25)}>
                   <Play /> 25 min
                 </button>
-                <button className="btn btn--sm" onClick={() => startFocusSession(50)}>
+                <button type="button" className="neo-btn neo-btn--soft neo-btn--sm" onClick={() => startFocusSession(50)}>
                   50 min
                 </button>
-                <button className="btn btn--sm btn--ghost" onClick={() => startBreak(5)}>
+                <button type="button" className="neo-btn neo-btn--ghost neo-btn--sm" onClick={() => startBreak(5)}>
                   <Coffee /> Break
                 </button>
               </div>
             </>
           ) : (
-            <div className="row row--wrap">
-              {pausedRemaining !== null ? (
-                <button className="btn btn--sm btn--primary" onClick={resume}>
+            <div className="lp-focus__btns">
+              {paused ? (
+                <button type="button" className="neo-btn neo-btn--plasma neo-btn--sm" onClick={resume}>
                   <Play /> Resume
                 </button>
               ) : (
-                <button className="btn btn--sm" onClick={pause}>
+                <button type="button" className="neo-btn neo-btn--soft neo-btn--sm" onClick={pause}>
                   <Pause /> Pause
                 </button>
               )}
-              <button className="btn btn--sm btn--ghost" onClick={stopFocusSession}>
+              <button type="button" className="neo-btn neo-btn--ghost neo-btn--sm" onClick={stopFocusSession}>
                 <Square /> End
               </button>
             </div>
           )}
-          <span className="text-xs faint">
-            Shortcut: <span className="kbd">F</span>
-          </span>
         </div>
       </div>
     </Widget>
@@ -198,33 +185,34 @@ export function NewsWidget() {
   const items = useVisibleAnnouncements().slice(0, 3);
   return (
     <Widget
-      title="Newsroom"
-      icon={<Megaphone />}
+      hud="Newsroom"
+      title="Latest news"
       action={
-        <Link to="/news" className="btn btn--sm btn--ghost">
+        <Link to="/news" className="neo-btn neo-btn--ghost neo-btn--xs">
           All <ArrowRight />
         </Link>
       }
     >
-      <div className="stack stack--sm">
-        {items.map((a) => (
-          <Link key={a.id} to="/news" className={cx('news-mini', `news-mini--${a.priority}`)}>
-            <div className="row" style={{ gap: 6, marginBottom: 4 }}>
-              {a.priority !== 'normal' && (
-                <span className={cx('badge', a.priority === 'critical' ? 'badge--danger' : 'badge--warning')}>
-                  {a.priority === 'critical' && <span className="dot dot--meeting dot--pulse" />}
-                  {a.priority}
-                </span>
-              )}
-              <span className="tag">{a.category}</span>
-              <span className="spacer" />
-              <span className="text-xs faint">{relativeTime(a.createdAt)}</span>
-            </div>
-            <div className="news-mini__title clamp-2">{a.title}</div>
-          </Link>
-        ))}
-        {!items.length && <EmptyState icon={<Megaphone />} title="No news yet" />}
-      </div>
+      {items.length ? (
+        <div className="lp-news">
+          {items.map((a) => (
+            <Link key={a.id} to="/news" className="lp-news__item" data-priority={a.priority}>
+              <div className="lp-news__meta">
+                {a.priority !== 'normal' && (
+                  <Chip tone={a.priority === 'critical' ? 'danger' : 'warning'} size="sm" icon={a.priority === 'critical' ? <Orb tone="danger" pulse size={6} /> : undefined}>
+                    {a.priority}
+                  </Chip>
+                )}
+                <span className="neo-hud">{a.category}</span>
+                <span className="lp-news__time">{relativeTime(a.createdAt)}</span>
+              </div>
+              <div className="lp-news__title clamp-2">{a.title}</div>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <p className="lp-widget__empty">No news yet — announcements targeted to you will land here.</p>
+      )}
     </Widget>
   );
 }
@@ -256,36 +244,39 @@ export function PulseWidget() {
   const max = Math.max(...counts);
 
   return (
-    <Widget title="Team pulse" icon={<Smile />} action={<span className="tag">Anonymous</span>}>
-      <p className="text-sm muted" style={{ marginBottom: 12 }}>
-        {mine ? 'Thanks for checking in! Here’s how the team feels today.' : 'How’s your energy today?'}
-      </p>
-      <div className="pulse" role="radiogroup" aria-label="Your mood today">
+    <Widget
+      hud="Anonymous"
+      title="Team pulse"
+      action={
+        mine ? (
+          <Chip tone="app" size="sm" title="Team mood today">
+            {avg.toFixed(1)} / 5
+          </Chip>
+        ) : undefined
+      }
+    >
+      <p className="lp-widget__lede">{mine ? 'Thanks for checking in! Here’s how the team feels today.' : 'How’s your energy today?'}</p>
+      <div className={cx('lp-pulse', mine && 'is-voted')} role="radiogroup" aria-label="Your mood today">
         {MOODS.map((m, i) => (
           <button
             key={m.v}
+            type="button"
             role="radio"
             aria-checked={mine === m.v}
-            className={cx('pulse__opt', mine === m.v && 'is-active', mine && 'is-voted')}
+            className={cx('lp-pulse__opt', mine === m.v && 'is-active')}
             onClick={() => vote(m.v)}
             title={m.l}
           >
             {mine && (
-              <span className="pulse__bar" aria-hidden="true">
+              <span className="lp-pulse__bar" aria-hidden="true">
                 <span style={{ height: `${(counts[i] / max) * 100}%` }} />
               </span>
             )}
-            <span className="pulse__emoji">{m.e}</span>
-            <span className="pulse__label">{mine ? counts[i] : m.l}</span>
+            <span className="lp-pulse__emoji">{m.e}</span>
+            <span className="lp-pulse__label">{mine ? counts[i] : m.l}</span>
           </button>
         ))}
       </div>
-      {mine && (
-        <div className="row row--between text-sm" style={{ marginTop: 12 }}>
-          <span className="muted">Team mood</span>
-          <strong className="mono accent-ink">{avg.toFixed(1)} / 5</strong>
-        </div>
-      )}
     </Widget>
   );
 }
@@ -301,41 +292,40 @@ export function KudosWidget() {
 
   return (
     <Widget
+      hud="Recognition"
       title="Kudos wall"
-      icon={<PartyPopper />}
       action={
         canGive ? (
-          <button className="btn btn--sm" onClick={() => openKudos()}>
-            Give kudos
+          <button type="button" className="neo-btn neo-btn--soft neo-btn--xs" onClick={() => openKudos()}>
+            <PartyPopper /> Give
           </button>
         ) : undefined
       }
     >
-      <div className="stack">
+      <div className="lp-kudos">
         {recent.map((k) => {
           const from = find(k.fromId);
           const to = find(k.toId);
           const v = KUDOS_VALUES[k.value];
           if (!from || !to) return null;
           return (
-            <article key={k.id} className="kudos-card" style={{ ['--kv' as string]: v.color }}>
-              <div className="row" style={{ gap: 8 }}>
-                <span className="avatar-stack">
-                  <Avatar user={from} size={28} />
-                  <Avatar user={to} size={28} />
+            <article key={k.id} className="lp-kudos__card" style={{ ['--kv' as string]: v.color }}>
+              <div className="lp-kudos__top">
+                <span className="lp-kudos__avatars">
+                  <Avatar user={from} size={26} />
+                  <Avatar user={to} size={26} />
                 </span>
-                <span className="text-sm grow truncate">
-                  <strong>{firstName(from.name)}</strong> <span className="faint">→</span> <strong>{firstName(to.name)}</strong>
+                <span className="lp-kudos__who truncate">
+                  <strong>{firstName(from.name)}</strong> <span aria-hidden="true">→</span> <strong>{firstName(to.name)}</strong>
                 </span>
-                <span className="kudos-card__value">{v.label}</span>
+                <span className="lp-kudos__value">{v.label}</span>
               </div>
-              <p className="text-sm muted clamp-2" style={{ marginTop: 8 }}>
-                “{k.message}”
-              </p>
-              <span className="text-xs faint">{relativeTime(k.at)}</span>
+              <p className="lp-kudos__msg clamp-2">“{k.message}”</p>
+              <span className="lp-kudos__time">{relativeTime(k.at)}</span>
             </article>
           );
         })}
+        {!recent.length && <p className="lp-widget__empty">No kudos yet — be the first to recognise someone.</p>}
       </div>
     </Widget>
   );
@@ -359,27 +349,28 @@ export function StatusWidget() {
   const issues = enabled.filter((a) => a.status !== 'operational');
   const core = ['mail', 'chat', 'meet', 'drive'];
   const rows = [...issues, ...enabled.filter((a) => core.includes(a.id) && !issues.includes(a))].slice(0, 5);
+  const uptime = enabled.length ? Math.round(((enabled.length - issues.length) / enabled.length) * 1000) / 10 : 100;
 
   return (
-    <Widget title="System status" icon={<Activity />}>
-      <div className={cx('status-summary', issues.length ? 'has-issues' : 'is-ok')}>
-        <span className={cx('dot dot--pulse', issues.length ? 'dot--degraded' : 'dot--operational')} />
+    <Widget hud="Live" title="System status">
+      <div className="lp-status__sum" data-ok={issues.length === 0 || undefined}>
+        {issues.length ? <TriangleAlert /> : <Activity />}
         <span className="grow">{issues.length ? `${issues.length} service${issues.length > 1 ? 's' : ''} need attention` : 'All systems operational'}</span>
-        <span className="mono text-xs faint">{Math.round(((enabled.length - issues.length) / enabled.length) * 1000) / 10}%</span>
+        <span className="neo-mono lp-status__pct">{uptime}%</span>
       </div>
-      <div className="stack stack--sm" style={{ marginTop: 12 }}>
+      <div className="lp-status">
         {rows.map((a) => (
-          <div key={a.id} className="status-row">
-            <AppIcon app={a} size={26} />
-            <span className="status-row__name truncate">{a.name}</span>
-            <span className="status-row__bars" aria-hidden="true">
+          <div key={a.id} className="lp-status__row">
+            <AppIcon app={a} size={24} />
+            <span className="lp-status__name truncate">{a.name}</span>
+            <span className="lp-status__bars" aria-hidden="true">
               {uptimeBars(a.id, a.status).map((s, i) => (
                 <i key={i} className={`is-${s}`} />
               ))}
             </span>
-            <span className={cx('badge', a.status === 'operational' ? 'badge--success' : a.status === 'degraded' ? 'badge--warning' : 'badge--info')}>
+            <Chip tone={a.status === 'operational' ? 'success' : a.status === 'degraded' ? 'warning' : 'blue'} size="sm">
               {STATUS_LABEL[a.status]}
-            </span>
+            </Chip>
           </div>
         ))}
       </div>
@@ -429,26 +420,26 @@ export function CelebrationsWidget() {
   }, [users]);
 
   return (
-    <Widget title="Celebrations" icon={<Cake />}>
+    <Widget hud="This week" title="Celebrations">
       {items.length === 0 ? (
-        <p className="text-sm muted">No birthdays or work anniversaries this week.</p>
+        <div className="lp-widget__empty lp-widget__empty--icon">
+          <Cake /> No birthdays or work anniversaries this week.
+        </div>
       ) : (
-        <div className="stack stack--sm">
+        <div className="lp-celebs">
           {items.map((c) => {
             const u = users.find((x) => x.id === c.userId)!;
             return (
-              <div key={c.id} className="celebration">
+              <div key={c.id} className="lp-celeb" data-kind={c.kind}>
                 <Avatar user={u} size={34} />
-                <div className="grow" style={{ minWidth: 0 }}>
-                  <div className="text-sm truncate" style={{ fontWeight: 600 }}>
-                    {u.id === me?.id ? 'You' : u.name}
-                  </div>
-                  <div className="text-xs faint">
-                    {c.kind === 'birthday' ? '🎂 Birthday' : `🎉 ${c.years}-year anniversary`} · {when(c.days)}
+                <div className="lp-celeb__text">
+                  <div className="lp-celeb__name truncate">{u.id === me?.id ? 'You' : u.name}</div>
+                  <div className="lp-celeb__meta">
+                    {c.kind === 'birthday' ? '🎂 Birthday' : `🎉 ${c.years}-year anniversary`} · <span className={cx(c.days === 0 && 'neo-tint')}>{when(c.days)}</span>
                   </div>
                 </div>
                 {canGive && u.id !== me?.id && (
-                  <button className="btn btn--sm btn--ghost" onClick={() => openKudos(u.id)} aria-label={`Celebrate ${u.name}`}>
+                  <button type="button" className="neo-iconbtn lp-celeb__btn" onClick={() => openKudos(u.id)} aria-label={`Celebrate ${u.name}`} title="Send kudos">
                     🎈
                   </button>
                 )}

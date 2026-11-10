@@ -18,7 +18,7 @@ import { useNow } from '@/hooks/useNow';
 import { Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/cx';
 import { formatMoney } from '@/pages/talent/components/format';
-import { BalanceRing, HrPanel, LeaveTypeBadge, ToneBadge } from '../components/shared';
+import { AllLink, BalanceRing, HrPanel, LeaveTypeBadge, ToneBadge } from '../components/shared';
 import { fmtRange } from './format';
 
 const inDays = (n: number) => (n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`);
@@ -60,7 +60,7 @@ export function TimeOffWidget() {
   const prorated = !!annual && annual.allowance !== null && annual.allowance < 25;
 
   return (
-    <HrPanel className="hr-home-w hr-home-w--timeoff" title="Time off" icon={<TreePalm aria-hidden="true" />} actions={<MoreLink to="/hr/time-off">Details</MoreLink>}>
+    <HrPanel className="hr-home-w hr-home-w--timeoff" hud="Your balances" title="Time off" icon={<TreePalm aria-hidden="true" />} actions={<AllLink to="/hr/time-off" />}>
       <div className="hr-home-to">
         <div className="hr-home-to__rings">
           {annual && (
@@ -128,14 +128,18 @@ export function PayWidget() {
   return (
     <HrPanel
       className="hr-home-w hr-home-w--pay"
+      hud="Compensation"
       title="Pay"
       icon={<Wallet aria-hidden="true" />}
       actions={
-        latest ? (
-          <button type="button" className="icon-btn icon-btn--sm" aria-pressed={show} aria-label={show ? 'Hide amounts' : 'Show amounts'} data-tip={show ? 'Hide amounts' : 'Show amounts'} onClick={() => setShow((v) => !v)}>
-            {show ? <EyeOff /> : <Eye />}
-          </button>
-        ) : undefined
+        <>
+          {latest && (
+            <button type="button" className="neo-iconbtn neo-iconbtn--sm" aria-pressed={show} aria-label={show ? 'Hide amounts' : 'Show amounts'} data-tip={show ? 'Hide amounts' : 'Show amounts'} onClick={() => setShow((v) => !v)}>
+              {show ? <EyeOff /> : <Eye />}
+            </button>
+          )}
+          <AllLink to="/hr/documents?tab=payslips">Payslips</AllLink>
+        </>
       }
     >
       {comp && next ? (
@@ -196,7 +200,7 @@ export function BenefitsWidget() {
   const premium = Object.values(COMPANY_PREMIUM);
 
   return (
-    <HrPanel className="hr-home-w hr-home-w--ben" title="Benefits" icon={<HeartPulse aria-hidden="true" />} actions={<MoreLink to="/hr/benefits">Details</MoreLink>}>
+    <HrPanel className="hr-home-w hr-home-w--ben" hud="Cover & allowances" title="Benefits" icon={<HeartPulse aria-hidden="true" />} actions={<AllLink to="/hr/benefits" />}>
       {status === 'not-started' ? (
         <div className="hr-home-ben is-todo">
           <ToneBadge tone={daysLeft !== null && daysLeft <= 7 ? 'danger' : 'warning'}>{meta.label}</ToneBadge>
@@ -323,7 +327,7 @@ export function HolidaysWidget() {
   const fmtDay = (d: string) => formatDay(d, { weekday: 'short', day: 'numeric', month: 'short' });
 
   return (
-    <HrPanel className="hr-home-w hr-home-w--hol" title="Public holidays" icon={<CalendarDays aria-hidden="true" />} sub={applies ? `${loc} · days off for everyone` : undefined}>
+    <HrPanel className="hr-home-w hr-home-w--hol" hud="Calendar" title="Public holidays" icon={<CalendarDays aria-hidden="true" />} sub={applies ? `${loc} · days off for everyone` : undefined} actions={<AllLink to="/hr/time-off" />}>
       {!applies ? (
         <div className="hr-home-w__empty">
           <p className="text-sm muted">Your public holidays follow the local calendar in {loc || 'your location'}. People Ops can share this year’s list.</p>
@@ -377,7 +381,7 @@ export function TeamAwayWidget() {
   const days = useMemo(() => eachDay(monday, friday), [monday, friday]);
 
   return (
-    <HrPanel className="hr-home-w hr-home-w--away" title="Who’s away this week" icon={<Users aria-hidden="true" />} sub={`Your team · ${fmtRange(monday, friday)}`}>
+    <HrPanel className="hr-home-w hr-home-w--away" hud="Your team" title="Who’s away this week" icon={<Users aria-hidden="true" />} sub={`Your team · ${fmtRange(monday, friday)}`} actions={<AllLink to="/hr/time-off" />}>
       {away.length ? (
         <div className="hr-home-away">
           <div className="hr-home-away__head" aria-hidden="true">

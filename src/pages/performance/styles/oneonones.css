@@ -1,0 +1,1191 @@
+/* ==========================================================================
+   Performance · 1:1s (prefix pf-11-)
+   Series side panel, the live "meeting room" console (participants, countdown,
+   mood check-in), shared agenda with Nova talking points, shared/private notes,
+   action items, meeting timeline, and the New 1:1 / wrap-up dialogs
+   (portaled: .neo-portal.pf-11-modal) + reschedule popover.
+   ========================================================================== */
+
+/* ───────── Side panel ───────── */
+.pf-11-side .neo-side__item {
+  min-height: 50px;
+  padding: 7px 10px;
+  gap: 10px;
+}
+.pf-11-side .neo-side__label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.pf-11-sitem__av {
+  position: relative;
+  flex: none;
+  display: inline-grid;
+}
+.pf-11-sitem__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.pf-11-sitem__when {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.pf-11-sitem__when[data-phase='live'],
+.pf-11-sitem__when[data-phase='soon'] {
+  color: var(--app-ink);
+  font-weight: 600;
+}
+.pf-11-sitem__when[data-phase='overdue'] {
+  color: rgb(var(--pf-risk));
+}
+.pf-11-sitem__meta {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+.pf-11-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.neo-side__item .pf-11-count svg,
+.pf-11-count svg {
+  width: 11px;
+  height: 11px;
+}
+.pf-11-count[data-tone='danger'] {
+  color: rgb(var(--pf-off));
+}
+.pf-11-live-dot {
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgb(var(--pf-off));
+  box-shadow:
+    0 0 0 2px var(--plane-solid),
+    0 0 10px rgb(var(--pf-off) / 0.8);
+  animation: pf-11-pulse 1.6s ease-in-out infinite;
+}
+.pf-11-side__setup {
+  opacity: 0.86;
+}
+.pf-11-side__setup .pf-11-sitem__when {
+  color: var(--app-ink);
+}
+.pf-11-side__ghost {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px dashed rgb(var(--app-rgb) / 0.5);
+  color: var(--app-ink);
+}
+.neo-side__item .pf-11-side__ghost svg {
+  width: 14px;
+  height: 14px;
+}
+.pf-11-side__empty {
+  margin: 6px 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+/* Next-up countdown card (side top) */
+.pf-11-nextup {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding: 11px 12px 12px;
+  border-radius: 14px;
+  overflow: hidden;
+  color: var(--text);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgb(var(--app-rgb) / 0.2), transparent 60%),
+    radial-gradient(120% 140% at 100% 100%, rgb(var(--app-rgb-2) / 0.16), transparent 60%),
+    var(--plane-2);
+  border: 1px solid rgb(var(--app-rgb) / 0.26);
+  transition:
+    border-color var(--dur-fast),
+    transform var(--dur-fast);
+}
+.pf-11-nextup:hover {
+  border-color: rgb(var(--app-rgb) / 0.5);
+}
+.pf-11-nextup .neo-hud {
+  color: var(--app-ink);
+}
+.pf-11-nextup__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.pf-11-nextup__row b {
+  color: var(--text);
+}
+.pf-11-nextup__count {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  background: var(--app-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.pf-11-nextup[data-phase='live'] .pf-11-nextup__count {
+  background: none;
+  color: rgb(var(--pf-off));
+}
+
+/* Rhythm (side footer) */
+.pf-11-rhythm {
+  margin: 14px 6px 2px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--pf-glass);
+  border: 1px solid var(--plane-border);
+}
+.pf-11-rhythm__bars {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  align-items: end;
+  gap: 4px;
+  height: 38px;
+  margin: 10px 0 8px;
+}
+.pf-11-rhythm__bars i {
+  display: block;
+  min-height: 3px;
+  border-radius: 4px 4px 2px 2px;
+  background: linear-gradient(180deg, rgb(var(--app-rgb) / 0.95), rgb(var(--app-rgb-2) / 0.55));
+  box-shadow: 0 0 10px -2px rgb(var(--app-rgb) / 0.5);
+}
+.pf-11-rhythm__bars i.is-zero {
+  background: var(--track);
+  box-shadow: none;
+}
+.pf-11-rhythm__sub {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.pf-11-rhythm__sub b {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+/* ───────── Stage ───────── */
+.pf-11-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+/* The console clips its glow (overflow: hidden) — never let the scroll body squash it. */
+.pf-11-body > * {
+  flex-shrink: 0;
+}
+.pf-11-body > .neo-banners {
+  margin-bottom: 0;
+}
+.pf-11-head-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgb(var(--pf-off));
+  font-weight: 600;
+}
+
+/* Meeting room console */
+.pf-11-room {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(150px, 0.8fr) minmax(260px, 1.4fr) minmax(170px, 0.9fr);
+  align-items: center;
+  gap: 22px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    radial-gradient(70% 160% at 0% 0%, rgb(var(--app-rgb) / 0.16), transparent 60%),
+    radial-gradient(60% 160% at 100% 100%, rgb(var(--app-rgb-2) / 0.12), transparent 60%),
+    var(--plane-2);
+  border: 1px solid rgb(var(--app-rgb) / 0.22);
+  box-shadow: var(--plane-inset);
+}
+.pf-11-room::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgb(var(--app-rgb) / 0.06) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--app-rgb) / 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(80% 100% at 20% 50%, #000 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(80% 100% at 20% 50%, #000 0%, transparent 75%);
+}
+.pf-11-room > * {
+  position: relative;
+  min-width: 0;
+}
+.pf-11-room.is-celebrating {
+  animation: pf-11-glow 1.8s var(--ease-out) 1;
+}
+.pf-11-pair {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.pf-11-pair__who {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.pf-11-pair__who .avatar {
+  box-shadow:
+    0 0 0 2px var(--plane-solid),
+    0 0 0 3.5px rgb(var(--app-rgb) / 0.45),
+    0 0 22px -4px rgb(var(--app-rgb) / 0.7);
+}
+.pf-11-beam {
+  position: relative;
+  width: 64px;
+  height: 2px;
+  margin-bottom: 18px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgb(var(--app-rgb) / 0.15), rgb(var(--app-rgb) / 0.6), rgb(var(--app-rgb-2) / 0.15));
+  overflow: hidden;
+}
+.pf-11-beam::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 -40%;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.9), transparent);
+  animation: pf-11-beam 2.4s linear infinite;
+}
+.pf-11-room[data-phase='live'] .pf-11-beam {
+  background: linear-gradient(90deg, rgb(var(--pf-off) / 0.2), rgb(var(--pf-off) / 0.85), rgb(var(--pf-off) / 0.2));
+}
+.pf-11-when {
+  display: grid;
+  gap: 3px;
+}
+.pf-11-when__count {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  background: var(--app-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.pf-11-room[data-phase='live'] .pf-11-when__count {
+  background: none;
+  color: rgb(var(--pf-off));
+}
+.pf-11-room[data-phase='overdue'] .pf-11-when__count {
+  background: none;
+  color: rgb(var(--pf-risk));
+}
+.pf-11-when__date {
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.pf-11-when .neo-hud,
+.pf-11-moodbox .neo-hud,
+.pf-11-hud .neo-hud {
+  color: var(--app-ink);
+}
+.pf-11-moodbox {
+  display: grid;
+  gap: 8px;
+}
+.pf-11-moods {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+/* Default tone at zero specificity so the kit's [data-tone] rules win. */
+:where(.pf-11-mood, .pf-11-topic__icon, .pf-11-mooddot) {
+  --tone: var(--app-rgb);
+}
+.pf-11-mood {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 7px 2px 6px;
+  border-radius: 12px;
+  border: 1px solid var(--plane-border);
+  background: var(--pf-glass);
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast),
+    color var(--dur-fast),
+    border-color var(--dur-fast),
+    transform var(--dur-fast);
+}
+.pf-11-mood svg {
+  width: 19px;
+  height: 19px;
+  color: rgb(var(--tone) / 0.8);
+}
+.pf-11-mood:hover {
+  color: rgb(var(--tone));
+  border-color: rgb(var(--tone) / 0.45);
+  transform: translateY(-1px);
+}
+.pf-11-mood[aria-checked='true'] {
+  color: rgb(var(--tone));
+  background: rgb(var(--tone) / 0.14);
+  border-color: rgb(var(--tone) / 0.6);
+  box-shadow: 0 0 18px -6px rgb(var(--tone) / 0.9);
+}
+.pf-11-mood:focus-visible {
+  outline: 2px solid rgb(var(--tone));
+  outline-offset: 2px;
+}
+.pf-11-moodbox__them {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pf-11-moodbox__them b {
+  color: var(--text-2);
+}
+.pf-11-moodbox__them svg {
+  width: 14px;
+  height: 14px;
+}
+.pf-11-hud {
+  display: grid;
+  gap: 8px;
+}
+.pf-11-hud__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.pf-11-hud__row b {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  min-width: 28px;
+}
+.pf-11-hud__row[data-tone='danger'] b {
+  color: rgb(var(--pf-off));
+}
+.pf-11-hud__spark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ───────── Shared bits ───────── */
+.pf-11-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.pf-11-meta .pf-face {
+  display: inline-flex;
+}
+.pf-11-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--dur-fast);
+}
+:is(.pf-11-ag, .pf-11-act):hover .pf-11-tools,
+:is(.pf-11-ag, .pf-11-act):focus-within .pf-11-tools {
+  opacity: 1;
+}
+@media (hover: none) {
+  .pf-11-tools {
+    opacity: 1;
+  }
+}
+
+/* ───────── Agenda ───────── */
+.pf-11-agenda__list {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.pf-11-ag {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 10px 10px 10px 6px;
+  border-radius: 13px;
+  background: var(--pf-glass);
+  border: 1px solid var(--plane-border);
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast),
+    opacity var(--dur-fast),
+    transform var(--dur-fast);
+}
+.pf-11-ag:hover {
+  background: var(--hover);
+  border-color: var(--plane-border-2);
+}
+.pf-11-ag.is-drag {
+  opacity: 0.45;
+}
+.pf-11-ag.is-over {
+  border-color: rgb(var(--app-rgb) / 0.6);
+  box-shadow: 0 -2px 0 0 rgb(var(--app-rgb) / 0.8);
+}
+.pf-11-ag.is-done .pf-11-ag__text {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: rgb(var(--app-rgb) / 0.6);
+}
+.pf-11-ag__grip {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 22px;
+  color: var(--text-3);
+  cursor: grab;
+  opacity: 0.55;
+}
+.pf-11-ag:hover .pf-11-ag__grip {
+  opacity: 1;
+}
+.pf-11-ag__grip svg {
+  width: 14px;
+  height: 14px;
+}
+.pf-11-ag .neo-check,
+.pf-11-act .neo-check {
+  margin-top: 2px;
+}
+.pf-11-ag__body,
+.pf-11-act__body {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.pf-11-ag__text,
+.pf-11-act__text {
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.pf-11-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pf-11-add .neo-input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Nova talking points */
+.pf-11-nova {
+  margin-top: 14px;
+}
+.pf-11-topics {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pf-11-topic {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 10px;
+  border-radius: 12px;
+  background: var(--pf-glass);
+  border: 1px solid var(--plane-border);
+}
+.pf-11-topic__icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: rgb(var(--tone));
+  background: rgb(var(--tone) / 0.14);
+  box-shadow: inset 0 0 0 1px rgb(var(--tone) / 0.3);
+}
+.pf-11-topic__icon svg {
+  width: 14px;
+  height: 14px;
+}
+.pf-11-topic__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pf-11-topic__text b {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.pf-11-topic__text small {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+.pf-11-nova__quiet {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+
+/* ───────── Notes ───────── */
+.pf-11-note {
+  display: grid;
+  gap: 8px;
+}
+.pf-11-note[hidden] {
+  display: none;
+}
+.pf-11-note__area {
+  min-height: 190px;
+  resize: vertical;
+  line-height: 1.55;
+  font-size: 13.5px;
+}
+.pf-11-note.is-private .pf-11-note__area {
+  background:
+    repeating-linear-gradient(135deg, rgb(var(--app-rgb) / 0.035) 0 10px, transparent 10px 20px),
+    var(--surface);
+  border-style: dashed;
+}
+.pf-11-note__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 22px;
+}
+.pf-11-note__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.pf-11-note__hint svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+.pf-11-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.pf-11-save svg {
+  width: 12px;
+  height: 12px;
+}
+.pf-11-save[data-state='saved'] {
+  color: rgb(var(--pf-ok));
+}
+.pf-11-save[data-state='dirty'] {
+  color: var(--app-ink);
+}
+.pf-11-tabseg .pf-seg__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.pf-11-tabseg svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ───────── Action items ───────── */
+.pf-11-acts {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pf-11-act {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 9px 8px 9px 10px;
+  border-radius: 12px;
+  background: var(--pf-glass);
+  border: 1px solid var(--plane-border);
+}
+.pf-11-act.is-done .pf-11-act__text {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+.pf-11-act.is-overdue {
+  border-color: rgb(var(--pf-off) / 0.35);
+  background: rgb(var(--pf-off) / 0.05);
+}
+.pf-11-actadd {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--plane-border-2);
+}
+.pf-11-actadd__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.pf-11-actadd__row .neo-input {
+  width: auto;
+  flex: 1 1 130px;
+  min-width: 0;
+}
+.pf-11-done-toggle {
+  margin-top: 8px;
+}
+
+/* ───────── Timeline ───────── */
+.pf-11-tl {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0 0 0 18px;
+  list-style: none;
+}
+.pf-11-tl::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgb(var(--app-rgb) / 0.7), rgb(var(--app-rgb-2) / 0.1));
+}
+.pf-11-tl__item {
+  position: relative;
+}
+.pf-11-tl__node {
+  position: absolute;
+  left: -17px;
+  top: 13px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--plane-solid);
+  border: 2px solid rgb(var(--app-rgb) / 0.8);
+}
+.pf-11-tl__item:first-child .pf-11-tl__node {
+  background: var(--app-grad);
+  border-color: transparent;
+  box-shadow: 0 0 12px rgb(var(--app-rgb) / 0.8);
+}
+.pf-11-tl__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 11px;
+  text-align: left;
+  color: var(--text);
+  transition: background var(--dur-fast);
+}
+.pf-11-tl__head:hover {
+  background: var(--hover);
+}
+.pf-11-tl__date {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.pf-11-tl__date b {
+  font-size: 13px;
+  font-weight: 600;
+}
+.pf-11-tl__date small {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.pf-11-tl__moods {
+  display: inline-flex;
+  gap: 3px;
+}
+.pf-11-mooddot {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: rgb(var(--tone));
+  background: rgb(var(--tone) / 0.14);
+}
+.pf-11-mooddot svg {
+  width: 12px;
+  height: 12px;
+}
+.pf-11-mooddot.is-empty {
+  color: var(--text-3);
+  background: var(--track);
+}
+.pf-11-tl__cov {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.pf-11-tl__chev {
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
+  transition: rotate var(--dur-fast);
+}
+.pf-11-tl__item.is-open .pf-11-tl__chev {
+  rotate: 180deg;
+}
+.pf-11-tl__excerpt {
+  margin: 0 8px 6px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+.pf-11-tl__body {
+  display: grid;
+  gap: 10px;
+  margin: 2px 8px 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--pf-glass);
+  border: 1px solid var(--plane-border);
+}
+.pf-11-tl__notes {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+  white-space: pre-wrap;
+}
+.pf-11-tl__sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.pf-11-tl__list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pf-11-tl__list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.pf-11-tl__list li svg {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  color: var(--text-3);
+}
+.pf-11-tl__list li.is-done svg {
+  color: rgb(var(--pf-ok));
+}
+.pf-11-tl__list small {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ───────── Empty / wall states ───────── */
+.pf-11-setup {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+.pf-11-setup__card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--plane-2);
+  border: 1px solid var(--plane-border);
+  text-align: left;
+  color: var(--text);
+  transition:
+    border-color var(--dur-fast),
+    background var(--dur-fast);
+}
+.pf-11-setup__card:hover {
+  border-color: rgb(var(--app-rgb) / 0.45);
+  background: var(--hover);
+}
+.pf-11-setup__card small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.pf-11-setup__card > svg {
+  width: 16px;
+  height: 16px;
+  margin-left: auto;
+  color: var(--app-ink);
+}
+
+/* ───────── Dialogs (portaled) ───────── */
+.neo-portal.pf-11-modal .pf-11-form {
+  display: grid;
+  gap: 16px;
+}
+.pf-11-pick {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--plane-border-2);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  transition: border-color var(--dur-fast);
+}
+.pf-11-pick:hover,
+.pf-11-pick[aria-expanded='true'] {
+  border-color: rgb(var(--app-rgb) / 0.55);
+}
+.pf-11-pick__text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.pf-11-pick__text b {
+  font-weight: 600;
+}
+.pf-11-pick__text small {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pf-11-pick > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--text-3);
+}
+.pf-11-pick__ghost {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px dashed rgb(var(--app-rgb) / 0.55);
+  color: var(--app-ink);
+}
+.pf-11-pick__ghost svg {
+  width: 16px;
+  height: 16px;
+}
+.pf-11-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.pf-11-row > .neo-field {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.pf-11-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pf-11-preview {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+  background: rgb(var(--app-rgb) / 0.08);
+  border: 1px solid rgb(var(--app-rgb) / 0.22);
+}
+.pf-11-preview svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 1px;
+  color: var(--app-ink);
+}
+.pf-11-foot-meta {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* Wrap-up */
+.pf-11-wrap {
+  display: grid;
+  gap: 14px;
+}
+.pf-11-wrap__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.pf-11-wrap__stat {
+  display: grid;
+  gap: 2px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--plane-2);
+  border: 1px solid var(--plane-border);
+}
+.pf-11-wrap__stat b {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.pf-11-wrap__stat span {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pf-11-wrap__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pf-11-wrap__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.pf-11-wrap__list svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 2px;
+  color: var(--app-ink);
+}
+.pf-11-wrap__notes {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--pf-glass);
+  border: 1px solid var(--plane-border);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+  white-space: pre-wrap;
+  max-height: 140px;
+  overflow: auto;
+}
+
+/* Reschedule popover */
+.pf-11-resched {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+.pf-11-resched__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+/* ───────── Motion ───────── */
+@keyframes pf-11-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.7;
+  }
+}
+@keyframes pf-11-beam {
+  to {
+    left: 100%;
+  }
+}
+@keyframes pf-11-glow {
+  0% {
+    box-shadow:
+      var(--plane-inset),
+      0 0 0 0 rgb(var(--app-rgb) / 0);
+  }
+  30% {
+    box-shadow:
+      var(--plane-inset),
+      0 0 0 3px rgb(var(--app-rgb) / 0.55),
+      0 0 60px -10px rgb(var(--app-rgb) / 0.9);
+  }
+  100% {
+    box-shadow:
+      var(--plane-inset),
+      0 0 0 0 rgb(var(--app-rgb) / 0);
+  }
+}
+
+/* ───────── Light theme ───────── */
+[data-theme='light'] .pf-11-room::before {
+  opacity: 0.6;
+}
+[data-theme='light'] .pf-11-beam::after {
+  background: linear-gradient(90deg, transparent, rgb(var(--app-rgb) / 0.9), transparent);
+}
+[data-theme='light'] .pf-11-live-dot {
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* ───────── Responsive ───────── */
+@media (max-width: 1440px) {
+  .pf-11-room {
+    grid-template-columns: auto minmax(140px, 0.8fr) minmax(250px, 1.5fr);
+  }
+  .pf-11-hud {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(4, minmax(0, auto));
+    justify-content: start;
+    gap: 6px 22px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--plane-border-2);
+  }
+}
+@media (max-width: 900px) {
+  .pf-11-room {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 16px 18px;
+  }
+  .pf-11-moodbox {
+    grid-column: 1 / -1;
+  }
+  .pf-11-hud {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .pf-11-room {
+    padding: 14px;
+  }
+  .pf-11-beam {
+    width: 34px;
+  }
+  .pf-11-when__count {
+    font-size: 24px;
+  }
+  .pf-11-mood span {
+    font-size: 9.5px;
+  }
+  .pf-11-tools {
+    opacity: 1;
+  }
+  .pf-11-ag {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .pf-11-ag__grip {
+    display: none;
+  }
+  .pf-11-topic {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .pf-11-topic .neo-iconbtn {
+    display: none;
+  }
+  .pf-11-wrap__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .pf-11-wrap__stat b {
+    font-size: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-11-live-dot,
+  .pf-11-beam::after,
+  .pf-11-room.is-celebrating {
+    animation: none;
+  }
+  .pf-11-mood:hover {
+    transform: none;
+  }
+}

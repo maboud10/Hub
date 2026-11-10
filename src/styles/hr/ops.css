@@ -11,26 +11,25 @@
   flex-direction: column;
   gap: var(--gap);
 }
-.hr-ops__head {
+.hr-ops__bar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 14px 20px;
-  padding: 4px 2px 0;
+  gap: 10px 16px;
+  padding: 12px 16px;
 }
-.hr-ops__head .eyebrow {
-  margin-bottom: 6px;
-}
-.hr-ops__title {
-  font-family: var(--font-display);
-  font-size: clamp(20px, 2.4vw, 26px);
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-.hr-ops__sub {
-  margin-top: 4px;
+.hr-ops__bar-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-size: 13px;
   color: var(--text-2);
+}
+.hr-ops__bar-note svg {
+  width: 15px;
+  height: 15px;
+  color: var(--accent-ink);
 }
 .hr-ops__jump {
   display: flex;

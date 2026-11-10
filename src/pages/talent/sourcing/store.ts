@@ -336,7 +336,38 @@ export const studio = {
     draftRun += 1;
     set(initial());
   },
+
+  /**
+   * Hand-off from the Talent deck's Nova prompt: start a fresh session with a
+   * pasted JD or a one-line role brief and decode it straight away (the studio
+   * opens on step 1 with the scan running, then lands on Decode).
+   */
+  prefill(text: string): Promise<JobProfile | null> {
+    const jd = briefToJD(text);
+    jdRun += 1;
+    hitRun += 1;
+    draftRun += 1;
+    set({ ...initial(), text: jd });
+    return decode(jd, undefined, false);
+  },
 };
+
+/**
+ * A pasted JD passes through untouched; a short brief such as
+ * "Senior React engineer · fintech payments · Dubai hybrid" becomes a minimal
+ * JD the decoder understands (`Role:` line + details), so Nova can build the
+ * Search DNA and the recruiter refines it on the Decode step.
+ */
+export function briefToJD(brief: string): string {
+  const raw = brief.trim();
+  if (raw.includes('\n') || raw.length >= 220) return raw;
+  const flat = raw.replace(/\s+/g, ' ').replace(/[.]+$/, '');
+  const [head, ...rest] = flat.split(/\s*(?:[,;|·•]|\s[-–—]\s|\bin\b(?=\s+[A-Z]))\s*/).filter(Boolean);
+  const lines = [`Role: ${head ?? flat}`];
+  if (rest.length) lines.push(`About the role: ${rest.join(', ')}.`);
+  lines.push(`Brief from the Talent deck: ${flat}. Add responsibilities and requirements to sharpen the match.`);
+  return lines.join('\n');
+}
 
 /** The studio's JD state shaped as a `JDAnalysis`, so the shared <JDInput> works on it. */
 export function useStudioJD(): JDAnalysis {

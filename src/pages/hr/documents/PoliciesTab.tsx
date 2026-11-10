@@ -40,13 +40,14 @@ export function PoliciesTab() {
 
   return (
     <div className="hr-doc-policies">
-      <section className={cx('card hr-doc-polhead', done === required.length && 'is-complete')} aria-label="Policy progress">
+      <section className={cx('neo-panel card hr-doc-polhead', done === required.length && 'is-complete')} aria-label="Policy progress">
         <div className="hr-doc-polhead__ring" role="img" aria-label={`${done} of ${required.length} required policies acknowledged`} style={{ '--p': pct } as CSSProperties}>
           <b>
             {done}/{required.length}
           </b>
         </div>
         <div className="grow">
+          <div className="neo-hud">Handbook &amp; governance</div>
           <h2 className="section-title">{done === required.length ? 'You’re fully up to date' : 'A few minutes of reading'}</h2>
           <p className="text-sm muted">
             {done === required.length

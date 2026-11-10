@@ -96,6 +96,7 @@ export function PolicyTips({ onRequest }: { onRequest: (type: LeaveTypeId) => vo
   return (
     <HrPanel
       className="hr-to-tips"
+      hud="Good to know"
       title="Policy & tips"
       icon={<Lightbulb aria-hidden="true" />}
       sub="The rules in plain words. Questions are always welcome."

@@ -4,34 +4,34 @@
  * Every tab is shown only to holders of its permission, and every tab route is
  * wrapped in <RequirePermission> so deep links are protected too. The store
  * re-checks permissions on every action regardless — hiding UI is only UX.
+ *
+ * NEO workspace ("Control deck"): rail (Overview · Requests · People · Roles ·
+ * Apps · Audit — only the tabs you hold) + glass stage. The header follows the
+ * active section (SECTIONS); tabs publish their own header actions and toolbar
+ * row through `useAdminChrome` (see ./chrome).
  */
-import { useMemo, type ComponentType } from 'react';
-import { Navigate, NavLink, Route, Routes } from 'react-router';
-import { Check, Fingerprint, Lock } from 'lucide-react';
+import { useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { Fingerprint, LockKeyhole } from 'lucide-react';
+import { NeoAppFrame, isNavActive, type NeoHeadProps, type NeoNavItem } from '@/components/neo';
 import { useHub } from '@/store/hub';
-import {
-  useClearance,
-  usePermissions,
-  usePrimaryRole,
-  useReviewableRequests,
-  useRoles,
-  useSessionUser,
-} from '@/store/selectors';
+import { useClearance, usePermissions, usePrimaryRole, useReviewableRequests, useSessionUser } from '@/store/selectors';
 import { useNow } from '@/hooks/useNow';
 import { RequirePermission } from '@/components/auth/Can';
-import { Avatar, ClearanceBadge, RoleChip } from '@/components/ui/primitives';
 import { ADMIN_PERMISSIONS } from '@/data/permissions';
-import { hasPermission, isGrantActive } from '@/lib/rbac';
-import { cx } from '@/lib/cx';
-import type { Role } from '@/types';
-import { ADMIN_TABS, adminHref, type AdminTabId } from './adminTabs';
-import { DAY } from './shared';
+import { hasPermission } from '@/lib/rbac';
+import { firstName, greeting, pluralize } from '@/lib/format';
+import { ADMIN_BASE, ADMIN_TABS, adminHref, type AdminTabDef, type AdminTabId } from './adminTabs';
+import { AdminChromeProvider, type AdminChrome } from './chrome';
+import { CLEARANCE_NAMES, DAY } from './shared';
 import { OverviewTab } from './OverviewTab';
 import { RequestsTab } from './RequestsTab';
 import { UsersTab } from './UsersTab';
 import { RolesTab } from './RolesTab';
 import { AppsTab } from './AppsTab';
 import { AuditTab } from './AuditTab';
+
+const TINT = { c1: '#38bdf8', c2: '#818cf8' };
 
 const TAB_COMPONENTS: Record<AdminTabId, ComponentType> = {
   overview: OverviewTab,
@@ -42,209 +42,160 @@ const TAB_COMPONENTS: Record<AdminTabId, ComponentType> = {
   audit: AuditTab,
 };
 
+interface Section {
+  eyebrow: string;
+  title: string;
+  sub: string;
+}
+
+/** Header per route. The Overview (home) swaps in a greeting + your clearance. */
+const SECTIONS: Record<AdminTabId, Section> = {
+  overview: { eyebrow: 'Control deck', title: 'Overview', sub: 'Identity, access and audit at a glance.' },
+  requests: {
+    eyebrow: 'Control Center · Access',
+    title: 'Access requests',
+    sub: 'Approve or deny time-boxed access — oldest first, delegated to the people who hold the app.',
+  },
+  users: {
+    eyebrow: 'Control Center · Identity',
+    title: 'People & access',
+    sub: 'Roles, direct grants and account status for every identity in NEXUS.',
+  },
+  roles: {
+    eyebrow: 'Control Center · Policy',
+    title: 'Roles & permissions',
+    sub: 'The role catalog and the permission matrix behind every access check.',
+  },
+  apps: {
+    eyebrow: 'Control Center · Catalog',
+    title: 'App catalog',
+    sub: 'Register apps, set status and discoverability, and see who can open them.',
+  },
+  audit: {
+    eyebrow: 'Control Center · Security',
+    title: 'Audit log',
+    sub: 'Every permission-checked action — filter the trail, spot denials, export evidence.',
+  },
+};
+
 export function AdminPage() {
+  return (
+    <AdminShell>
+      <RequirePermission perm={ADMIN_PERMISSIONS} area="Control Center">
+        <AdminRoutes />
+      </RequirePermission>
+    </AdminShell>
+  );
+}
+
+// ─────────────────────────── routes ───────────────────────────
+
+function AdminRoutes() {
   const perms = usePermissions();
-  const visibleTabs = useMemo(() => ADMIN_TABS.filter((t) => hasPermission(perms, t.perm)), [perms]);
-  const first = visibleTabs[0];
+  const first = ADMIN_TABS.find((t) => hasPermission(perms, t.perm));
   const home = first ? adminHref(first.id) : '/';
 
   return (
-    <RequirePermission perm={ADMIN_PERMISSIONS} area="Control Center">
-      <div className="page adm">
-        <header className="page-head adm-head">
-          <div>
-            <div className="eyebrow">Control Center</div>
-            <h1 className="page-title">Control Center</h1>
-            <p className="page-sub">
-              Govern identities, access and the app catalog. Every change is permission-checked, time-boxed where possible and
-              written to the audit trail.
-            </p>
-          </div>
-        </header>
-
-        <AdminHero />
-        <AdminTabs />
-
-        <Routes>
-          <Route index element={<Navigate replace to={home} />} />
-          {ADMIN_TABS.map((t) => {
-            const Tab = TAB_COMPONENTS[t.id];
-            return (
-              <Route
-                key={t.id}
-                path={t.id}
-                element={
-                  <RequirePermission perm={t.perm} area={`Control Center · ${t.label}`}>
-                    <Tab />
-                  </RequirePermission>
-                }
-              />
-            );
-          })}
-          <Route path="*" element={<Navigate replace to={home} />} />
-        </Routes>
-      </div>
-    </RequirePermission>
-  );
-}
-
-// ─────────────────────────── tabs ───────────────────────────
-
-function AdminTabs() {
-  const perms = usePermissions();
-  const reviewable = useReviewableRequests();
-  const users = useHub((s) => s.users);
-  const roles = useHub((s) => s.roles);
-  const apps = useHub((s) => s.apps);
-  const audit = useHub((s) => s.audit);
-  const now = useNow(60_000);
-
-  const denied24h = useMemo(() => audit.filter((a) => a.outcome === 'denied' && a.at >= now - DAY).length, [audit, now]);
-
-  const counts: Partial<Record<AdminTabId, { value: number; alert?: boolean; label: string }>> = {
-    requests: { value: reviewable.length, alert: true, label: `${reviewable.length} awaiting your review` },
-    users: { value: users.length, label: `${users.length} people` },
-    roles: { value: roles.length, label: `${roles.length} roles` },
-    apps: { value: apps.length, label: `${apps.length} apps` },
-    audit: { value: denied24h, alert: true, label: `${denied24h} denied attempts in the last 24 hours` },
-  };
-
-  return (
-    <nav className="tabs adm-tabs" aria-label="Control Center sections">
-      {ADMIN_TABS.filter((t) => hasPermission(perms, t.perm)).map((t) => {
-        const c = counts[t.id];
-        const Icon = t.icon;
+    <Routes>
+      <Route index element={<Navigate replace to={home} />} />
+      {ADMIN_TABS.map((t) => {
+        const Tab = TAB_COMPONENTS[t.id];
         return (
-          <NavLink key={t.id} to={adminHref(t.id)} className={({ isActive }) => 'tab' + (isActive ? ' is-active' : '')}>
-            <Icon aria-hidden="true" />
-            {t.label}
-            {c && c.alert && c.value > 0 && (
-              <span className={cx('counter', t.id === 'audit' && 'adm-counter--warn')}>
-                <span aria-hidden="true">{c.value > 99 ? '99+' : c.value}</span>
-                <span className="sr-only">, {c.label}</span>
-              </span>
-            )}
-            {c && !c.alert && (
-              <span className="adm-tab-count">
-                <span aria-hidden="true">{c.value}</span>
-                <span className="sr-only">, {c.label}</span>
-              </span>
-            )}
-          </NavLink>
+          <Route
+            key={t.id}
+            path={t.id}
+            element={
+              <RequirePermission perm={t.perm} area={`Control Center · ${t.label}`}>
+                <Tab />
+              </RequirePermission>
+            }
+          />
         );
       })}
-    </nav>
+      <Route path="*" element={<Navigate replace to={home} />} />
+    </Routes>
   );
 }
 
-// ─────────────────────────── hero ───────────────────────────
+// ─────────────────────────── frame ───────────────────────────
 
-function AdminHero() {
+/**
+ * Rail + header for the active section. Holds the chrome slot state; `children`
+ * (the routes) is a stable element, so tabs publishing their actions/toolbar
+ * re-render only this frame.
+ */
+function AdminShell({ children }: { children: ReactNode }) {
   const me = useSessionUser();
   const role = usePrimaryRole();
   const clearance = useClearance();
-  const roles = useRoles();
   const perms = usePermissions();
-  const users = useHub((s) => s.users);
-  const audit = useHub((s) => s.audit);
   const reviewable = useReviewableRequests();
+  const audit = useHub((s) => s.audit);
   const now = useNow(60_000);
+  const { pathname } = useLocation();
+  const [chrome, setChrome] = useState<AdminChrome>({});
 
-  const stats = useMemo(() => {
-    let liveGrants = 0;
-    let active = 0;
-    for (const u of users) {
-      if (!u.active) continue;
-      active += 1;
-      liveGrants += u.grants.filter((g) => isGrantActive(g, now)).length;
-    }
-    const events24h = audit.filter((a) => a.at >= now - DAY).length;
-    const denied24h = audit.filter((a) => a.at >= now - DAY && a.outcome === 'denied').length;
-    return { active, total: users.length, liveGrants, events24h, denied24h };
-  }, [users, audit, now]);
+  const visible = useMemo(() => ADMIN_TABS.filter((t) => hasPermission(perms, t.perm)), [perms]);
+  const denied24h = useMemo(() => audit.filter((a) => a.outcome === 'denied' && a.at >= now - DAY).length, [audit, now]);
 
-  if (!me) return null;
-  const otherRoles = me.roleIds
-    .map((id) => roles.find((r) => r.id === id))
-    .filter((r): r is Role => !!r && r.id !== role?.id);
-  const canReview = hasPermission(perms, 'hub.requests.review');
+  const items: NeoNavItem[] = visible.map((t) => {
+    const Icon = t.icon;
+    const badge = t.id === 'requests' ? reviewable.length : t.id === 'audit' ? denied24h : 0;
+    return {
+      to: adminHref(t.id),
+      label: t.rail,
+      icon: <Icon />,
+      badge: badge || null,
+      badgeTone: t.id === 'audit' ? 'danger' : undefined,
+      title: railTitle(t, badge),
+    };
+  });
+
+  // Deep links to a tab you don't hold still get that section's header (the body shows the permission wall).
+  const active = ADMIN_TABS.find((t) => isNavActive({ to: adminHref(t.id) }, pathname)) ?? visible[0];
+
+  let head: NeoHeadProps;
+  if (!visible.length || !active) {
+    head = {
+      icon: <LockKeyhole />,
+      eyebrow: 'Control Center',
+      title: 'Restricted area',
+      sub: 'Identity, access and audit tooling for NEXUS administrators.',
+    };
+  } else if (active.id === 'overview') {
+    const level = clearance ? `L${clearance} ${CLEARANCE_NAMES[clearance] ?? ''}`.trim() : 'No clearance';
+    head = {
+      icon: <Fingerprint />,
+      eyebrow: SECTIONS.overview.eyebrow,
+      title: `${greeting()}${me ? `, ${firstName(me.name)}` : ''}`,
+      sub: `${role?.name ?? 'Operator'} · ${level} · session verified — every change is permission-checked and audited.`,
+      actions: chrome.actions,
+    };
+  } else {
+    const s = SECTIONS[active.id];
+    const Icon = active.icon;
+    head = { icon: <Icon />, eyebrow: s.eyebrow, title: s.title, sub: s.sub, actions: chrome.actions };
+  }
 
   return (
-    <section className="card glow-border hud adm-hero" aria-label="Your admin session">
-      <span className="adm-hero__scan" aria-hidden="true" />
-      <div className="adm-hero__id">
-        <Avatar user={me} size={58} presence />
-        <div className="grow">
-          <div className="adm-micro adm-hero__op">
-            <Fingerprint aria-hidden="true" /> Operator · session verified
-          </div>
-          <div className="adm-hero__name truncate">{me.name}</div>
-          <div className="text-sm muted truncate">{me.title}</div>
-          <div className="adm-hero__roles">
-            <ClearanceBadge level={clearance} label={role?.name} />
-            {otherRoles.map((r) => (
-              <RoleChip key={r.id} name={r.name} color={r.color} />
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="adm-hero__side">
-        <div className="adm-hero__stats">
-          <HeroStat
-            label="Awaiting you"
-            value={canReview ? reviewable.length : '—'}
-            hint={canReview ? (reviewable.length ? 'Requests to review' : 'Inbox zero') : 'No review rights'}
-            hot={canReview && reviewable.length > 0}
-          />
-          <HeroStat label="Active people" value={stats.active} suffix={`/${stats.total}`} hint="Identities enabled" />
-          <HeroStat label="Live grants" value={stats.liveGrants} hint="Direct, non-expired" />
-          <HeroStat
-            label="Events · 24h"
-            value={stats.events24h}
-            hint={stats.denied24h ? `${stats.denied24h} denied` : 'No denials'}
-            hot={stats.denied24h > 0}
-          />
-        </div>
-        <div className="adm-scope" aria-label="Your admin scope">
-          <span className="adm-micro">Scope</span>
-          {ADMIN_TABS.map((t) => {
-            const on = hasPermission(perms, t.perm);
-            return (
-              <span key={t.id} className={cx('adm-scope__item', on && 'is-on')} title={on ? `You can access ${t.label}` : `Requires ${t.perm}`}>
-                {on ? <Check aria-hidden="true" /> : <Lock aria-hidden="true" />}
-                {t.short}
-                <span className="sr-only">{on ? '(granted)' : '(not granted)'}</span>
-              </span>
-            );
-          })}
-        </div>
-      </div>
-    </section>
+    <AdminChromeProvider value={setChrome}>
+      <NeoAppFrame
+        app="admin"
+        tint={TINT}
+        className="adm"
+        brand={{ icon: <Fingerprint />, label: 'Control Center', to: ADMIN_BASE }}
+        items={items}
+        head={head}
+        toolbar={chrome.toolbar}
+      >
+        {children}
+      </NeoAppFrame>
+    </AdminChromeProvider>
   );
 }
 
-function HeroStat({
-  label,
-  value,
-  suffix,
-  hint,
-  hot,
-}: {
-  label: string;
-  value: number | string;
-  suffix?: string;
-  hint: string;
-  hot?: boolean;
-}) {
-  return (
-    <div className={cx('adm-hero-stat', hot && 'is-hot')}>
-      <span className="adm-micro">{label}</span>
-      <span className="adm-hero-stat__value">
-        {value}
-        {suffix && <small>{suffix}</small>}
-      </span>
-      <span className="adm-hero-stat__hint">{hint}</span>
-    </div>
-  );
+function railTitle(t: AdminTabDef, badge: number): string {
+  if (t.id === 'requests' && badge) return `Requests · ${pluralize(badge, 'request')} awaiting your review`;
+  if (t.id === 'audit' && badge) return `Audit log · ${pluralize(badge, 'denied attempt')} in the last 24 hours`;
+  return `${t.label} — ${t.description}`;
 }

@@ -1,0 +1,55 @@
+/** Icon maps for playbooks, catalog items and services. */
+import {
+  AppWindow,
+  Cloud,
+  Code2,
+  Container,
+  Database,
+  Figma,
+  FileWarning,
+  Fingerprint,
+  GitBranch,
+  Github,
+  HardDrive,
+  Headphones,
+  KeyRound,
+  Mail,
+  MonitorCog,
+  Palette,
+  Presentation,
+  Printer,
+  Rocket,
+  ShieldCheck,
+  Users,
+  Wifi,
+  type LucideIcon,
+} from 'lucide-react';
+import type { PlaybookId } from '@/helpdesk/types';
+
+export const PLAYBOOK_ICON: Record<PlaybookId, LucideIcon> = {
+  'reset-passkey': Fingerprint,
+  'repair-vpn': ShieldCheck,
+  'renew-wifi': Wifi,
+  'clear-disk': HardDrive,
+  'fix-mail': Mail,
+  'add-printer': Printer,
+  'install-software': AppWindow,
+  'report-phishing': FileWarning,
+  'fix-display': MonitorCog,
+  'fix-audio': Headphones,
+  'speed-up': Rocket,
+};
+
+export const CATALOG_ICON: Record<string, LucideIcon> = {
+  figma: Figma,
+  code: Code2,
+  palette: Palette,
+  container: Container,
+  presentation: Presentation,
+  git: Github,
+  cloud: Cloud,
+  crm: Users,
+  database: Database,
+  key: KeyRound,
+  branch: GitBranch,
+};

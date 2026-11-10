@@ -1,100 +1,135 @@
 /**
- * Access rules for Helix Projects. Project visibility combines the hub's RBAC
- * (`app:projects`, `projects.manage`, `*`) with project privacy and membership:
+ * Helix Projects permission engine — pure functions, no React, no store.
  *
- *  - private: members only (admins see it read-only for governance)
- *  - team:    members, plus everyone in the project's department (editors)
- *  - public:  members, department colleagues (editors), other employees (commenters)
- *  - contractors (clearance L1) only ever see projects they were explicitly added to.
+ * Privacy:  public  → everyone in the org (contractors excluded)
+ *           team    → the project's department (+ `projects.manage`)
+ *           private → members only (nobody else, not even admins)
+ * Roles:    owner > editor > commenter > viewer
+ * Admins:   `projects.manage` administers every non-private project.
+ * Contractors only ever see projects they are members of and cannot create projects.
  */
-import type { Department, Role, User } from '@/types';
-import { clearanceOf, effectivePermissions, hasPermission } from '@/lib/rbac';
-import { ROLE_META } from './constants';
-import type { Project, ProjectRole, Task } from './types';
+import type { Department, User } from '@/types';
+import { hasPermission } from '@/lib/rbac';
+import type { Privacy, Project, ProjectRole, Task } from './types';
 
-export interface ProjectsViewer {
-  userId: string;
-  perms: ReadonlySet<string>;
+export interface Actor {
+  id: string;
+  name: string;
   department: Department;
-  roleIds: string[];
-  clearance: number;
+  perms: ReadonlySet<string>;
+  contractor: boolean;
 }
 
-export function buildProjectsViewer(user: User | null | undefined, roles: Role[]): ProjectsViewer | null {
-  if (!user || !user.active) return null;
+export type Access = ProjectRole | 'admin';
+
+export function actorFrom(user: User, perms: ReadonlySet<string>): Actor {
   return {
-    userId: user.id,
-    perms: effectivePermissions(user, roles),
+    id: user.id,
+    name: user.name,
     department: user.department,
-    roleIds: user.roleIds,
-    clearance: clearanceOf(user, roles),
+    perms,
+    contractor: user.roleIds.includes('contractor') && !user.roleIds.includes('employee'),
   };
 }
 
-export const isSuper = (v: ProjectsViewer) => v.perms.has('*');
-export const isContractor = (v: ProjectsViewer) => v.roleIds.includes('contractor') || v.clearance <= 1;
-export const canUseProjects = (v: ProjectsViewer | null): boolean => Boolean(v && hasPermission(v.perms, 'app:projects'));
-/** Create projects for any team, manage portfolios, goals and templates. */
-export const canManageProjects = (v: ProjectsViewer | null): boolean => Boolean(v && hasPermission(v.perms, 'projects.manage'));
-/** Every employee can start a project; contractors work inside projects they are invited to. */
-export const canCreateProject = (v: ProjectsViewer | null): boolean => Boolean(v && canUseProjects(v) && !isContractor(v));
+export const isProjectsAdmin = (a: Actor) => !a.contractor && hasPermission(a.perms, 'projects.manage');
 
-const maxRole = (a: ProjectRole | null, b: ProjectRole | null): ProjectRole | null => {
-  if (!a) return b;
-  if (!b) return a;
-  return ROLE_META[a].rank >= ROLE_META[b].rank ? a : b;
+export function memberRole(p: Pick<Project, 'members'>, userId: string): ProjectRole | null {
+  return p.members.find((m) => m.userId === userId)?.role ?? null;
+}
+
+export function canViewProject(p: Project, a: Actor): boolean {
+  if (memberRole(p, a.id)) return true;
+  if (a.contractor || p.privacy === 'private') return false;
+  if (p.privacy === 'public') return true;
+  return p.department === a.department || isProjectsAdmin(a);
+}
+
+/** Effective access level, or null when the project is invisible. */
+export function projectAccess(p: Project, a: Actor): Access | null {
+  const role = memberRole(p, a.id);
+  if (role === 'owner') return 'owner';
+  if (p.privacy !== 'private' && isProjectsAdmin(a)) return 'admin';
+  if (role) return role;
+  return canViewProject(p, a) ? 'viewer' : null;
+}
+
+const RANK: Record<Access, number> = { viewer: 0, commenter: 1, editor: 2, admin: 3, owner: 4 };
+const atLeast = (acc: Access | null, min: Access) => acc !== null && RANK[acc] >= RANK[min];
+
+/** Members & roles, privacy, archive, delete. */
+export const canAdminProject = (p: Project, a: Actor) => atLeast(projectAccess(p, a), 'admin');
+/** Tasks, sections, brief, status updates, automations, files, linked OKRs. */
+export const canEditProject = (p: Project, a: Actor) => !p.archived && atLeast(projectAccess(p, a), 'editor');
+export const canCommentProject = (p: Project, a: Actor) => atLeast(projectAccess(p, a), 'commenter');
+export const canCreateProject = (a: Actor) => !a.contractor;
+
+export function visibleProjects(projects: Project[], a: Actor): Project[] {
+  return projects.filter((p) => canViewProject(p, a));
+}
+
+/* ---------- Tasks ---------- */
+type ProjectLookup = (id: string) => Project | undefined;
+
+export function canSeeTask(t: Task, project: Project | undefined, a: Actor): boolean {
+  if (!t.projectId) return t.creatorId === a.id || t.assigneeId === a.id;
+  return !!project && canViewProject(project, a);
+}
+
+export function canEditTask(t: Task, project: Project | undefined, a: Actor): boolean {
+  if (!t.projectId) return t.creatorId === a.id || t.assigneeId === a.id;
+  return !!project && canEditProject(project, a);
+}
+
+/** Assignees may always tick off their own work, even with comment-only access. */
+export function canCompleteTask(t: Task, project: Project | undefined, a: Actor): boolean {
+  if (canEditTask(t, project, a)) return true;
+  return t.assigneeId === a.id && canSeeTask(t, project, a) && !project?.archived;
+}
+
+export function canCommentTask(t: Task, project: Project | undefined, a: Actor): boolean {
+  if (!t.projectId) return canSeeTask(t, project, a);
+  if (!project) return false;
+  return canCommentProject(project, a) || t.assigneeId === a.id;
+}
+
+export function canDecideApproval(t: Task, project: Project | undefined, a: Actor): boolean {
+  return t.kind === 'approval' && t.approval?.approverId === a.id && canSeeTask(t, project, a);
+}
+
+export function canDeleteTask(t: Task, project: Project | undefined, a: Actor): boolean {
+  if (!t.projectId) return t.creatorId === a.id;
+  return !!project && canEditProject(project, a);
+}
+
+export function visibleTasks(tasks: Task[], lookup: ProjectLookup, a: Actor): Task[] {
+  return tasks.filter((t) => canSeeTask(t, t.projectId ? lookup(t.projectId) : undefined, a));
+}
+
+/* ---------- Copy for disabled states ---------- */
+export const ROLE_LABEL: Record<Access, string> = {
+  owner: 'Owner',
+  admin: 'Admin',
+  editor: 'Editor',
+  commenter: 'Commenter',
+  viewer: 'Viewer',
 };
 
-/** Effective role of the viewer on a project, or null when the project is invisible. */
-export function projectRoleFor(v: ProjectsViewer | null, project: Project | undefined): ProjectRole | null {
-  if (!v || !project || !canUseProjects(v)) return null;
-  if (isSuper(v)) return 'owner';
-  if (project.ownerId === v.userId) return 'owner';
-  const member = project.members.find((m) => m.userId === v.userId);
-  let role: ProjectRole | null = member ? member.role : null;
-  if (isContractor(v)) return role;
-  if (project.privacy === 'private') {
-    return role ?? (canManageProjects(v) ? 'viewer' : null);
-  }
-  if (project.department === v.department) role = maxRole(role, 'editor');
-  if (project.privacy === 'public') role = maxRole(role, 'commenter');
-  if (canManageProjects(v)) role = maxRole(role, 'viewer');
-  return role;
-}
-
-const rank = (r: ProjectRole | null) => (r ? ROLE_META[r].rank : -1);
-
-export const canViewProject = (v: ProjectsViewer | null, p: Project | undefined) => projectRoleFor(v, p) !== null;
-export const canCommentProject = (v: ProjectsViewer | null, p: Project | undefined) => rank(projectRoleFor(v, p)) >= ROLE_META.commenter.rank;
-export const canEditProject = (v: ProjectsViewer | null, p: Project | undefined) => rank(projectRoleFor(v, p)) >= ROLE_META.editor.rank;
-/** Settings, members, sections, rules, forms, archive. */
-export const canAdminProject = (v: ProjectsViewer | null, p: Project | undefined): boolean => {
-  if (!v || !p) return false;
-  if (projectRoleFor(v, p) === 'owner') return true;
-  return canManageProjects(v) && p.privacy !== 'private';
+export const PRIVACY_LABEL: Record<Privacy, string> = {
+  public: 'Everyone at Helix',
+  team: 'Department only',
+  private: 'Members only',
 };
 
-export type GateResult = { ok: true } | { ok: false; reason: string };
-
-/** Approval tasks are decided by the named approver — never by whoever raised the request. */
-export function canDecideApproval(v: ProjectsViewer | null, task: Task | undefined): GateResult {
-  if (!v || !task || task.type !== 'approval' || !task.approval) return { ok: false, reason: 'Not an approval task.' };
-  if (task.approval.decision !== 'pending') return { ok: false, reason: 'This approval has already been decided.' };
-  if (isSuper(v)) return { ok: true };
-  if (task.approval.approverId !== v.userId) return { ok: false, reason: 'Only the assigned approver can decide this request.' };
-  if (task.creatorId === v.userId) return { ok: false, reason: 'Separation of duties: you cannot approve a request you raised yourself.' };
-  return { ok: true };
+export function readOnlyReason(p: Project, a: Actor, ownerName?: string): string | null {
+  if (p.archived) return 'This project is archived.';
+  const acc = projectAccess(p, a);
+  if (atLeast(acc, 'editor')) return null;
+  const who = ownerName ? `Ask ${ownerName.split(' ')[0]}` : 'Ask the owner';
+  if (acc === 'commenter') return `You can comment. ${who} for edit access.`;
+  return `View only. ${who} for edit access.`;
 }
 
-/** Project owners/admins can manage anyone; editors may edit tasks; assignees can always update their own tasks. */
-export function canEditTask(v: ProjectsViewer | null, project: Project | undefined, task: Task | undefined): boolean {
-  if (!v || !project || !task) return false;
-  if (canEditProject(v, project)) return true;
-  return task.assigneeId === v.userId && canCommentProject(v, project);
-}
-
-export function canDeleteTask(v: ProjectsViewer | null, project: Project | undefined, task: Task | undefined): boolean {
-  if (!v || !project || !task) return false;
-  if (canAdminProject(v, project)) return true;
-  return task.creatorId === v.userId && canEditProject(v, project);
+export function createProjectReason(a: Actor): string | null {
+  return a.contractor ? 'Contractors can’t create projects — ask your Helix sponsor.' : null;
 }

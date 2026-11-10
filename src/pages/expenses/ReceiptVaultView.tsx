@@ -1,7 +1,6 @@
-import { useMemo, useRef, useState, type DragEvent } from 'react';
-import { useNavigate } from 'react-router';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import {
-  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   CreditCard,
@@ -12,8 +11,10 @@ import {
   ScanLine,
   Sparkles,
   Trash2,
+  TriangleAlert,
   Wallet,
 } from 'lucide-react';
+import { Chip, NeoBanner, NeoBanners, NeoEmpty, NeoPanel, NeoTabs, type NeoTabItem } from '@/components/neo';
 import { cx } from '@/lib/cx';
 import { formatDay, todayISO } from '@/hr/calendar';
 import {
@@ -31,12 +32,14 @@ import type {
   ExpenseCategory,
   PaymentMethod,
 } from '@/expenses/types';
-import { EmptyState } from '@/components/ui/primitives';
 import { toast } from '@/store/toast';
+import { readReceiptDraft, RECEIPT_DRAFT_KEYS } from './nova';
 import {
+  CategoryGlyph,
   formatAed,
   formatOrigCurrency,
   PolicyWarningChips,
+  RECEIPT_FILE_INPUT_ID,
 } from './shared';
 
 type VaultFilter = 'all' | 'unsubmitted' | 'attached' | 'warnings';
@@ -45,8 +48,10 @@ const CURRENCIES = Object.keys(FX_TO_AED) as CurrencyCode[];
 const CATEGORIES = Object.keys(CATEGORY_META) as ExpenseCategory[];
 
 export function ReceiptVaultView() {
-  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const summary = useMySpendSummary();
   const reports = useExpenses((s) => s.reports);
@@ -77,9 +82,52 @@ export function ReceiptVaultView() {
   const [ocrConfidence, setOcrConfidence] = useState<number>(97);
   const [notes, setNotes] = useState('');
   const [attendees, setAttendees] = useState('');
+  const [novaDrafted, setNovaDrafted] = useState(false);
+  const [pulse, setPulse] = useState<'drop' | 'form' | null>(null);
 
   // Vault filter state
   const [filter, setFilter] = useState<VaultFilter>('all');
+
+  // Nova hand-off (?nova=1&merchant=…&amount=…) and header "Scan receipt" (?scan=1)
+  const appliedKey = useRef('');
+  useEffect(() => {
+    const draft = readReceiptDraft(searchParams);
+    const scan = searchParams.get('scan') === '1';
+    if (!draft && !scan) return;
+    const key = searchParams.toString();
+    if (appliedKey.current === key) return;
+    appliedKey.current = key;
+
+    if (draft) {
+      if (draft.merchant) setMerchant(draft.merchant);
+      if (draft.category) setCategory(draft.category);
+      if (draft.currency) setCurrency(draft.currency);
+      if (draft.amount) setOriginalAmount(draft.amount);
+      if (draft.date) setDate(draft.date);
+      if (draft.notes) setNotes(draft.notes);
+      if (draft.attendees) setAttendees(draft.attendees);
+      if (draft.payment) setPaymentMethod(draft.payment);
+      setVatAed(0);
+      setFileName('');
+      setNovaDrafted(true);
+      setPulse('form');
+      requestAnimationFrame(() => formRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    } else {
+      setPulse('drop');
+      requestAnimationFrame(() => dropRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    }
+    const next = new URLSearchParams(searchParams);
+    for (const k of RECEIPT_DRAFT_KEYS) next.delete(k);
+    next.delete('scan');
+    setSearchParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!pulse) return;
+    const id = window.setTimeout(() => setPulse(null), 2400);
+    return () => window.clearTimeout(id);
+  }, [pulse]);
 
   const liveConversion = useMemo(
     () => convertToAed(originalAmount || 0, currency),
@@ -109,6 +157,8 @@ export function ReceiptVaultView() {
     setVatAed(draft.vatAed);
     setOcrConfidence(draft.confidence);
     setNotes(draft.notes);
+    setNovaDrafted(false);
+    setPulse('form');
     toast.info(
       `AI OCR extracted ${draft.merchant} (${draft.confidence}% confidence)`,
       `${formatOrigCurrency(draft.originalAmount, draft.currency)} → ${formatAed(convertToAed(draft.originalAmount, draft.currency).amountAed, true)}`,
@@ -157,7 +207,7 @@ export function ReceiptVaultView() {
       date,
       currency,
       originalAmount,
-      vatAed,
+      vatAed: vatAed || undefined,
       paymentMethod,
       fileName: fileName || undefined,
       ocrConfidence,
@@ -171,6 +221,7 @@ export function ReceiptVaultView() {
       setFileName('');
       setNotes('');
       setAttendees('');
+      setNovaDrafted(false);
     }
   };
 
@@ -198,60 +249,40 @@ export function ReceiptVaultView() {
     }
   }, [summary.myReceipts, filter]);
 
+  const filterTabs: NeoTabItem<VaultFilter>[] = [
+    { value: 'all', label: 'All', count: counts.all },
+    { value: 'unsubmitted', label: 'Unsubmitted', count: counts.unsubmitted },
+    { value: 'attached', label: 'On a report', count: counts.attached },
+    { value: 'warnings', label: 'Policy notes', count: counts.warnings },
+  ];
+
   return (
-    <div className="stack stack--lg" style={{ minWidth: 0 }}>
+    <div className="neo-stack">
       {/* Top Action Banner when unbundled receipts exist */}
       {summary.unbundledReceipts.length > 0 && (
-        <div
-          className="card row row--between row--wrap"
-          style={{
-            padding: '14px 18px',
-            borderColor: 'rgb(var(--ex-1-rgb) / 0.38)',
-            background: 'rgb(var(--ex-1-rgb) / 0.08)',
-          }}
-        >
-          <div className="row" style={{ gap: 10, minWidth: 0 }}>
-            <FileSpreadsheet style={{ width: 20, height: 20, color: 'var(--ex-ink)', flex: 'none' }} />
-            <div style={{ minWidth: 0 }}>
-              <div className="text-sm" style={{ fontWeight: 650 }}>
-                {summary.unbundledReceipts.length} unbundled receipt{summary.unbundledReceipts.length === 1 ? '' : 's'} ready in your vault
-              </div>
-              <div className="text-xs muted">
-                Out-of-pocket reimbursable: <b className="mono">{formatAed(summary.unsubmittedVaultAed, true)}</b>
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            className="btn ex-btn-teal"
-            onClick={() => navigate('/expenses/reports?new=1')}
+        <NeoBanners>
+          <NeoBanner
+            tone="teal"
+            icon={<FileSpreadsheet />}
+            title={`${summary.unbundledReceipts.length} receipt${summary.unbundledReceipts.length === 1 ? '' : 's'} ready to bundle`}
+            meta={`${formatAed(summary.unsubmittedVaultAed, true)} out of pocket`}
+            to="/expenses/reports?new=1"
           >
-            Bundle into Expense Report →
-          </button>
-        </div>
+            Bundle them into an expense report to start reimbursement.
+          </NeoBanner>
+        </NeoBanners>
       )}
 
       {/* Scanner + OCR Extraction Studio */}
       <div className="ex-two-col">
         {/* Left: AI Smart Receipt Dropzone + 1-Click Samples + Per Diem Generator */}
-        <section className="card stack" style={{ minWidth: 0 }}>
-          <div className="row row--between row--wrap">
-            <div>
-              <h2 className="section-title" style={{ fontSize: 16 }}>
-                <ScanLine style={{ width: 18, height: 18, color: 'var(--ex-ink)' }} />
-                AI Smart Receipt OCR Scanner
-              </h2>
-              <p className="text-xs muted" style={{ marginTop: 2 }}>
-                Drop a PDF/photo or click a sample folio below to extract merchant, FX rate, GL code &amp; VAT automatically.
-              </p>
-            </div>
-          </div>
-
+        <NeoPanel hud="Smart OCR" title="Scan a receipt" icon={<ScanLine />}>
           <input
+            id={RECEIPT_FILE_INPUT_ID}
             ref={fileInputRef}
             type="file"
             accept=".pdf,.png,.jpg,.jpeg,.webp"
-            style={{ display: 'none' }}
+            hidden
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) applyScannedFile(f.name);
@@ -260,9 +291,10 @@ export function ReceiptVaultView() {
           />
 
           <div
+            ref={dropRef}
             role="button"
             tabIndex={0}
-            className={cx('ex-dropzone', dragging && 'is-dragging')}
+            className={cx('ex-drop', dragging && 'is-dragging', pulse === 'drop' && 'is-pulse')}
             onClick={() => fileInputRef.current?.click()}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -277,73 +309,58 @@ export function ReceiptVaultView() {
             onDragLeave={() => setDragging(false)}
             onDrop={handleFileDrop}
           >
-            <FileUp style={{ width: 28, height: 28, color: 'var(--ex-ink)', margin: '0 auto 8px' }} />
-            <div style={{ fontWeight: 650, fontSize: 14.5 }}>
-              Drop receipt PDF / photo here, or <span style={{ color: 'var(--ex-ink)', textDecoration: 'underline' }}>browse file</span>
-            </div>
-            <div className="text-xs muted" style={{ marginTop: 4 }}>
-              Supports multi-currency invoices (AED, GBP, EUR, USD, SGD, SAR, JPY) with 96%–98% OCR confidence
-            </div>
+            <span className="ex-drop__icon" aria-hidden="true">
+              <FileUp />
+            </span>
+            <b className="ex-drop__title">
+              Drop a receipt PDF or photo, or <span className="neo-tint">browse</span>
+            </b>
+            <span className="ex-drop__sub">AED, GBP, EUR, USD, SGD, SAR & JPY · 96–98% OCR confidence</span>
             {fileName && (
-              <div style={{ marginTop: 10 }}>
-                <span className="badge badge--success mono">
-                  <CheckCircle2 /> Scanned: {fileName} ({ocrConfidence}% OCR)
-                </span>
-              </div>
+              <Chip tone="success" size="sm" icon={<CheckCircle2 />}>
+                Scanned {fileName} · {ocrConfidence}% OCR
+              </Chip>
             )}
           </div>
 
           {/* 1-Click Sample Smart Receipts Strip */}
-          <div>
-            <div className="row row--between" style={{ marginBottom: 4 }}>
-              <span className="field-label">
-                <Sparkles style={{ width: 13, height: 13, display: 'inline', marginRight: 5, color: 'var(--ex-ink)' }} />
-                1-Click Sample Multi-Currency Smart Receipts
-              </span>
-              <span className="text-xs muted">Instant scan &amp; save</span>
-            </div>
-            <div className="ex-sample-strip">
-              {SAMPLE_SMART_RECEIPTS.map((s) => {
-                const conv = convertToAed(s.amount, s.currency);
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className="ex-sample-card"
-                    onClick={() => handleQuickSampleScan(s)}
-                  >
-                    <div className="row row--between" style={{ width: '100%' }}>
-                      <span className="ex-gl-badge">{CATEGORY_META[s.category].glCode}</span>
-                      <span className="mono text-xs" style={{ color: 'var(--ex-ink)', fontWeight: 650 }}>
-                        {formatOrigCurrency(s.amount, s.currency)}
-                      </span>
-                    </div>
-                    <div className="text-sm" style={{ fontWeight: 650, marginTop: 2 }}>
-                      {s.label}
-                    </div>
-                    <div className="text-xs muted">
-                      ≈ {formatAed(conv.amountAed, true)} · Click to scan
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="ex-subhead">
+            <span className="neo-hud">
+              <Sparkles className="ex-inline-icon" /> Try a sample receipt
+            </span>
+            <span className="ex-faint">Scans & saves instantly</span>
+          </div>
+          <div className="ex-samples">
+            {SAMPLE_SMART_RECEIPTS.map((s) => {
+              const conv = convertToAed(s.amount, s.currency);
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  className="ex-sample"
+                  onClick={() => handleQuickSampleScan(s)}
+                >
+                  <CategoryGlyph category={s.category} size="sm" />
+                  <span className="ex-sample__text">
+                    <b>{s.label}</b>
+                    <span>
+                      {formatOrigCurrency(s.amount, s.currency)} ≈ {formatAed(conv.amountAed)}
+                    </span>
+                  </span>
+                  <span className="ex-gl">{CATEGORY_META[s.category].glCode}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* 1-Click Trip Per-Diem Generator */}
           {eligibleTrips.length > 0 && (
-            <div className="ex-split-panel">
-              <div className="row row--between row--wrap" style={{ gap: 8 }}>
-                <div>
-                  <div className="text-sm" style={{ fontWeight: 650 }}>
-                    1-Click Statutory Trip Per-Diem Generator
-                  </div>
-                  <div className="text-xs muted">
-                    Auto-calculates daily allowance (`days × city rate`) with 100% policy compliance.
-                  </div>
-                </div>
+            <div className="ex-perdiem">
+              <div>
+                <b>Trip per diem in one click</b>
+                <span>Days × city rate, 100% policy-compliant — no receipt needed.</span>
               </div>
-              <div className="row row--wrap" style={{ gap: 8 }}>
+              <div className="ex-chips">
                 {eligibleTrips.map((t) => {
                   const alreadyHas = summary.myReceipts.some(
                     (r) => r.tripId === t.id && r.category === 'per_diem',
@@ -352,249 +369,243 @@ export function ReceiptVaultView() {
                     <button
                       key={t.id}
                       type="button"
-                      className={cx('btn btn--sm', !alreadyHas && 'ex-btn-teal')}
+                      className={cx('neo-btn neo-btn--sm', alreadyHas ? 'neo-btn--ghost' : 'neo-btn--soft')}
                       disabled={alreadyHas}
                       onClick={() => {
                         const res = generateTripPerDiemReceipt(t.id);
                         toast.result(res, 'Trip per diem added');
                       }}
                     >
-                      <Sparkles />
-                      {t.destinationCity} ({t.days}d · {formatAed(t.days * t.perDiemRateAed)})
-                      {alreadyHas ? ' ✓ In Vault' : ''}
+                      {alreadyHas ? <CheckCircle2 /> : <Sparkles />}
+                      {t.destinationCity} · {t.days}d · {formatAed(t.days * t.perDiemRateAed)}
+                      {alreadyHas ? ' · in vault' : ''}
                     </button>
                   );
                 })}
               </div>
             </div>
           )}
-        </section>
+        </NeoPanel>
 
         {/* Right: Editable OCR Receipt Form */}
-        <section className="card stack" style={{ minWidth: 0 }}>
-          <div className="row row--between">
-            <h2 className="section-title" style={{ fontSize: 16 }}>
-              Receipt Details &amp; FX Preview
-            </h2>
-            {fileName ? (
-              <span className="badge badge--success mono">OCR {ocrConfidence}%</span>
-            ) : (
-              <span className="badge badge--muted">Manual / OCR Draft</span>
+        <section ref={formRef} className={cx('neo-panel ex-form-panel', pulse === 'form' && 'is-pulse')} aria-label="Receipt details">
+          <header className="neo-panel__head">
+            <span className="neo-panel__icon">
+              <Receipt />
+            </span>
+            <div className="neo-panel__titles">
+              <div className="neo-hud">{novaDrafted ? 'Drafted by Nova' : fileName ? 'OCR extract' : 'Manual entry'}</div>
+              <h2 className="neo-panel__title">Receipt details</h2>
+            </div>
+            <div className="neo-panel__actions">
+              {fileName ? (
+                <Chip tone="success" size="sm">
+                  OCR {ocrConfidence}%
+                </Chip>
+              ) : novaDrafted ? (
+                <Chip tone="violet" size="sm" icon={<Sparkles />}>
+                  Nova
+                </Chip>
+              ) : (
+                <Chip size="sm">Draft</Chip>
+              )}
+            </div>
+          </header>
+
+          <div className="stack">
+            {novaDrafted && (
+              <div className="ex-callout" data-tone="app">
+                <div className="ex-callout__row">
+                  <Sparkles />
+                  <span>Nova filled this in from your note — check the details, attach the file if you have it, then save.</span>
+                </div>
+              </div>
             )}
-          </div>
 
-          <div className="ex-form-grid">
-            <label className="field">
-              <span className="field-label">Merchant</span>
-              <input
-                className="input"
-                value={merchant}
-                onChange={(e) => setMerchant(e.target.value)}
-                placeholder="e.g. CitizenM London, Uber, Emirates"
-              />
-            </label>
-            <label className="field">
-              <span className="field-label">Category &amp; GL Code</span>
-              <select
-                className="select"
-                value={category}
-                onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {CATEGORY_META[c].label} ({CATEGORY_META[c].glCode})
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="ex-form-grid">
-            <label className="field">
-              <span className="field-label">Original Amount &amp; Currency</span>
-              <div className="row" style={{ gap: 8 }}>
+            <div className="ex-form-grid">
+              <label className="field">
+                <span className="field-label">Merchant</span>
+                <input
+                  className="input"
+                  value={merchant}
+                  onChange={(e) => setMerchant(e.target.value)}
+                  placeholder="e.g. CitizenM London, Uber, Emirates"
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">Category & GL code</span>
                 <select
-                  className="select mono"
-                  style={{ width: 104, flex: 'none' }}
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+                  className="select"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
                 >
-                  {CURRENCIES.map((cur) => (
-                    <option key={cur} value={cur}>
-                      {cur}
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {CATEGORY_META[c].label} ({CATEGORY_META[c].glCode})
                     </option>
                   ))}
                 </select>
+              </label>
+            </div>
+
+            <div className="ex-form-grid">
+              <label className="field">
+                <span className="field-label">Amount & currency</span>
+                <div className="row" style={{ gap: 8 }}>
+                  <select
+                    className="select mono"
+                    style={{ width: 96, flex: 'none' }}
+                    value={currency}
+                    aria-label="Currency"
+                    onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+                  >
+                    {CURRENCIES.map((cur) => (
+                      <option key={cur} value={cur}>
+                        {cur}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    className="input mono"
+                    value={originalAmount || ''}
+                    onChange={(e) => setOriginalAmount(Number(e.target.value) || 0)}
+                    placeholder="0.00"
+                  />
+                </div>
+              </label>
+              <label className="field">
+                <span className="field-label">Receipt date</span>
+                <input
+                  type="date"
+                  className="input"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </label>
+            </div>
+
+            <div className="ex-form-grid">
+              <label className="field">
+                <span className="field-label">Payment method</span>
+                <select
+                  className="select"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+                >
+                  <option value="personal_reimbursable">Personal (out-of-pocket, reimbursable)</option>
+                  <option value="corporate_card">Helix virtual corporate card</option>
+                </select>
+              </label>
+              <label className="field">
+                <span className="field-label">Link to trip (optional)</span>
+                <select
+                  className="select"
+                  value={tripId}
+                  onChange={(e) => setTripId(e.target.value)}
+                >
+                  <option value="">Standalone local spend</option>
+                  {summary.myTrips.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.destinationCity} · {t.reference}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="ex-form-grid">
+              <label className="field">
+                <span className="field-label">Extracted VAT (AED)</span>
                 <input
                   type="number"
                   min={0}
                   step="0.01"
                   className="input mono"
-                  value={originalAmount || ''}
-                  onChange={(e) => setOriginalAmount(Number(e.target.value) || 0)}
-                  placeholder="0.00"
+                  value={vatAed || ''}
+                  onChange={(e) => setVatAed(Number(e.target.value) || 0)}
+                  placeholder="Auto (5% UAE if AED)"
                 />
+              </label>
+              <label className="field">
+                <span className="field-label">Attendees (meals / client)</span>
+                <input
+                  className="input"
+                  value={attendees}
+                  onChange={(e) => setAttendees(e.target.value)}
+                  placeholder="Optional guest names"
+                />
+              </label>
+            </div>
+
+            <label className="field">
+              <span className="field-label">Notes / business context</span>
+              <input
+                className="input"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. Airport express rail transfer to customer workshop"
+              />
+            </label>
+
+            {/* Live FX Conversion Box */}
+            <div className="ex-split">
+              <div className="ex-split__row">
+                <span>FX rate ({currency} → AED)</span>
+                <b>
+                  1 {currency} = {liveConversion.fxRate} AED
+                </b>
               </div>
-            </label>
-            <label className="field">
-              <span className="field-label">Receipt Date</span>
-              <input
-                type="date"
-                className="input"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </label>
-          </div>
+              <div className="ex-split__row ex-split__row--net">
+                <span>Converted vault amount</span>
+                <b>{formatAed(liveConversion.amountAed, true)}</b>
+              </div>
+            </div>
 
-          <div className="ex-form-grid">
-            <label className="field">
-              <span className="field-label">Payment Method</span>
-              <select
-                className="select"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-              >
-                <option value="personal_reimbursable">Personal (Out-of-Pocket Reimbursable)</option>
-                <option value="corporate_card">Helix Virtual Corporate Card</option>
-              </select>
-            </label>
-            <label className="field">
-              <span className="field-label">Link to Trip (Optional)</span>
-              <select
-                className="select"
-                value={tripId}
-                onChange={(e) => setTripId(e.target.value)}
-              >
-                <option value="">Standalone local spend</option>
-                {summary.myTrips.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.destinationCity} · {t.reference}
-                  </option>
+            {liveWarnings.length > 0 && (
+              <div className="ex-callout" data-tone="warning">
+                {liveWarnings.map((w, i) => (
+                  <div key={i} className="ex-callout__row">
+                    <TriangleAlert />
+                    <span>{w.message}</span>
+                  </div>
                 ))}
-              </select>
-            </label>
+              </div>
+            )}
+
+            <button
+              type="button"
+              className="neo-btn neo-btn--plasma neo-btn--block"
+              onClick={handleSaveDraftReceipt}
+            >
+              <Plus /> Save receipt to vault
+            </button>
           </div>
-
-          <div className="ex-form-grid">
-            <label className="field">
-              <span className="field-label">Extracted VAT (AED)</span>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                className="input mono"
-                value={vatAed || ''}
-                onChange={(e) => setVatAed(Number(e.target.value) || 0)}
-                placeholder="Auto (5% UAE if AED)"
-              />
-            </label>
-            <label className="field">
-              <span className="field-label">Attendees (Meals / Client)</span>
-              <input
-                className="input"
-                value={attendees}
-                onChange={(e) => setAttendees(e.target.value)}
-                placeholder="Optional guest names"
-              />
-            </label>
-          </div>
-
-          <label className="field">
-            <span className="field-label">Notes / Business Context</span>
-            <input
-              className="input"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Airport express rail transfer to customer workshop"
-            />
-          </label>
-
-          {/* Live FX Conversion Box */}
-          <div className="ex-split-panel">
-            <div className="ex-split-row">
-              <span>FX Rate ({currency} → AED)</span>
-              <b>1 {currency} = {liveConversion.fxRate} AED</b>
-            </div>
-            <div className="ex-split-row ex-split-row--net">
-              <span>Converted Vault Amount</span>
-              <b>{formatAed(liveConversion.amountAed, true)}</b>
-            </div>
-          </div>
-
-          {liveWarnings.length > 0 && (
-            <div className="ex-policy-box">
-              {liveWarnings.map((w, i) => (
-                <div key={i} className="row" style={{ gap: 6, alignItems: 'flex-start' }}>
-                  <AlertTriangle style={{ width: 14, height: 14, color: 'var(--warning)', flex: 'none', marginTop: 2 }} />
-                  <span>{w.message}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <button
-            type="button"
-            className="btn ex-btn-teal"
-            onClick={handleSaveDraftReceipt}
-          >
-            <Plus /> Save Receipt to Vault
-          </button>
         </section>
       </div>
 
       {/* Vault List Section */}
-      <section className="stack" style={{ minWidth: 0 }}>
-        <div className="row row--between row--wrap" style={{ gap: 12 }}>
-          <div className="chips" role="tablist" aria-label="Receipt vault filters">
-            <button
-              type="button"
-              className={cx('chip', filter === 'all' && 'is-active')}
-              onClick={() => setFilter('all')}
-            >
-              All <span className="count">{counts.all}</span>
-            </button>
-            <button
-              type="button"
-              className={cx('chip', filter === 'unsubmitted' && 'is-active')}
-              onClick={() => setFilter('unsubmitted')}
-            >
-              Unsubmitted <span className="count">{counts.unsubmitted}</span>
-            </button>
-            <button
-              type="button"
-              className={cx('chip', filter === 'attached' && 'is-active')}
-              onClick={() => setFilter('attached')}
-            >
-              Attached to report <span className="count">{counts.attached}</span>
-            </button>
-            <button
-              type="button"
-              className={cx('chip', filter === 'warnings' && 'is-active')}
-              onClick={() => setFilter('warnings')}
-            >
-              Policy warnings <span className="count">{counts.warnings}</span>
-            </button>
-          </div>
-
-          <button
-            type="button"
-            className="btn btn--sm ex-btn-teal"
-            onClick={() => navigate('/expenses/reports?new=1')}
-          >
-            Bundle into Expense Report <ArrowRight />
-          </button>
+      <NeoPanel
+        hud="Vault"
+        title="My receipts"
+        actions={
+          <Link to="/expenses/reports?new=1" className="neo-btn neo-btn--ghost neo-btn--xs">
+            Bundle into report <ArrowRight />
+          </Link>
+        }
+      >
+        <div className="ex-toolbar ex-toolbar--inset">
+          <NeoTabs value={filter} onChange={setFilter} items={filterTabs} label="Receipt vault filters" />
         </div>
 
         {filteredReceipts.length === 0 ? (
-          <EmptyState
-            icon={<Receipt />}
-            title="No receipts match this filter"
-          >
-            Drop a receipt image above or click one of the 1-Click Sample Smart Receipts to test multi-currency OCR extraction.
-          </EmptyState>
+          <NeoEmpty compact icon={<Receipt />} title="No receipts match this filter">
+            Drop a receipt above, try a sample, or describe a spend to Nova on the Flow home.
+          </NeoEmpty>
         ) : (
-          <div className="ex-receipt-list">
+          <ul className="ex-rcpts">
             {filteredReceipts.map((r) => {
               const catMeta = CATEGORY_META[r.category];
               const linkedReport = r.reportId ? reportsById.get(r.reportId) : undefined;
@@ -605,16 +616,16 @@ export function ReceiptVaultView() {
                 linkedReport?.status === 'changes_requested';
 
               return (
-                <article key={r.id} className="ex-receipt-row">
-                  {/* Column 1: Merchant, Category, Notes & Warnings */}
-                  <div className="stack stack--sm" style={{ minWidth: 0 }}>
-                    <div className="row row--wrap" style={{ gap: 8 }}>
-                      <span style={{ fontWeight: 650, fontSize: 14.5 }}>{r.merchant}</span>
-                      <span className="ex-gl-badge">{catMeta.glCode}</span>
-                      <span className="badge badge--muted">{catMeta.label}</span>
+                <li key={r.id} className="ex-rcpt">
+                  <CategoryGlyph category={r.category} />
+                  {/* Merchant, Category, Notes & Warnings */}
+                  <div className="ex-rcpt__main">
+                    <div className="ex-rcpt__top">
+                      <b>{r.merchant}</b>
+                      <span className="ex-gl">{catMeta.glCode}</span>
                     </div>
-                    <div className="text-xs muted">
-                      {formatDay(r.date, { day: 'numeric', month: 'short', year: 'numeric' })}
+                    <div className="ex-rcpt__meta">
+                      {formatDay(r.date, { day: 'numeric', month: 'short', year: 'numeric' })} · {catMeta.label}
                       {r.fileName && ` · ${r.fileName} (${r.ocrConfidence}% OCR)`}
                       {linkedTrip && ` · Trip: ${linkedTrip.destinationCity}`}
                       {r.notes && ` · ${r.notes}`}
@@ -622,45 +633,46 @@ export function ReceiptVaultView() {
                     {r.warnings.length > 0 && <PolicyWarningChips warnings={r.warnings} />}
                   </div>
 
-                  {/* Column 2: Payment Method & Report Attachment Status */}
-                  <div className="row row--wrap" style={{ gap: 6 }}>
+                  {/* Payment Method & Report Attachment Status */}
+                  <div className="ex-chips ex-rcpt__tags">
                     {r.paymentMethod === 'corporate_card' ? (
-                      <span className="badge badge--info">
-                        <CreditCard /> Virtual Card
-                      </span>
+                      <Chip size="sm" tone="cyan" icon={<CreditCard />}>
+                        Virtual card
+                      </Chip>
                     ) : (
-                      <span className="badge badge--success">
-                        <Wallet /> Personal (Reimbursable)
-                      </span>
+                      <Chip size="sm" tone="success" icon={<Wallet />}>
+                        Reimbursable
+                      </Chip>
                     )}
-
                     {linkedReport ? (
-                      <span className="badge badge--muted mono">{linkedReport.reference}</span>
+                      <Chip size="sm" className="neo-mono">
+                        {linkedReport.reference}
+                      </Chip>
                     ) : (
-                      <span className="badge badge--warning">Unsubmitted</span>
+                      <Chip size="sm" tone="warning">
+                        Unsubmitted
+                      </Chip>
                     )}
                   </div>
 
-                  {/* Column 3: Currency + AED Amount */}
-                  <div style={{ textAlign: 'right' }}>
-                    <div className="mono" style={{ fontWeight: 700, fontSize: 15 }}>
-                      {formatAed(r.amountAed, true)}
-                    </div>
-                    <div className="text-xs mono muted">
+                  {/* Currency + AED Amount */}
+                  <div className="ex-amt">
+                    <b className="neo-num">{formatAed(r.amountAed, true)}</b>
+                    <span>
                       {r.currency !== 'AED'
                         ? `${formatOrigCurrency(r.originalAmount, r.currency)} @ ${r.fxRateToAed}`
                         : r.vatAed > 0
                           ? `Incl. VAT ${formatAed(r.vatAed, true)}`
                           : 'Zero-rated VAT'}
-                    </div>
+                    </span>
                   </div>
 
-                  {/* Column 4: Delete Action */}
-                  <div>
+                  {/* Delete Action */}
+                  <div className="ex-rcpt__del">
                     {canRemove && (
                       <button
                         type="button"
-                        className="icon-btn icon-btn--sm"
+                        className="neo-iconbtn"
                         title="Delete unsubmitted receipt"
                         aria-label={`Delete receipt ${r.merchant}`}
                         onClick={() => {
@@ -672,12 +684,12 @@ export function ReceiptVaultView() {
                       </button>
                     )}
                   </div>
-                </article>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
-      </section>
+      </NeoPanel>
     </div>
   );
 }

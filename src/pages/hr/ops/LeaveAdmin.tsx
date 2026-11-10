@@ -80,6 +80,7 @@ export function LeaveAdmin() {
   return (
     <HrPanel
       className="hr-ops-leave"
+      hud="Entitlements & adjustments"
       title="Leave balances"
       icon={<SlidersHorizontal aria-hidden="true" />}
       sub={`${year} balances: available of entitled days. Adjustments are logged and the employee is notified.`}

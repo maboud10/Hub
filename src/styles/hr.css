@@ -1,77 +1,7 @@
 /* HR Portal styles */
-/* Owned here: .hr-hero* (module hero), .hr-onb-* (onboarding board, shared onboarding bits and
-   widgets) and .hr-jd-* (journey detail). New HR area stylesheets are @imported above this line. */
-
-/* ==========================================================================
-   Module hero
-   ========================================================================== */
-.hr-hero {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-  padding: clamp(20px, 3vw, 30px);
-  overflow: hidden;
-  border-radius: var(--r-xl);
-  border: 1px solid var(--border);
-  background:
-    radial-gradient(640px 260px at 0% 0%, rgb(var(--hr-1-rgb, 192 132 252) / 0.17), transparent 70%),
-    radial-gradient(560px 240px at 100% 110%, rgb(var(--hr-2-rgb, 147 51 234) / 0.16), transparent 70%),
-    var(--tile-bg);
-  box-shadow: var(--shadow-sm);
-}
-.hr-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(var(--grid-line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
-  background-size: 30px 30px;
-  -webkit-mask-image: radial-gradient(ellipse at 75% 35%, #000 10%, transparent 70%);
-  mask-image: radial-gradient(ellipse at 75% 35%, #000 10%, transparent 70%);
-}
-.hr-hero > :not(.hr-hero__glow) {
-  position: relative;
-}
-.hr-hero .page-title {
-  letter-spacing: -0.02em;
-}
-.hr-hero__glow {
-  position: absolute;
-  right: -90px;
-  top: -130px;
-  width: 380px;
-  height: 380px;
-  border-radius: 50%;
-  pointer-events: none;
-  background: conic-gradient(
-    from var(--orb-angle),
-    rgb(var(--hr-1-rgb, 192 132 252) / 0),
-    rgb(var(--hr-1-rgb, 192 132 252) / 0.42),
-    rgb(var(--hr-2-rgb, 147 51 234) / 0.4),
-    rgb(var(--hr-1-rgb, 192 132 252) / 0)
-  );
-  filter: blur(48px);
-  opacity: 0.8;
-  animation: orb-spin 16s linear infinite;
-}
-.hr-hero__accent {
-  background: linear-gradient(135deg, var(--hr-1), var(--hr-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 0 18px rgb(var(--hr-2-rgb, 147 51 234) / 0.3));
-}
-[data-theme='light'] .hr-hero__accent {
-  background: linear-gradient(135deg, #a855f7, #7e22ce);
-  -webkit-background-clip: text;
-  background-clip: text;
-}
+/* Owned here: .hr-onb-* (onboarding board, shared onboarding bits and widgets) and .hr-jd-*
+   (journey detail). The module shell is NEO (HRPage → NeoAppFrame); portal-level NEO scope and
+   shared components live in hr-portal.css, area stylesheets in ./hr/*.css. */
 
 /* ==========================================================================
    Onboarding · shared bits (onboarding/ui.tsx)
@@ -1801,11 +1731,6 @@
 /* ==========================================================================
    Motion (non-essential)
    ========================================================================== */
-@media (prefers-reduced-motion: reduce) {
-  .hr-hero__glow {
-    animation: none;
-  }
-}
 @media (prefers-reduced-motion: no-preference) {
   .hr-jd-tl__step.is-current .hr-jd-tl__node {
     animation: breathe 3.2s ease-in-out infinite;

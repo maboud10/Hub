@@ -18,10 +18,12 @@ import { useNow } from '@/hooks/useNow';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { cx } from '@/lib/cx';
 import { EmptyState, Segmented, Switch } from '@/components/ui/primitives';
+import { NeoBanner, NeoBanners, NeoKpi, NeoKpis } from '@/components/neo';
 import type { Application } from '@/talent/types';
+import { HeadActions } from './components/head';
 import { MatchRing, PeopleStack, PriorityBadge, ReqStatusBadge } from './components/shared';
 import { ReqCard } from './reqs/ReqCard';
-import { CompRange, KpiTile, ReqApprovalFacts, ReqPipelineBar, SeatMeter } from './reqs/pieces';
+import { CompRange, ReqApprovalFacts, ReqPipelineBar, SeatMeter } from './reqs/pieces';
 import { useNoteDialog } from './reqs/NoteDialog';
 import { PRIORITY_ORDER, PRIORITY_RANK, STATUS_RANK, appsByReq, avgMatch, daysOpen, daysSince, isMine } from './reqs/helpers';
 
@@ -167,63 +169,52 @@ export function RequisitionsTab() {
   };
 
   return (
-    <section className="tl-req-page" aria-labelledby="tl-req-title">
-      <div className="tl-req-head">
-        <div className="grow">
-          <div className="eyebrow">Headcount control</div>
-          <h2 id="tl-req-title" className="tl-req-head__title">
-            Requisitions
-          </h2>
-          <p className="page-sub">Every seat from headcount approval to a signed offer, with its pipeline at a glance.</p>
-        </div>
-        <div className="tl-req-head__actions">
-          {!isMobile && (
-            <Segmented
-              value={view}
-              onChange={setViewPersist}
-              label="Layout"
-              options={[
-                { value: 'cards', label: 'Cards', icon: <LayoutGrid /> },
-                { value: 'table', label: 'Table', icon: <Table2 /> },
-              ]}
-            />
-          )}
-          {caps.hire && (
-            <button type="button" className="btn btn--primary" onClick={() => navigate('/talent/requisitions/new')}>
-              <Plus /> New requisition
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="tl-req-kpis">
-        <KpiTile icon={Briefcase} label="Open requisitions" value={kpi.openReqs} hint={`${kpi.seats} open seat${kpi.seats === 1 ? '' : 's'} · ${kpi.hires} filled`} tone="amber" />
-        <KpiTile icon={Users} label="In flight" value={kpi.inFlight} hint="Active candidates on open roles" tone="info" />
-        <KpiTile icon={Hourglass} label="Awaiting approval" value={kpi.pending} hint={approvable.length ? `${approvable.length} waiting on you` : 'Headcount sign-off'} tone="warning" />
-        <KpiTile icon={Clock} label="Avg days open" value={kpi.avgOpen ?? '—'} hint="Across open requisitions" tone="rose" />
-      </div>
+    <section className="tl-req-page" aria-label="Requisitions">
+      <HeadActions>
+        {!isMobile && (
+          <Segmented
+            value={view}
+            onChange={setViewPersist}
+            label="Layout"
+            options={[
+              { value: 'cards', label: 'Cards', icon: <LayoutGrid /> },
+              { value: 'table', label: 'Table', icon: <Table2 /> },
+            ]}
+          />
+        )}
+        {caps.hire && (
+          <button type="button" className="neo-btn neo-btn--plasma" onClick={() => navigate('/talent/requisitions/new')}>
+            <Plus /> <span className="neo-btn__label">New requisition</span>
+          </button>
+        )}
+      </HeadActions>
 
       {approvable.length > 0 && status !== 'pending-approval' && (
-        <div className="tl-req-approvals" role="region" aria-label="Headcount approvals waiting on you">
-          <span className="tl-req-approvals__icon" aria-hidden="true">
-            <ShieldCheck />
-          </span>
-          <div className="grow">
-            <b>
-              {approvable.length} requisition{approvable.length === 1 ? '' : 's'} waiting for your headcount approval
-            </b>
-            <span className="tl-req-approvals__list">{approvable.map((r) => r.title).join(' · ')}</span>
-          </div>
-          <button type="button" className="btn btn--sm" onClick={() => setStatus('pending-approval')}>
-            Review
-          </button>
-          {approvable.length === 1 && (
-            <button type="button" className="btn btn--sm btn--primary" onClick={() => approve(approvable[0])}>
-              <ShieldCheck /> Approve
-            </button>
-          )}
-        </div>
+        <NeoBanners>
+          <NeoBanner
+            tone="warning"
+            icon={<ShieldCheck />}
+            title={`${approvable.length} requisition${approvable.length === 1 ? '' : 's'} waiting for your headcount approval`}
+            meta="Needs sign-off"
+            onClick={() => (approvable.length === 1 ? approve(approvable[0]) : setStatus('pending-approval'))}
+          >
+            {approvable.map((r) => r.title).join(' · ')}
+          </NeoBanner>
+        </NeoBanners>
       )}
+
+      <NeoKpis label="Requisitions at a glance">
+        <NeoKpi icon={<Briefcase />} label="Open requisitions" value={kpi.openReqs} sub={`${kpi.seats} open seat${kpi.seats === 1 ? '' : 's'} · ${kpi.hires} filled`} />
+        <NeoKpi icon={<Users />} label="In flight" value={kpi.inFlight} sub="Active candidates on open roles" to="/talent/pipeline" />
+        <NeoKpi
+          icon={<Hourglass />}
+          label="Awaiting approval"
+          value={kpi.pending}
+          sub={approvable.length ? `${approvable.length} waiting on you` : 'Headcount sign-off'}
+          tone={approvable.length ? 'warning' : undefined}
+        />
+        <NeoKpi icon={<Clock />} label="Avg days open" value={kpi.avgOpen ?? '—'} sub="Across open requisitions" />
+      </NeoKpis>
 
       <div className="tl-req-toolbar">
         <div className="chips tl-req-status" role="group" aria-label="Filter by status">

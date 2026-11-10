@@ -19,6 +19,7 @@ import {
   Send,
   ShieldCheck,
   Signature,
+  SquareKanban,
   Timer,
   Undo2,
   type LucideIcon,
@@ -35,8 +36,9 @@ import { useNow } from '@/hooks/useNow';
 import { relativeTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import { EmptyState } from '@/components/ui/primitives';
+import { NeoKpi, NeoKpis } from '@/components/neo';
+import { HeadActions } from './components/head';
 import { CandidateAvatar, Comp, OfferStatusBadge, SampleTag } from './components/shared';
-import { KpiTile } from './reqs/pieces';
 import { useNoteDialog, type NoteRequest } from './reqs/NoteDialog';
 import { ApprovalBrief, BandGuardrail, ExpiryPill, OfferApprovalChain, OfferFigures, recordOfferResponse } from './reqs/offer';
 import { DAY, firstYearTotal, viewerApproval } from './reqs/helpers';
@@ -104,23 +106,25 @@ export function OffersTab() {
   };
 
   return (
-    <section className="tl-offer-page" aria-labelledby="tl-offer-title">
-      <div className="tl-req-head">
-        <div className="grow">
-          <div className="eyebrow">Offer desk</div>
-          <h2 id="tl-offer-title" className="tl-req-head__title">
-            Offers
-          </h2>
-          <p className="page-sub">Hiring manager and People Ops sign-off, then out to the candidate. Drafters never approve their own offers.</p>
-        </div>
-      </div>
+    <section className="tl-offer-page" aria-label="Offers">
+      <HeadActions>
+        <Link to="/talent/pipeline" className="neo-btn neo-btn--soft">
+          <SquareKanban /> <span className="neo-btn__label">Pipeline</span>
+        </Link>
+      </HeadActions>
 
-      <div className="tl-req-kpis">
-        <KpiTile icon={Signature} label="Offers out" value={kpi.out} hint={`${kpi.sent} with candidates`} tone="amber" />
-        <KpiTile icon={Hourglass} label="Awaiting approval" value={kpi.awaiting} hint={groups.needs.length ? `${groups.needs.length} need your sign-off` : 'HM → People Ops'} tone="warning" />
-        <KpiTile icon={Percent} label="Acceptance rate" value={kpi.rate !== null ? `${kpi.rate}%` : '—'} hint={`${kpi.accepted} accepted · ${kpi.declined} declined`} tone="success" />
-        <KpiTile icon={Timer} label="Avg days to accept" value={kpi.avgDays !== null ? kpi.avgDays.toFixed(1) : '—'} hint="Sent → signed" tone="rose" />
-      </div>
+      <NeoKpis label="Offers at a glance">
+        <NeoKpi icon={<Signature />} label="Offers out" value={kpi.out} sub={`${kpi.sent} with candidates`} />
+        <NeoKpi
+          icon={<Hourglass />}
+          label="Awaiting approval"
+          value={kpi.awaiting}
+          sub={groups.needs.length ? `${groups.needs.length} need your sign-off` : 'HM → People Ops'}
+          tone={groups.needs.length ? 'warning' : undefined}
+        />
+        <NeoKpi icon={<Percent />} label="Acceptance rate" value={kpi.rate !== null ? `${kpi.rate}%` : '—'} sub={`${kpi.accepted} accepted · ${kpi.declined} declined`} tone="success" />
+        <NeoKpi icon={<Timer />} label="Avg days to accept" value={kpi.avgDays !== null ? `${kpi.avgDays.toFixed(1)}d` : '—'} sub="Sent → signed" />
+      </NeoKpis>
 
       {offers.length === 0 ? (
         <div className="card card--flat">

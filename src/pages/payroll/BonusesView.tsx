@@ -1,48 +1,33 @@
-import { useMemo, useState } from 'react';
-import {
-  Award,
-  CheckCircle2,
-  Clock,
-  Plus,
-  Search,
-  ShieldAlert,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  XCircle,
-} from 'lucide-react';
+/**
+ * Bonuses & spot awards — variable-pay HUD ribbon, four-eyes approval queue,
+ * department pool burn, award mix and the full variable-pay ledger.
+ */
+import { useMemo, useState, type CSSProperties } from 'react';
+import { Award, CheckCircle2, Clock, Plus, Search, ShieldAlert, ShieldCheck, Sparkles, TrendingUp, XCircle } from 'lucide-react';
 import { canDecideBonus } from '@/payroll/access';
-import {
-  BONUS_KIND_META,
-  formatPeriodLabel,
-  periodFromTimestamp,
-} from '@/payroll/engine';
+import { BONUS_KIND_META, formatPeriodLabel, periodFromTimestamp } from '@/payroll/engine';
 import { useCompReport, usePayrollCaps } from '@/payroll/selectors';
 import { usePayroll } from '@/payroll/store';
 import type { BonusAward, BonusKind, BonusStatus } from '@/payroll/types';
 import { useHub } from '@/store/hub';
 import { toast } from '@/store/toast';
-import { cx } from '@/lib/cx';
-import { relativeTime } from '@/lib/format';
-import { Avatar, EmptyState } from '@/components/ui/primitives';
-import { BONUS_STATUS_META, formatAed, NominateBonusModal } from './shared';
+import { pluralize, relativeTime } from '@/lib/format';
+import { Avatar } from '@/components/ui/primitives';
+import { Bar, Chip, NeoEmpty, NeoHome, NeoKpi, NeoKpis, NeoPanel, NeoSearch, NeoTabs } from '@/components/neo';
+import { BONUS_STATUS_META, compactAed, formatAed, KindChip, NominateBonusModal } from './shared';
 
-const KIND_FILTERS: Array<{ id: 'all' | BonusKind; label: string }> = [
-  { id: 'all', label: 'All Categories' },
-  { id: 'performance', label: 'Performance' },
-  { id: 'spot', label: 'Spot' },
-  { id: 'signing', label: 'Signing' },
-  { id: 'milestone', label: 'Milestone' },
-  { id: 'retention', label: 'Retention' },
-];
+const KINDS: BonusKind[] = ['performance', 'spot', 'signing', 'milestone', 'retention'];
 
-const STATUS_FILTERS: Array<{ id: 'all' | BonusStatus; label: string }> = [
-  { id: 'all', label: 'All Statuses' },
-  { id: 'approved_queued', label: 'Queued in Payroll' },
+const STATUS_TABS: Array<{ id: 'all' | BonusStatus; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'pending_approval', label: 'Pending' },
+  { id: 'approved_queued', label: 'Queued' },
   { id: 'paid', label: 'Paid' },
-  { id: 'pending_approval', label: 'Pending 4-Eyes' },
   { id: 'declined', label: 'Declined' },
 ];
+
+/** Departments shown in the pool-burn panel before "All". */
+const BURN_PREVIEW = 6;
 
 export function BonusesView() {
   const users = useHub((s) => s.users);
@@ -57,40 +42,23 @@ export function BonusesView() {
   const [search, setSearch] = useState('');
   const [noteById, setNoteById] = useState<Record<string, string>>({});
   const [periodById, setPeriodById] = useState<Record<string, string>>({});
+  const [showAllBurn, setShowAllBurn] = useState(false);
 
   const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
   const pCurrent = useMemo(() => periodFromTimestamp(Date.now(), 0), []);
   const pNext = useMemo(() => periodFromTimestamp(Date.now(), 1), []);
   const currentYearPrefix = String(new Date().getFullYear());
 
-  const pendingList = useMemo(
-    () => bonuses.filter((b) => b.status === 'pending_approval'),
-    [bonuses],
-  );
-  const queuedList = useMemo(
-    () => bonuses.filter((b) => b.status === 'approved_queued'),
-    [bonuses],
-  );
+  const pendingList = useMemo(() => bonuses.filter((b) => b.status === 'pending_approval'), [bonuses]);
+  const queuedList = useMemo(() => bonuses.filter((b) => b.status === 'approved_queued'), [bonuses]);
   const paidYtdList = useMemo(
-    () =>
-      bonuses.filter(
-        (b) => b.status === 'paid' && b.payrollPeriod.startsWith(currentYearPrefix),
-      ),
+    () => bonuses.filter((b) => b.status === 'paid' && b.payrollPeriod.startsWith(currentYearPrefix)),
     [bonuses, currentYearPrefix],
   );
 
-  const pendingTotalAed = useMemo(
-    () => pendingList.reduce((s, b) => s + b.amountAed, 0),
-    [pendingList],
-  );
-  const queuedTotalAed = useMemo(
-    () => queuedList.reduce((s, b) => s + b.amountAed, 0),
-    [queuedList],
-  );
-  const paidYtdTotalAed = useMemo(
-    () => paidYtdList.reduce((s, b) => s + b.amountAed, 0),
-    [paidYtdList],
-  );
+  const pendingTotalAed = useMemo(() => pendingList.reduce((s, b) => s + b.amountAed, 0), [pendingList]);
+  const queuedTotalAed = useMemo(() => queuedList.reduce((s, b) => s + b.amountAed, 0), [queuedList]);
+  const paidYtdTotalAed = useMemo(() => paidYtdList.reduce((s, b) => s + b.amountAed, 0), [paidYtdList]);
 
   // Department Variable Pay Pool Burn Bars
   const deptBurnRows = useMemo(() => {
@@ -114,10 +82,7 @@ export function BonusesView() {
         pendingAed: 0,
       };
       // Quarterly / semi-annual discretionary pool benchmarked at 35% of annual target bonus pool
-      existing.annualPoolAed += Math.max(
-        12_000,
-        Math.round(row.annualFixedAed * (row.band.targetBonusPct / 100) * 0.35),
-      );
+      existing.annualPoolAed += Math.max(12_000, Math.round(row.annualFixedAed * (row.band.targetBonusPct / 100) * 0.35));
       map.set(row.user.department, existing);
     }
 
@@ -138,10 +103,25 @@ export function BonusesView() {
 
     return [...map.values()].sort(
       (a, b) =>
-        b.paidAed + b.queuedAed + b.pendingAed - (a.paidAed + a.queuedAed + a.pendingAed) ||
-        b.annualPoolAed - a.annualPoolAed,
+        b.paidAed + b.queuedAed + b.pendingAed - (a.paidAed + a.queuedAed + a.pendingAed) || b.annualPoolAed - a.annualPoolAed,
     );
   }, [bonuses, compReport.rows, currentYearPrefix]);
+
+  // Award mix (this year, excluding declined)
+  const mixRows = useMemo(() => {
+    const rows = KINDS.map((kind) => {
+      const list = bonuses.filter((b) => b.kind === kind && b.status !== 'declined' && b.payrollPeriod.startsWith(currentYearPrefix));
+      return { kind, count: list.length, amountAed: list.reduce((s, b) => s + b.amountAed, 0) };
+    });
+    return rows.sort((a, b) => b.amountAed - a.amountAed);
+  }, [bonuses, currentYearPrefix]);
+  const maxMixAed = Math.max(1, ...mixRows.map((m) => m.amountAed));
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<'all' | BonusStatus, number> = { all: bonuses.length, pending_approval: 0, approved_queued: 0, paid: 0, declined: 0 };
+    for (const b of bonuses) counts[b.status] += 1;
+    return counts;
+  }, [bonuses]);
 
   const filteredLedger = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -172,368 +152,260 @@ export function BonusesView() {
     const targetPeriod = periodById[bonus.id] || bonus.payrollPeriod || pCurrent;
     const note = noteById[bonus.id] || '';
     const res = decideBonus(bonus.id, decision, targetPeriod, note);
-    toast.result(
-      res,
-      decision === 'approved_queued' ? 'Bonus approved & queued into payroll' : 'Bonus declined',
-    );
+    toast.result(res, decision === 'approved_queued' ? 'Bonus approved & queued into payroll' : 'Bonus declined');
   };
 
+  const burnRows = showAllBurn ? deptBurnRows : deptBurnRows.slice(0, BURN_PREVIEW);
+
   return (
-    <div className="stack stack--lg" style={{ minWidth: 0 }}>
-      {/* KPI & Variable Pool Strip */}
-      <section className="py-kpi-grid py-kpi-grid--4" aria-label="Variable pay metrics">
-        <div className="py-kpi">
-          <div className="py-kpi__label">
-            <span>Pending Four-Eyes Sign-Off</span>
-            <Clock />
-          </div>
-          <div className="py-kpi__val">{formatAed(pendingTotalAed)}</div>
-          <div className="py-kpi__foot">
-            {pendingList.length} nomination{pendingList.length === 1 ? '' : 's'} awaiting review
-          </div>
-        </div>
+    <div className="py-view">
+      <NeoKpis label="Variable pay at a glance">
+        <NeoKpi
+          icon={<Clock />}
+          label="Pending sign-off"
+          value={compactAed(pendingTotalAed)}
+          sub={`${pluralize(pendingList.length, 'nomination')} awaiting review`}
+          tone={pendingList.length ? 'warning' : undefined}
+        />
+        <NeoKpi
+          icon={<Sparkles />}
+          label="Queued for payday"
+          value={compactAed(queuedTotalAed)}
+          sub={`${pluralize(queuedList.length, 'approved award')} · ${formatPeriodLabel(pCurrent)}`}
+          to="/payroll"
+          title="Open the pay run"
+        />
+        <NeoKpi
+          icon={<CheckCircle2 />}
+          label={`Paid YTD ${currentYearPrefix}`}
+          value={compactAed(paidYtdTotalAed)}
+          sub={`${pluralize(paidYtdList.length, 'award')} settled on payslips`}
+        />
+        <NeoKpi icon={<TrendingUp />} label="Committed YTD" value={compactAed(paidYtdTotalAed + queuedTotalAed)} sub="Paid + approved queued" />
+      </NeoKpis>
 
-        <div className="py-kpi py-kpi--highlight">
-          <div className="py-kpi__label">
-            <span>Queued for Active Payday</span>
-            <Sparkles />
-          </div>
-          <div className="py-kpi__val">{formatAed(queuedTotalAed)}</div>
-          <div className="py-kpi__foot">
-            {queuedList.length} approved award{queuedList.length === 1 ? '' : 's'} in {pCurrent}
-          </div>
-        </div>
-
-        <div className="py-kpi">
-          <div className="py-kpi__label">
-            <span>Paid YTD ({currentYearPrefix})</span>
-            <CheckCircle2 />
-          </div>
-          <div className="py-kpi__val">{formatAed(paidYtdTotalAed)}</div>
-          <div className="py-kpi__foot">
-            {paidYtdList.length} settled award{paidYtdList.length === 1 ? '' : 's'} on HR payslips
-          </div>
-        </div>
-
-        <div className="py-kpi">
-          <div className="py-kpi__label">
-            <span>Committed YTD Variable</span>
-            <TrendingUp />
-          </div>
-          <div className="py-kpi__val">{formatAed(paidYtdTotalAed + queuedTotalAed)}</div>
-          <div className="py-kpi__foot">Paid + Approved Queued</div>
-        </div>
-      </section>
-
-      {/* Two-column: Four-Eyes Approval Queue + Department Variable Pay Burn Bars */}
-      <div className="py-two-col">
-        {/* Four-Eyes Approval Queue */}
-        <section className="card" style={{ minWidth: 0 }}>
-          <div className="section-head">
-            <div>
-              <h2 className="section-title" style={{ margin: 0 }}>
-                Four-Eyes Approval Queue
-                <span className="count">{pendingList.length}</span>
-              </h2>
-              <p className="text-xs muted" style={{ marginTop: 3 }}>
-                Separation of duties prevents nominators or recipients from approving their own awards.
-              </p>
-            </div>
-            {caps.canNominateBonus && (
-              <button
-                type="button"
-                className="btn btn--sm py-btn-emerald"
-                onClick={() => setNominateOpen(true)}
+      <NeoHome
+        sideLabel="Variable pay budget"
+        main={
+          /* Four-Eyes Approval Queue */
+          <NeoPanel
+            hud="Needs you"
+            title="Four-eyes approval queue"
+            actions={<span className={pendingList.length ? 'neo-count neo-count--app' : 'neo-count'}>{pendingList.length}</span>}
+          >
+            <p className="py-panel-sub">Separation of duties: nominators and recipients can never approve their own awards.</p>
+            {pendingList.length === 0 ? (
+              <NeoEmpty
+                compact
+                icon={<ShieldCheck />}
+                title="All bonus nominations reviewed"
+                action={
+                  caps.canNominateBonus ? (
+                    <button type="button" className="neo-btn neo-btn--soft neo-btn--sm" onClick={() => setNominateOpen(true)}>
+                      <Plus /> Nominate a teammate
+                    </button>
+                  ) : undefined
+                }
               >
-                <Plus /> Nominate Bonus
-              </button>
-            )}
-          </div>
+                Approved awards flow straight into the employee’s monthly pay run.
+              </NeoEmpty>
+            ) : (
+              <div className="py-awards neo-stagger">
+                {pendingList.map((b, i) => {
+                  const recipient = userById.get(b.userId);
+                  const nominator = userById.get(b.nominatedBy);
+                  const gate = canDecideBonus(caps.viewer, b);
+                  const targetPeriod = periodById[b.id] || b.payrollPeriod || pCurrent;
 
-          {pendingList.length === 0 ? (
-            <EmptyState
-              icon={<ShieldCheck />}
-              title="All bonus nominations reviewed"
-              action={
-                caps.canNominateBonus ? (
-                  <button
-                    type="button"
-                    className="btn btn--sm py-btn-emerald"
-                    onClick={() => setNominateOpen(true)}
-                  >
-                    <Plus /> Nominate a Teammate
+                  return (
+                    <article key={b.id} className="py-award" style={{ '--i': i } as CSSProperties}>
+                      <header className="py-award__head">
+                        {recipient && <Avatar user={recipient} size={38} />}
+                        <div className="py-award__who">
+                          <div className="py-award__name">
+                            <b>{recipient?.name ?? b.userId}</b>
+                            <KindChip kind={b.kind} size="sm" />
+                          </div>
+                          <div className="py-award__meta">
+                            {recipient?.title ?? b.department} · {b.department} · nominated by <b>{nominator?.name ?? b.nominatedBy}</b>{' '}
+                            {relativeTime(b.nominatedAt)}
+                          </div>
+                        </div>
+                        <div className="py-award__amt">
+                          <b>{formatAed(b.amountAed)}</b>
+                          <span>{b.reference}</span>
+                        </div>
+                      </header>
+
+                      <div>
+                        <div className="py-award__title">{b.title}</div>
+                        <blockquote className="py-quote">“{b.reason}”</blockquote>
+                      </div>
+
+                      {!gate.ok ? (
+                        <div className="py-note" data-tone="warning">
+                          <ShieldAlert />
+                          <span>
+                            <b>Separation of duties:</b> {gate.reason} Targets {formatPeriodLabel(targetPeriod)}.
+                          </span>
+                        </div>
+                      ) : (
+                        <footer className="py-award__foot">
+                          <div className="py-award__decide">
+                            <select
+                              className="neo-select neo-select--sm"
+                              value={targetPeriod}
+                              onChange={(e) => setPeriodById((prev) => ({ ...prev, [b.id]: e.target.value }))}
+                              aria-label="Target payroll period"
+                            >
+                              <option value={pCurrent}>{formatPeriodLabel(pCurrent)} · active</option>
+                              <option value={pNext}>{formatPeriodLabel(pNext)} · next</option>
+                            </select>
+                            <input
+                              type="text"
+                              className="neo-input neo-input--sm"
+                              value={noteById[b.id] ?? ''}
+                              onChange={(e) => setNoteById((prev) => ({ ...prev, [b.id]: e.target.value }))}
+                              placeholder="Optional decision note…"
+                              aria-label="Decision note"
+                            />
+                          </div>
+                          <div className="py-award__btns">
+                            <button type="button" className="neo-btn neo-btn--danger neo-btn--sm" onClick={() => handleDecision(b, 'declined')}>
+                              <XCircle /> Decline
+                            </button>
+                            <button type="button" className="neo-btn neo-btn--plasma neo-btn--sm" onClick={() => handleDecision(b, 'approved_queued')}>
+                              <ShieldCheck /> Approve & queue
+                            </button>
+                          </div>
+                        </footer>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </NeoPanel>
+        }
+        side={
+          <>
+            {/* Department Variable Pay Burn Bars */}
+            <NeoPanel
+              hud={`Budget burn · ${currentYearPrefix}`}
+              title="Pool burn by department"
+              actions={
+                deptBurnRows.length > BURN_PREVIEW ? (
+                  <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={() => setShowAllBurn((v) => !v)} aria-expanded={showAllBurn}>
+                    {showAllBurn ? 'Top 6' : `All ${deptBurnRows.length}`}
                   </button>
                 ) : undefined
               }
             >
-              Approved awards flow directly into the employee’s monthly payroll run.
-            </EmptyState>
-          ) : (
-            <div className="py-bonus-queue">
-              {pendingList.map((b) => {
-                const recipient = userById.get(b.userId);
-                const nominator = userById.get(b.nominatedBy);
-                const kindMeta = BONUS_KIND_META[b.kind];
-                const gate = canDecideBonus(caps.viewer, b);
-                const targetPeriod = periodById[b.id] || b.payrollPeriod || pCurrent;
-
-                return (
-                  <article key={b.id} className="py-bonus-card">
-                    <div className="py-bonus-card__top">
-                      <div className="row" style={{ gap: 10, minWidth: 0 }}>
-                        {recipient && <Avatar user={recipient} size={38} />}
-                        <div style={{ minWidth: 0 }}>
-                          <div className="row row--wrap" style={{ gap: 6 }}>
-                            <strong style={{ fontSize: 14.5 }}>
-                              {recipient?.name ?? b.userId}
-                            </strong>
-                            <span className="tag">{b.reference}</span>
-                            <span className="py-kind-pill">
-                              <span
-                                className="py-kind-pill__dot"
-                                style={{ background: kindMeta.color }}
-                              />
-                              {kindMeta.label}
-                            </span>
-                          </div>
-                          <div className="text-xs muted" style={{ marginTop: 2 }}>
-                            {recipient?.title ?? b.department} · {b.department} · Nominated by{' '}
-                            <b>{nominator?.name ?? b.nominatedBy}</b> ({relativeTime(b.nominatedAt)})
-                          </div>
-                        </div>
+              <div className="py-legend" aria-hidden="true">
+                <span>
+                  <i className="py-dot" data-tone="app" /> Paid
+                </span>
+                <span>
+                  <i className="py-dot" data-tone="cyan" /> Queued
+                </span>
+                <span>
+                  <i className="py-dot" data-tone="amber" /> Pending
+                </span>
+              </div>
+              <div className="py-burn">
+                {burnRows.map((d) => {
+                  const totalUsed = d.paidAed + d.queuedAed + d.pendingAed;
+                  const denom = Math.max(d.annualPoolAed, totalUsed, 1);
+                  const burnPct = Math.round((totalUsed / Math.max(1, d.annualPoolAed)) * 100);
+                  return (
+                    <div key={d.department} className="py-burn__row">
+                      <div className="py-burn__head">
+                        <b>{d.department}</b>
+                        <span className="py-burn__fig" data-over={burnPct > 100 || undefined}>
+                          {compactAed(totalUsed)} / {compactAed(d.annualPoolAed)} · <em>{burnPct}%</em>
+                        </span>
                       </div>
-
-                      <div style={{ textAlign: 'right' }}>
-                        <div
-                          style={{
-                            fontFamily: 'var(--font-display)',
-                            fontSize: 19,
-                            fontWeight: 700,
-                            color: 'var(--text)',
-                          }}
-                        >
-                          {formatAed(b.amountAed)}
-                        </div>
-                        <div className="text-xs muted mono">
-                          Target: {formatPeriodLabel(targetPeriod)}
-                        </div>
+                      <div
+                        className="py-seg"
+                        role="img"
+                        aria-label={`${d.department}: paid ${formatAed(d.paidAed)}, queued ${formatAed(d.queuedAed)}, pending ${formatAed(d.pendingAed)} of ${formatAed(d.annualPoolAed)} pool`}
+                      >
+                        {d.paidAed > 0 && <i data-tone="app" style={{ width: `${(d.paidAed / denom) * 100}%` }} title={`Paid: ${formatAed(d.paidAed)}`} />}
+                        {d.queuedAed > 0 && (
+                          <i data-tone="cyan" style={{ width: `${(d.queuedAed / denom) * 100}%` }} title={`Queued: ${formatAed(d.queuedAed)}`} />
+                        )}
+                        {d.pendingAed > 0 && (
+                          <i data-tone="amber" style={{ width: `${(d.pendingAed / denom) * 100}%` }} title={`Pending: ${formatAed(d.pendingAed)}`} />
+                        )}
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            </NeoPanel>
 
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 13.5, marginBottom: 5 }}>
-                        {b.title}
-                      </div>
-                      <div className="py-bonus-card__quote">“{b.reason}”</div>
+            {/* Award mix by type */}
+            <NeoPanel hud={`Mix · ${currentYearPrefix}`} title="By award type">
+              <div className="py-mix">
+                {mixRows.map((m) => (
+                  <div key={m.kind} className="py-mix__row">
+                    <div className="py-mix__head">
+                      <KindChip kind={m.kind} size="sm" />
+                      <span className="py-mix__count">{pluralize(m.count, 'award')}</span>
+                      <b className="py-mix__amt">{compactAed(m.amountAed)}</b>
                     </div>
-
-                    {!gate.ok ? (
-                      <div className="py-sod-banner" style={{ marginTop: 0 }}>
-                        <ShieldAlert />
-                        <div>
-                          <strong>Four-Eyes Separation of Duties:</strong> {gate.reason}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="row row--wrap row--between" style={{ gap: 10 }}>
-                        <div className="row row--wrap" style={{ gap: 8, flex: '1 1 260px' }}>
-                          <select
-                            className="select"
-                            style={{ height: 34, width: 170, fontSize: 12.5 }}
-                            value={targetPeriod}
-                            onChange={(e) =>
-                              setPeriodById((prev) => ({ ...prev, [b.id]: e.target.value }))
-                            }
-                            aria-label="Target payroll period"
-                          >
-                            <option value={pCurrent}>{pCurrent} (Active)</option>
-                            <option value={pNext}>{pNext} (Next)</option>
-                          </select>
-                          <input
-                            type="text"
-                            className="input"
-                            style={{ height: 34, flex: '1 1 160px', fontSize: 12.5 }}
-                            value={noteById[b.id] ?? ''}
-                            onChange={(e) =>
-                              setNoteById((prev) => ({ ...prev, [b.id]: e.target.value }))
-                            }
-                            placeholder="Optional decision note..."
-                          />
-                        </div>
-
-                        <div className="row" style={{ gap: 8 }}>
-                          <button
-                            type="button"
-                            className="btn btn--danger btn--sm"
-                            onClick={() => handleDecision(b, 'declined')}
-                          >
-                            <XCircle /> Decline
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn--sm py-btn-emerald"
-                            onClick={() => handleDecision(b, 'approved_queued')}
-                          >
-                            <ShieldCheck /> Approve & Queue into Payroll
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Department Variable Pay Burn Bars */}
-        <section className="card" style={{ minWidth: 0 }}>
-          <div className="section-head">
-            <div>
-              <h2 className="section-title" style={{ margin: 0 }}>
-                Department Variable Pay Burn
-              </h2>
-              <p className="text-xs muted" style={{ marginTop: 3 }}>
-                Paid, payroll-queued & pending awards vs discretionary pool allocation.
-              </p>
-            </div>
-          </div>
-
-          <div className="row row--wrap text-xs muted" style={{ gap: 12, marginBottom: 14 }}>
-            <span className="row" style={{ gap: 5 }}>
-              <span className="py-kind-pill__dot" style={{ background: '#10b981' }} /> Paid
-            </span>
-            <span className="row" style={{ gap: 5 }}>
-              <span className="py-kind-pill__dot" style={{ background: '#38bdf8' }} /> Queued
-            </span>
-            <span className="row" style={{ gap: 5 }}>
-              <span className="py-kind-pill__dot" style={{ background: '#fbbf24' }} /> Pending
-            </span>
-          </div>
-
-          <div className="py-burn-list">
-            {deptBurnRows.map((d) => {
-              const totalUsed = d.paidAed + d.queuedAed + d.pendingAed;
-              const denom = Math.max(d.annualPoolAed, totalUsed, 1);
-              const paidPct = Math.round((d.paidAed / denom) * 100);
-              const queuedPct = Math.round((d.queuedAed / denom) * 100);
-              const pendingPct = Math.round((d.pendingAed / denom) * 100);
-              const burnPct = Math.round((totalUsed / Math.max(1, d.annualPoolAed)) * 100);
-
-              return (
-                <div key={d.department} className="py-burn-row">
-                  <div className="py-burn-row__head">
-                    <strong>{d.department}</strong>
-                    <span className="mono text-xs muted">
-                      {formatAed(totalUsed)} / {formatAed(d.annualPoolAed)} ({burnPct}%)
-                    </span>
+                    <Bar value={m.amountAed / maxMixAed} fill={BONUS_KIND_META[m.kind].color} label={`${BONUS_KIND_META[m.kind].label} share`} />
                   </div>
-                  <div className="py-burn-bar">
-                    {paidPct > 0 && (
-                      <i style={{ width: `${paidPct}%`, background: '#10b981' }} title={`Paid: ${formatAed(d.paidAed)}`} />
-                    )}
-                    {queuedPct > 0 && (
-                      <i style={{ width: `${queuedPct}%`, background: '#38bdf8' }} title={`Queued: ${formatAed(d.queuedAed)}`} />
-                    )}
-                    {pendingPct > 0 && (
-                      <i style={{ width: `${pendingPct}%`, background: '#fbbf24' }} title={`Pending: ${formatAed(d.pendingAed)}`} />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      </div>
+                ))}
+              </div>
+            </NeoPanel>
+          </>
+        }
+      />
 
       {/* Queued & Historical Awards Ledger */}
-      <section className="card py-table-card">
-        <div className="py-table-card__head">
-          <div>
-            <h2 className="section-title" style={{ margin: 0 }}>
-              Queued & Historical Variable Pay Ledger
-              <span className="count">{filteredLedger.length}</span>
-            </h2>
-            <p className="text-xs muted" style={{ marginTop: 3 }}>
-              Full audit log of spot awards, SLO milestones, signing tranches, and performance bonuses.
-            </p>
-          </div>
-          {caps.canNominateBonus && (
-            <button
-              type="button"
-              className="btn btn--sm py-btn-emerald"
-              onClick={() => setNominateOpen(true)}
-            >
-              <Award /> Nominate Bonus
-            </button>
-          )}
+      <NeoPanel flush hud="Audit log" title="Variable pay ledger" actions={<span className="neo-count">{filteredLedger.length}</span>}>
+        <p className="py-panel-sub">Spot awards, SLO milestones, signing tranches and performance bonuses — each with its four-eyes approver.</p>
+        <div className="py-toolbar">
+          <NeoSearch
+            size="sm"
+            className="py-toolbar__search"
+            value={search}
+            onChange={setSearch}
+            placeholder="Search reference, employee, award…"
+            label="Search the variable pay ledger"
+          />
+          <NeoTabs
+            value={statusFilter}
+            onChange={setStatusFilter}
+            label="Filter by status"
+            items={STATUS_TABS.map((t) => ({ value: t.id, label: t.label, count: statusCounts[t.id] }))}
+          />
         </div>
-
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)' }}>
-          <div className="stack stack--sm">
-            <div className="py-toolbar" style={{ marginBottom: 0 }}>
-              <div className="py-toolbar__left">
-                <div className="input-wrap py-search">
-                  <Search />
-                  <input
-                    type="search"
-                    className="input"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search reference, employee, award title..."
-                  />
-                </div>
-                <div className="chips" style={{ maskImage: 'none', flexWrap: 'wrap' }}>
-                  {STATUS_FILTERS.map((sf) => (
-                    <button
-                      key={sf.id}
-                      type="button"
-                      className={cx('chip', statusFilter === sf.id && 'is-active')}
-                      onClick={() => setStatusFilter(sf.id)}
-                    >
-                      {sf.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="chips" style={{ maskImage: 'none', flexWrap: 'wrap' }}>
-              {KIND_FILTERS.map((kf) => (
-                <button
-                  key={kf.id}
-                  type="button"
-                  className={cx('chip', kindFilter === kf.id && 'is-active')}
-                  onClick={() => setKindFilter(kf.id)}
-                >
-                  {kf.id !== 'all' && (
-                    <span
-                      className="py-kind-pill__dot"
-                      style={{ background: BONUS_KIND_META[kf.id].color }}
-                    />
-                  )}
-                  {kf.label}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="py-toolbar py-toolbar--chips" role="group" aria-label="Filter by award type">
+          <Chip size="lg" tone="app" onClick={() => setKindFilter('all')} pressed={kindFilter === 'all'}>
+            All types
+          </Chip>
+          {KINDS.map((k) => (
+            <KindChip key={k} kind={k} size="lg" onClick={() => setKindFilter(k)} pressed={kindFilter === k} />
+          ))}
         </div>
 
         {filteredLedger.length === 0 ? (
-          <EmptyState icon={<Award />} title="No bonus awards match your filters">
-            Reset status or category filters to view all variable pay awards.
-          </EmptyState>
+          <NeoEmpty compact icon={<Search />} title="No bonus awards match your filters">
+            Reset the status or award-type filter to see every variable pay award.
+          </NeoEmpty>
         ) : (
-          <div className="py-table-wrap">
-            <table className="py-table">
+          <div className="neo-table-wrap">
+            <table className="neo-table py-table py-table--ledger">
               <thead>
                 <tr>
-                  <th>Reference & Recipient</th>
-                  <th>Category</th>
-                  <th>Award & Impact Citation</th>
-                  <th>Nominated / Signed Off</th>
-                  <th>Target Period</th>
-                  <th className="is-right">Amount (AED)</th>
+                  <th>Recipient</th>
+                  <th>Type</th>
+                  <th>Award & citation</th>
+                  <th>Nominated · signed off</th>
+                  <th>Period</th>
+                  <th className="is-right">Amount</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -542,68 +414,48 @@ export function BonusesView() {
                   const recipient = userById.get(b.userId);
                   const nominator = userById.get(b.nominatedBy);
                   const decider = b.decidedBy ? userById.get(b.decidedBy) : undefined;
-                  const kindMeta = BONUS_KIND_META[b.kind];
                   const statusMeta = BONUS_STATUS_META[b.status];
-
                   return (
                     <tr key={b.id}>
                       <td>
-                        <div className="py-emp-cell">
-                          {recipient && <Avatar user={recipient} size={32} />}
-                          <div className="py-emp-cell__meta">
-                            <div className="py-emp-cell__name">
-                              {recipient?.name ?? b.userId}
-                            </div>
-                            <div className="py-emp-cell__sub mono">
+                        <div className="py-person">
+                          {recipient && <Avatar user={recipient} size={30} />}
+                          <div className="py-person__text">
+                            <b>{recipient?.name ?? b.userId}</b>
+                            <span className="py-mono">
                               {b.reference} · {b.department}
-                            </div>
+                            </span>
                           </div>
                         </div>
                       </td>
-
                       <td>
-                        <span className="py-kind-pill">
-                          <span
-                            className="py-kind-pill__dot"
-                            style={{ background: kindMeta.color }}
-                          />
-                          {kindMeta.label}
-                        </span>
+                        <KindChip kind={b.kind} size="sm" />
                       </td>
-
-                      <td style={{ maxWidth: 320 }}>
-                        <div style={{ fontWeight: 600 }}>{b.title}</div>
-                        <div className="text-xs muted clamp-2" style={{ marginTop: 2 }}>
-                          {b.reason}
-                        </div>
+                      <td className="py-cell-wide">
+                        <div className="py-cell-title">{b.title}</div>
+                        <div className="py-cell-sub clamp-2">{b.reason}</div>
                       </td>
-
                       <td>
-                        <div className="text-xs">
-                          Nom: <b>{nominator?.name ?? b.nominatedBy}</b>
+                        <div className="py-cell-sub">
+                          Nom <b>{nominator?.name ?? b.nominatedBy}</b>
                         </div>
                         {decider && (
-                          <div className="text-xs muted">
-                            4-Eyes: <b>{decider.name}</b>
+                          <div className="py-cell-sub">
+                            4-eyes <b>{decider.name}</b>
                           </div>
                         )}
                       </td>
-
                       <td>
-                        <span className="tag">{b.payrollPeriod}</span>
-                        {b.paidRunId && (
-                          <div className="py-num-sub">Run {b.paidRunId}</div>
-                        )}
+                        <span className="py-ccy">{b.payrollPeriod}</span>
+                        {b.paidRunId && <div className="py-sub">Run {b.paidRunId}</div>}
                       </td>
-
                       <td className="is-right">
-                        <span className="py-num py-num--net">{formatAed(b.amountAed)}</span>
+                        <span className="py-amt py-amt--net">{formatAed(b.amountAed)}</span>
                       </td>
-
                       <td>
-                        <span className={`badge badge--${statusMeta.badge}`}>
+                        <Chip size="sm" tone={statusMeta.tone}>
                           {statusMeta.label}
-                        </span>
+                        </Chip>
                       </td>
                     </tr>
                   );
@@ -612,7 +464,10 @@ export function BonusesView() {
             </table>
           </div>
         )}
-      </section>
+        <div className="py-panel-foot">
+          <Award /> Nominate from the header — awards always pass four-eyes before they reach a payslip.
+        </div>
+      </NeoPanel>
 
       <NominateBonusModal open={nominateOpen} onClose={() => setNominateOpen(false)} />
     </div>

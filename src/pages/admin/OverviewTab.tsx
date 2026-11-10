@@ -1,17 +1,27 @@
+/**
+ * Control deck — the Control Center home.
+ * Attention banners, HUD ribbon, Nova "Ask about access", security insights,
+ * access coverage and role mix; side column: your clearance & scope, grants
+ * about to expire and the live audit feed.
+ */
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router';
 import {
   Activity,
   AppWindow,
   ArrowRight,
+  Check,
   ChevronDown,
-  ChevronRight,
   ChevronUp,
+  CircleCheck,
   Clock,
   Crown,
+  Fingerprint,
   Hourglass,
   Inbox,
   KeyRound,
+  Lock,
+  ScrollText,
   ShieldAlert,
   ShieldCheck,
   UserX,
@@ -19,20 +29,23 @@ import {
   Wrench,
   type LucideIcon,
 } from 'lucide-react';
+import { NeoBanner, NeoBanners, NeoEmpty, NeoHome, NeoKpi, NeoKpis, NeoPanel } from '@/components/neo';
 import { useHub } from '@/store/hub';
-import { usePermissions, useReviewableRequests } from '@/store/selectors';
+import { useClearance, usePermissions, usePrimaryRole, useReviewableRequests, useSessionUser } from '@/store/selectors';
 import { useNow } from '@/hooks/useNow';
-import { AppIcon, EmptyState } from '@/components/ui/primitives';
+import { AppIcon, Avatar, ClearanceBadge, RoleChip } from '@/components/ui/primitives';
 import { appPermissionId } from '@/data/permissions';
 import { SUPER_ADMIN_ROLE_ID } from '@/data/roles';
-import { hasPermission, isGrantActive, primaryRole } from '@/lib/rbac';
+import { hasPermission, isGrantActive, primaryRole, requestRisk } from '@/lib/rbac';
 import { pluralize, relativeTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
-import type { Grant, User } from '@/types';
-import { adminHref } from './adminTabs';
-import { Actor, DAY, EMPTY_PERMS, OutcomeBadge, severityTone, toneClass, usePermsByUser, useUserMap, type Tone } from './shared';
+import type { AuditEntry, Grant, HubApp, Role, User } from '@/types';
+import { ADMIN_TABS, adminHref } from './adminTabs';
+import { AccessNova } from './AccessNova';
+import { useAdminChrome } from './chrome';
+import { Actor, DAY, EMPTY_PERMS, OutcomeBadge, permLabel, severityTone, toneClass, useAppMap, usePermsByUser, useUserMap, type Tone } from './shared';
 
-const COVERAGE_TOP = 10;
+const COVERAGE_TOP = 8;
 
 interface Insight {
   id: string;
@@ -44,17 +57,11 @@ interface Insight {
 }
 
 const TONE_RANK: Record<Tone, number> = { danger: 0, warning: 1, info: 2, accent: 3, muted: 4, success: 5 };
-const TONE_BADGE: Record<Tone, { cls: string; label: string }> = {
-  danger: { cls: 'badge--danger', label: 'Critical' },
-  warning: { cls: 'badge--warning', label: 'Review' },
-  info: { cls: 'badge--info', label: 'Info' },
-  accent: { cls: 'badge--info', label: 'Info' },
-  muted: { cls: 'badge--muted', label: 'Note' },
-  success: { cls: 'badge--success', label: 'Healthy' },
-};
+const TONE_LABEL: Record<Tone, string> = { danger: 'Critical', warning: 'Review', info: 'Info', accent: 'Info', muted: 'Note', success: 'Healthy' };
 
 export function OverviewTab() {
   const now = useNow(60_000);
+  const me = useSessionUser();
   const users = useHub((s) => s.users);
   const roles = useHub((s) => s.roles);
   const apps = useHub((s) => s.apps);
@@ -62,14 +69,18 @@ export function OverviewTab() {
   const audit = useHub((s) => s.audit);
   const perms = usePermissions();
   const reviewable = useReviewableRequests();
-  const permsByUser = usePermsByUser(now);
   const userMap = useUserMap();
-  const [showAllCoverage, setShowAllCoverage] = useState(false);
+  const appMap = useAppMap();
 
   const canUsers = hasPermission(perms, 'hub.users.manage');
   const canReview = hasPermission(perms, 'hub.requests.review');
   const canApps = hasPermission(perms, 'hub.apps.manage');
   const canAudit = hasPermission(perms, 'hub.audit.view');
+  const canRoles = hasPermission(perms, 'hub.roles.manage');
+  const scope = useMemo(
+    () => ({ users: canUsers, review: canReview, audit: canAudit, apps: canApps, roles: canRoles }),
+    [canUsers, canReview, canAudit, canApps, canRoles],
+  );
 
   // ── headline metrics ──
   const m = useMemo(() => {
@@ -101,57 +112,38 @@ export function OverviewTab() {
     const admins = active.filter((u) => u.roleIds.includes(SUPER_ADMIN_ROLE_ID));
     const denied = audit.filter((a) => a.outcome === 'denied' && a.at >= now - 7 * DAY);
     const deniedCritical = denied.filter((a) => a.severity === 'critical').length;
+    const last24 = audit.filter((a) => a.at >= now - DAY);
+    const denied24 = last24.filter((a) => a.outcome === 'denied').sort((a, b) => b.at - a.at);
     const stalePending = pending.filter((r) => now - r.createdAt > DAY).length;
-    return { active, pending, enabledApps, operational, degraded, maintenance, temp, permanent, staleHolders, expiring, admins, denied, deniedCritical, stalePending };
+    return {
+      active,
+      pending,
+      enabledApps,
+      operational,
+      degraded,
+      maintenance,
+      temp,
+      permanent,
+      staleHolders,
+      expiring,
+      admins,
+      denied,
+      deniedCritical,
+      events24h: last24.length,
+      denied24,
+      stalePending,
+    };
   }, [users, requests, apps, audit, now]);
 
-  // ── access coverage ──
-  const coverage = useMemo(() => {
-    const active = users.filter((u) => u.active);
-    return apps
-      .filter((a) => a.enabled)
-      .map((app) => {
-        const perm = appPermissionId(app.id);
-        const n = active.reduce((acc, u) => acc + (hasPermission(permsByUser.get(u.id) ?? EMPTY_PERMS, perm) ? 1 : 0), 0);
-        return { app, n, pct: active.length ? Math.round((n / active.length) * 100) : 0 };
-      })
-      .sort((a, b) => b.n - a.n || a.app.name.localeCompare(b.app.name));
-  }, [apps, users, permsByUser]);
-  const shownCoverage = showAllCoverage ? coverage : coverage.slice(0, COVERAGE_TOP);
-
-  // ── role distribution (each active person counted once, by headline role) ──
-  const dist = useMemo(() => {
-    const active = users.filter((u) => u.active);
-    const counts = new Map<string, number>();
-    let none = 0;
-    for (const u of active) {
-      const r = primaryRole(u, roles);
-      if (r) counts.set(r.id, (counts.get(r.id) ?? 0) + 1);
-      else none += 1;
-    }
-    const rows = roles
-      .filter((r) => counts.has(r.id))
-      .map((r) => ({ id: r.id, name: r.name, color: r.color, n: counts.get(r.id) ?? 0 }))
-      .sort((a, b) => b.n - a.n);
-    if (none) rows.push({ id: '_none', name: 'No role', color: 'var(--text-3)', n: none });
-    const assignments = active.reduce((acc, u) => acc + u.roleIds.length, 0);
-    return { rows, total: active.length, assignments };
-  }, [users, roles]);
-
-  const donutBg = useMemo(() => {
-    if (!dist.total) return 'conic-gradient(var(--surface-3) 0deg 360deg)';
-    const gap = dist.rows.length > 1 ? 1.6 : 0;
-    let acc = 0;
-    const stops = dist.rows.flatMap((r) => {
-      const start = acc;
-      const end = acc + (r.n / dist.total) * 360;
-      acc = end;
-      return gap
-        ? [`transparent ${start}deg ${start + gap}deg`, `${r.color} ${start + gap}deg ${end}deg`]
-        : [`${r.color} ${start}deg ${end}deg`];
-    });
-    return `conic-gradient(${stops.join(', ')})`;
-  }, [dist]);
+  const queue = useMemo(() => {
+    const oldest = [...reviewable].sort((a, b) => a.createdAt - b.createdAt)[0];
+    const high = reviewable.filter((r) => {
+      const app = appMap.get(r.appId);
+      const u = userMap.get(r.userId);
+      return app && u ? requestRisk(app, u, roles, r.duration) === 'high' : false;
+    }).length;
+    return { oldest, high };
+  }, [reviewable, appMap, userMap, roles]);
 
   // ── security insights ──
   const insights = useMemo<Insight[]>(() => {
@@ -253,319 +245,514 @@ export function OverviewTab() {
     return list.sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone]);
   }, [m, canUsers, canAudit, canReview, canApps]);
 
-  const openIssues = insights.filter((i) => i.tone === 'danger' || i.tone === 'warning').length;
-  const recent = useMemo(() => [...audit].sort((a, b) => b.at - a.at).slice(0, 6), [audit]);
+  useAdminChrome({
+    actions: (
+      <>
+        {canAudit && (
+          <Link to={adminHref('audit')} className="neo-btn neo-btn--soft">
+            <ScrollText /> <span className="neo-btn__label">Audit log</span>
+          </Link>
+        )}
+        {canReview ? (
+          <Link to={adminHref('requests')} className="neo-btn neo-btn--plasma" data-qa="adm-review">
+            <Inbox /> <span className="neo-btn__label">Review requests</span>
+            {reviewable.length > 0 && <span className="adm-btn-count">{reviewable.length}</span>}
+          </Link>
+        ) : (
+          canUsers && (
+            <Link to={adminHref('users')} className="neo-btn neo-btn--plasma">
+              <Users /> <span className="neo-btn__label">People</span>
+            </Link>
+          )
+        )}
+      </>
+    ),
+  });
+
+  const lastDenied = m.denied24[0];
+  const showBanners = (canReview && reviewable.length > 0) || m.denied24.length > 0 || m.staleHolders > 0;
 
   return (
-    <div className="adm-panel">
-      <section className="adm-kpis stagger" aria-label="Key metrics">
-        <Kpi
-          i={0}
-          tone="accent"
-          Icon={Users}
-          label="Active users"
-          value={m.active.length}
-          total={users.length}
-          progress={users.length ? m.active.length / users.length : 0}
-          delta={`${users.length - m.active.length} deactivated`}
-          to={canUsers ? adminHref('users') : undefined}
-        />
-        <Kpi
-          i={1}
-          tone="warning"
-          Icon={Inbox}
-          label="Pending · for you"
-          value={reviewable.length}
-          total={m.pending.length}
-          delta={reviewable.length ? `${m.pending.length - reviewable.length} with other reviewers` : 'Nothing waiting on you'}
+    <>
+      {showBanners && (
+        <NeoBanners>
+          {canReview && reviewable.length > 0 && (
+            <NeoBanner
+              tone="warning"
+              icon={<Inbox />}
+              title={`${pluralize(reviewable.length, 'request')} awaiting your review`}
+              meta={queue.oldest ? `Oldest ${relativeTime(queue.oldest.createdAt, now)}` : undefined}
+              to={adminHref('requests')}
+            >
+              {queue.high ? `${queue.high} high risk · ` : ''}
+              {queue.oldest
+                ? `${userMap.get(queue.oldest.userId)?.name ?? 'Someone'} → ${appMap.get(queue.oldest.appId)?.name ?? queue.oldest.appId}, waiting the longest.`
+                : 'Delegated to you as an app holder.'}
+            </NeoBanner>
+          )}
+          {m.denied24.length > 0 && (
+            <NeoBanner
+              tone="danger"
+              icon={<ShieldAlert />}
+              title={`${pluralize(m.denied24.length, 'denied attempt')} in the last 24 hours`}
+              meta={lastDenied ? relativeTime(lastDenied.at, now) : undefined}
+              to={canAudit ? adminHref('audit', { outcome: 'denied' }) : undefined}
+            >
+              {lastDenied ? `${userMap.get(lastDenied.actorId)?.name ?? 'System'} — ${lastDenied.detail ?? lastDenied.target}` : 'Blocked by the policy engine.'}
+            </NeoBanner>
+          )}
+          {m.staleHolders > 0 && (
+            <NeoBanner
+              tone="danger"
+              icon={<UserX />}
+              title={`${pluralize(m.staleHolders, 'deactivated account')} still holding grants`}
+              to={canUsers ? adminHref('users', { status: 'inactive', grants: 'any' }) : undefined}
+            >
+              Dormant grants revive on reactivation — revoke what’s no longer needed.
+            </NeoBanner>
+          )}
+        </NeoBanners>
+      )}
+
+      <NeoKpis label="Control Center at a glance">
+        <NeoKpi
+          icon={<Inbox />}
+          label="Awaiting you"
+          value={canReview ? reviewable.length : '—'}
+          sub={
+            canReview
+              ? reviewable.length
+                ? `${queue.high} high risk · oldest ${queue.oldest ? relativeTime(queue.oldest.createdAt, now).replace(' ago', '') : '—'}`
+                : 'Inbox zero'
+              : 'No review rights'
+          }
+          tone={canReview && reviewable.length ? 'warning' : undefined}
           to={canReview ? adminHref('requests') : undefined}
         />
-        <Kpi
-          i={2}
-          tone="success"
-          Icon={Activity}
-          label="Apps operational"
-          value={m.operational}
-          total={m.enabledApps.length}
-          progress={m.enabledApps.length ? m.operational / m.enabledApps.length : 0}
-          delta={`${m.degraded} degraded · ${m.maintenance} maintenance`}
-          to={canApps ? adminHref('apps') : undefined}
+        <NeoKpi
+          icon={<Users />}
+          label="Active people"
+          value={
+            <>
+              {m.active.length}
+              <small>/{users.length}</small>
+            </>
+          }
+          sub={`${users.length - m.active.length} deactivated`}
+          to={canUsers ? adminHref('users') : undefined}
         />
-        <Kpi
-          i={3}
-          tone="info"
-          Icon={Hourglass}
-          label="Temporary grants"
-          value={m.temp}
-          delta={`${m.expiring.length} expiring ≤ 7d · ${m.permanent} permanent`}
+        <NeoKpi
+          icon={<KeyRound />}
+          label="Live grants"
+          value={m.temp + m.permanent}
+          sub={`${m.expiring.length} expiring ≤ 7d · ${m.permanent} permanent`}
           to={canUsers ? adminHref('users', { grants: 'any' }) : undefined}
         />
-        <Kpi
-          i={4}
-          tone="danger"
-          Icon={Crown}
-          label="System Admins"
-          value={m.admins.length}
-          delta="Active · full access (∗)"
-          to={canUsers ? adminHref('users', { role: SUPER_ADMIN_ROLE_ID }) : undefined}
+        <NeoKpi
+          icon={<Activity />}
+          label="Events · 24h"
+          value={m.events24h}
+          sub={m.denied24.length ? `${m.denied24.length} denied` : 'No denials'}
+          tone={m.denied24.length ? 'danger' : undefined}
+          to={canAudit ? adminHref('audit') : undefined}
         />
-        <Kpi
-          i={5}
-          tone={m.denied.length ? 'danger' : 'success'}
-          Icon={ShieldAlert}
-          label="Denied · 7 days"
-          value={m.denied.length}
-          delta={m.deniedCritical ? `${m.deniedCritical} critical` : 'No critical attempts'}
-          to={canAudit ? adminHref('audit', { outcome: 'denied' }) : undefined}
+        <NeoKpi
+          icon={<AppWindow />}
+          label="Apps operational"
+          value={
+            <>
+              {m.operational}
+              <small>/{m.enabledApps.length}</small>
+            </>
+          }
+          sub={`${m.degraded} degraded · ${m.maintenance} maintenance`}
+          tone={m.degraded ? 'warning' : undefined}
+          to={canApps ? adminHref('apps') : undefined}
         />
-      </section>
+      </NeoKpis>
 
-      <div className="adm-grid-2">
-        <section className="card adm-card" aria-labelledby="adm-cov-h">
-          <div className="section-head">
-            <div>
-              <h2 id="adm-cov-h" className="section-title">
-                Access coverage <span className="count">{coverage.length} apps</span>
-              </h2>
-              <p className="text-sm faint">Share of active people who can open each enabled app</p>
+      <NeoHome
+        sideLabel="Your control overview"
+        main={
+          <>
+            <AccessNova can={scope} myPerms={perms} meId={me?.id} />
+            <InsightsPanel insights={insights} />
+            <div className="adm-duo">
+              <CoveragePanel canApps={canApps} now={now} />
+              <RoleMixPanel canUsers={canUsers} />
             </div>
-            {canApps && (
-              <Link to={adminHref('apps')} className="btn btn--ghost btn--sm">
-                <AppWindow aria-hidden="true" /> Catalog
-              </Link>
-            )}
-          </div>
-          {coverage.length === 0 ? (
-            <EmptyState icon={<AppWindow />} title="No enabled apps">
-              Enable an app in the catalog to see coverage.
-            </EmptyState>
-          ) : (
-            <ul className="adm-bars">
-              {shownCoverage.map(({ app, n, pct }, i) => (
-                <li
-                  key={app.id}
-                  className="adm-bar-row"
-                  style={{ '--c1': app.gradient[0], '--c2': app.gradient[1], '--i': i } as CSSProperties}
-                >
-                  <AppIcon app={app} size={28} />
-                  <span className="adm-bar-row__name truncate" title={app.name}>
-                    {app.name}
-                  </span>
-                  <span className="adm-bar" role="img" aria-label={`${app.name}: ${pct}% of active people (${n} of ${m.active.length})`}>
-                    <span style={{ width: `${Math.max(pct, n ? 2 : 0)}%` }} />
-                  </span>
-                  <span className="adm-bar-row__pct">
-                    <strong>{pct}%</strong>
-                    <span className="faint">
-                      {n}/{m.active.length}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {coverage.length > COVERAGE_TOP && (
-            <button type="button" className="btn btn--ghost btn--sm adm-more" aria-expanded={showAllCoverage} onClick={() => setShowAllCoverage((v) => !v)}>
-              {showAllCoverage ? (
-                <>
-                  Show top {COVERAGE_TOP} <ChevronUp aria-hidden="true" />
-                </>
-              ) : (
-                <>
-                  Show all {coverage.length} <ChevronDown aria-hidden="true" />
-                </>
-              )}
-            </button>
-          )}
-        </section>
-
-        <section className="card adm-card" aria-labelledby="adm-dist-h">
-          <div className="section-head">
-            <div>
-              <h2 id="adm-dist-h" className="section-title">
-                Role distribution
-              </h2>
-              <p className="text-sm faint">Active people by headline (highest-clearance) role</p>
-            </div>
-          </div>
-          <div className="adm-donut-wrap">
-            <div
-              className="adm-donut"
-              role="img"
-              aria-label={`Role distribution: ${dist.rows.map((r) => `${r.name} ${r.n}`).join(', ')}`}
-            >
-              <span className="adm-donut__glow" style={{ background: donutBg }} />
-              <span className="adm-donut__ring" style={{ background: donutBg }} />
-              <span className="adm-donut__center">
-                <span className="adm-donut__value">{dist.total}</span>
-                <span className="adm-micro">people</span>
-              </span>
-            </div>
-            <ul className="adm-legend">
-              {dist.rows.map((r) => {
-                const pct = dist.total ? Math.round((r.n / dist.total) * 100) : 0;
-                const inner = (
-                  <>
-                    <i className="adm-legend__dot" aria-hidden="true" />
-                    <span className="truncate">{r.name}</span>
-                    <span className="mono faint text-xs">{pct}%</span>
-                    <strong className="mono">{r.n}</strong>
-                  </>
-                );
-                return (
-                  <li key={r.id} style={{ '--role': r.color } as CSSProperties}>
-                    {canUsers && r.id !== '_none' ? (
-                      <Link className="adm-legend__row" to={adminHref('users', { role: r.id })} aria-label={`${r.name}: ${r.n} people (${pct}%). View users`}>
-                        {inner}
-                      </Link>
-                    ) : (
-                      <div className="adm-legend__row">{inner}</div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-          <p className="adm-foot-note">
-            <span className="mono">{dist.assignments}</span> role assignments · avg{' '}
-            <span className="mono">{(dist.assignments / Math.max(1, dist.total)).toFixed(1)}</span> roles per person
-          </p>
-        </section>
-      </div>
-
-      <div className="adm-grid-2">
-        <section className="card adm-card" aria-labelledby="adm-ins-h">
-          <div className="section-head">
-            <h2 id="adm-ins-h" className="section-title">
-              Security insights
-            </h2>
-            {openIssues ? (
-              <span className="badge badge--warning">{pluralize(openIssues, 'item')} to review</span>
-            ) : (
-              <span className="badge badge--success">All clear</span>
-            )}
-          </div>
-          <ul className="stack stack--sm">
-            {insights.map((ins) => {
-              const badge = TONE_BADGE[ins.tone];
-              const inner = (
-                <>
-                  <span className="adm-insight__icon" aria-hidden="true">
-                    <ins.Icon />
-                  </span>
-                  <span className="grow">
-                    <span className="adm-insight__title">{ins.title}</span>
-                    <span className="adm-insight__detail">{ins.detail}</span>
-                  </span>
-                  <span className={cx('badge', badge.cls)}>{badge.label}</span>
-                  {ins.to && <ChevronRight className="adm-insight__go" aria-hidden="true" />}
-                </>
-              );
-              return (
-                <li key={ins.id}>
-                  {ins.to ? (
-                    <Link to={ins.to} className={cx('adm-insight', 'is-link', toneClass(ins.tone))}>
-                      {inner}
-                    </Link>
-                  ) : (
-                    <div className={cx('adm-insight', toneClass(ins.tone))}>{inner}</div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-
-        <section className="card adm-card" aria-labelledby="adm-act-h">
-          <div className="section-head">
-            <h2 id="adm-act-h" className="section-title">
-              Recent activity
-            </h2>
-            {canAudit && (
-              <Link to={adminHref('audit')} className="btn btn--ghost btn--sm">
-                Audit log <ArrowRight aria-hidden="true" />
-              </Link>
-            )}
-          </div>
-          {recent.length === 0 ? (
-            <EmptyState icon={<Activity />} title="No activity yet" />
-          ) : (
-            <ul className="adm-activity">
-              {recent.map((e) => (
-                <li key={e.id} className={cx('adm-activity__row', toneClass(severityTone(e.severity)))}>
-                  <span className="adm-activity__dot" aria-hidden="true" />
-                  <div className="grow">
-                    <div className="row row--wrap adm-gap-6">
-                      <code className="adm-action">{e.action}</code>
-                      {e.outcome === 'denied' && <OutcomeBadge outcome="denied" />}
-                    </div>
-                    <div className="text-sm adm-activity__target truncate">{e.target}</div>
-                    <div className="row text-xs faint adm-gap-6">
-                      <Actor user={userMap.get(e.actorId)} size={18} />
-                      <span aria-hidden="true">·</span>
-                      <time dateTime={new Date(e.at).toISOString()}>{relativeTime(e.at, now)}</time>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
-    </div>
+          </>
+        }
+        side={
+          <>
+            <SessionPanel />
+            <ExpiringPanel expiring={m.expiring} canUsers={canUsers} now={now} appMap={appMap} />
+            <ActivityPanel audit={audit} canAudit={canAudit} now={now} />
+          </>
+        }
+      />
+    </>
   );
 }
 
-function Kpi({
-  i,
-  tone,
-  Icon,
-  label,
-  value,
-  total,
-  delta,
-  progress,
-  to,
-}: {
-  i: number;
-  tone: Tone;
-  Icon: LucideIcon;
-  label: string;
-  value: number;
-  total?: number;
-  delta: string;
-  progress?: number;
-  to?: string;
-}) {
-  const body = (
-    <>
-      <div className="row row--between row--top">
-        <span className="stat-label">{label}</span>
-        <span className="adm-kpi__icon" aria-hidden="true">
-          <Icon />
-        </span>
+// ─────────────────────────── main column ───────────────────────────
+
+function InsightsPanel({ insights }: { insights: Insight[] }) {
+  const open = insights.filter((i) => i.tone === 'danger' || i.tone === 'warning').length;
+  return (
+    <NeoPanel
+      hud="Posture"
+      title="Security insights"
+      actions={
+        open ? (
+          <span className="neo-chip" data-tone="warning">
+            {pluralize(open, 'item')} to review
+          </span>
+        ) : (
+          <span className="neo-chip" data-tone="success">
+            All clear
+          </span>
+        )
+      }
+    >
+      <div className="adm-insights neo-stagger">
+        {insights.map((ins, i) => {
+          const inner = (
+            <>
+              <span className="adm-insight__icon" aria-hidden="true">
+                <ins.Icon />
+              </span>
+              <span className="adm-insight__title">{ins.title}</span>
+              <span className="adm-insight__detail">{ins.detail}</span>
+              <span className="adm-insight__go" aria-hidden={ins.to ? 'true' : undefined}>
+                {ins.to ? (
+                  <>
+                    Review <ArrowRight />
+                  </>
+                ) : (
+                  TONE_LABEL[ins.tone]
+                )}
+              </span>
+            </>
+          );
+          const cls = cx('adm-insight', toneClass(ins.tone), ins.to && 'is-link neo-spot');
+          const style = { '--i': i } as CSSProperties;
+          return ins.to ? (
+            <Link key={ins.id} to={ins.to} className={cls} style={style}>
+              {inner}
+            </Link>
+          ) : (
+            <div key={ins.id} className={cls} style={style}>
+              {inner}
+            </div>
+          );
+        })}
       </div>
-      <div className="stat-value">
-        {value}
-        {total !== undefined && <small> / {total}</small>}
-      </div>
-      {progress !== undefined && (
-        <div className="progress adm-kpi__progress" aria-hidden="true">
-          <span style={{ width: `${Math.round(Math.min(1, Math.max(0, progress)) * 100)}%` }} />
-        </div>
-      )}
-      <div className="stat-delta">{delta}</div>
-    </>
+    </NeoPanel>
   );
-  const cls = cx('card card--tight adm-kpi', toneClass(tone), to && 'card--interactive');
-  const style = { '--i': i } as CSSProperties;
-  return to ? (
-    <Link to={to} className={cls} style={style} aria-label={`${label}: ${value}${total !== undefined ? ` of ${total}` : ''}. ${delta}`}>
-      {body}
-    </Link>
-  ) : (
-    <div className={cls} style={style}>
-      {body}
-    </div>
+}
+
+function CoveragePanel({ canApps, now }: { canApps: boolean; now: number }) {
+  const apps = useHub((s) => s.apps);
+  const users = useHub((s) => s.users);
+  const permsByUser = usePermsByUser(now);
+  const [showAll, setShowAll] = useState(false);
+
+  const { coverage, active } = useMemo(() => {
+    const act = users.filter((u) => u.active);
+    const rows = apps
+      .filter((a) => a.enabled)
+      .map((app) => {
+        const perm = appPermissionId(app.id);
+        const n = act.reduce((acc, u) => acc + (hasPermission(permsByUser.get(u.id) ?? EMPTY_PERMS, perm) ? 1 : 0), 0);
+        return { app, n, pct: act.length ? Math.round((n / act.length) * 100) : 0 };
+      })
+      .sort((a, b) => b.n - a.n || a.app.name.localeCompare(b.app.name));
+    return { coverage: rows, active: act.length };
+  }, [apps, users, permsByUser]);
+  const shown = showAll ? coverage : coverage.slice(0, COVERAGE_TOP);
+
+  return (
+    <NeoPanel
+      hud="Reach"
+      title="Access coverage"
+      actions={
+        canApps ? (
+          <Link to={adminHref('apps')} className="neo-btn neo-btn--ghost neo-btn--xs">
+            Catalog <ArrowRight />
+          </Link>
+        ) : undefined
+      }
+    >
+      <p className="adm-panel-sub">Share of active people who can open each enabled app · {pluralize(coverage.length, 'app')}</p>
+      {coverage.length === 0 ? (
+        <NeoEmpty compact icon={<AppWindow />} title="No enabled apps">
+          Enable an app in the catalog to see coverage.
+        </NeoEmpty>
+      ) : (
+        <ul className="adm-bars">
+          {shown.map(({ app, n, pct }, i) => (
+            <li key={app.id} className="adm-bar-row" style={{ '--c1': app.gradient[0], '--c2': app.gradient[1], '--i': i } as CSSProperties}>
+              <AppIcon app={app} size={26} />
+              <span className="adm-bar-row__name truncate" title={app.name}>
+                {app.name}
+              </span>
+              <span className="adm-bar" role="img" aria-label={`${app.name}: ${pct}% of active people (${n} of ${active})`}>
+                <span style={{ width: `${Math.max(pct, n ? 2 : 0)}%` }} />
+              </span>
+              <span className="adm-bar-row__pct">
+                <strong>{pct}%</strong>
+                <span className="neo-faint">
+                  {n}/{active}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {coverage.length > COVERAGE_TOP && (
+        <button type="button" className="neo-btn neo-btn--ghost neo-btn--sm neo-btn--block adm-more" aria-expanded={showAll} onClick={() => setShowAll((v) => !v)}>
+          {showAll ? (
+            <>
+              Show top {COVERAGE_TOP} <ChevronUp aria-hidden="true" />
+            </>
+          ) : (
+            <>
+              Show all {coverage.length} <ChevronDown aria-hidden="true" />
+            </>
+          )}
+        </button>
+      )}
+    </NeoPanel>
+  );
+}
+
+function RoleMixPanel({ canUsers }: { canUsers: boolean }) {
+  const users = useHub((s) => s.users);
+  const roles = useHub((s) => s.roles);
+
+  // Each active person counted once, by headline role.
+  const dist = useMemo(() => {
+    const active = users.filter((u) => u.active);
+    const counts = new Map<string, number>();
+    let none = 0;
+    for (const u of active) {
+      const r = primaryRole(u, roles);
+      if (r) counts.set(r.id, (counts.get(r.id) ?? 0) + 1);
+      else none += 1;
+    }
+    const rows = roles
+      .filter((r) => counts.has(r.id))
+      .map((r) => ({ id: r.id, name: r.name, color: r.color, n: counts.get(r.id) ?? 0 }))
+      .sort((a, b) => b.n - a.n);
+    if (none) rows.push({ id: '_none', name: 'No role', color: 'var(--text-3)', n: none });
+    const assignments = active.reduce((acc, u) => acc + u.roleIds.length, 0);
+    return { rows, total: active.length, assignments };
+  }, [users, roles]);
+
+  const donutBg = useMemo(() => {
+    if (!dist.total) return 'conic-gradient(var(--track) 0deg 360deg)';
+    const gap = dist.rows.length > 1 ? 1.6 : 0;
+    let acc = 0;
+    const stops = dist.rows.flatMap((r) => {
+      const start = acc;
+      const end = acc + (r.n / dist.total) * 360;
+      acc = end;
+      return gap ? [`transparent ${start}deg ${start + gap}deg`, `${r.color} ${start + gap}deg ${end}deg`] : [`${r.color} ${start}deg ${end}deg`];
+    });
+    return `conic-gradient(${stops.join(', ')})`;
+  }, [dist]);
+
+  return (
+    <NeoPanel hud="Identity mix" title="Role distribution">
+      <p className="adm-panel-sub">Active people by headline (highest-clearance) role</p>
+      <div className="adm-donut-wrap">
+        <div className="adm-donut" role="img" aria-label={`Role distribution: ${dist.rows.map((r) => `${r.name} ${r.n}`).join(', ')}`}>
+          <span className="adm-donut__glow" style={{ background: donutBg }} />
+          <span className="adm-donut__ring" style={{ background: donutBg }} />
+          <span className="adm-donut__center">
+            <span className="adm-donut__value">{dist.total}</span>
+            <span className="neo-hud">people</span>
+          </span>
+        </div>
+        <ul className="adm-legend">
+          {dist.rows.map((r) => {
+            const pct = dist.total ? Math.round((r.n / dist.total) * 100) : 0;
+            const inner = (
+              <>
+                <i className="adm-legend__dot" aria-hidden="true" />
+                <span className="truncate">{r.name}</span>
+                <span className="neo-mono neo-faint adm-legend__pct">{pct}%</span>
+                <strong className="neo-mono">{r.n}</strong>
+              </>
+            );
+            return (
+              <li key={r.id} style={{ '--role': r.color } as CSSProperties}>
+                {canUsers && r.id !== '_none' ? (
+                  <Link className="adm-legend__row" to={adminHref('users', { role: r.id })} aria-label={`${r.name}: ${r.n} people (${pct}%). View people`}>
+                    {inner}
+                  </Link>
+                ) : (
+                  <div className="adm-legend__row">{inner}</div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      <p className="adm-foot-note">
+        <span className="neo-mono">{dist.assignments}</span> role assignments · avg <span className="neo-mono">{(dist.assignments / Math.max(1, dist.total)).toFixed(1)}</span>{' '}
+        roles per person
+      </p>
+    </NeoPanel>
+  );
+}
+
+// ─────────────────────────── side column ───────────────────────────
+
+function SessionPanel() {
+  const me = useSessionUser();
+  const role = usePrimaryRole();
+  const clearance = useClearance();
+  const roles = useHub((s) => s.roles);
+  const perms = usePermissions();
+  if (!me) return null;
+  const otherRoles = me.roleIds.map((id) => roles.find((r) => r.id === id)).filter((r): r is Role => !!r && r.id !== role?.id);
+
+  return (
+    <NeoPanel
+      hud="Your session"
+      title="Clearance & scope"
+      actions={
+        <span className="neo-chip neo-chip--sm" data-tone="success" title="Signed in with a verified session">
+          <ShieldCheck aria-hidden="true" /> Verified
+        </span>
+      }
+    >
+      <div className="adm-op">
+        <Avatar user={me} size={46} presence />
+        <div className="adm-op__id">
+          <b className="truncate">{me.name}</b>
+          <span className="truncate">{me.title}</span>
+        </div>
+        <Fingerprint className="adm-op__print" aria-hidden="true" />
+      </div>
+      <div className="adm-op__roles">
+        <ClearanceBadge level={clearance} label={role?.name} />
+        {otherRoles.map((r) => (
+          <RoleChip key={r.id} name={r.name} color={r.color} />
+        ))}
+      </div>
+      <div className="adm-scope" role="list" aria-label="Your Control Center scope">
+        {ADMIN_TABS.map((t) => {
+          const on = hasPermission(perms, t.perm);
+          return (
+            <span key={t.id} role="listitem" className={cx('adm-scope__item', on && 'is-on')} title={on ? `You can open ${t.label}` : `Requires ${t.perm}`}>
+              {on ? <Check aria-hidden="true" /> : <Lock aria-hidden="true" />}
+              {t.rail}
+              <span className="sr-only">{on ? '(granted)' : '(not granted)'}</span>
+            </span>
+          );
+        })}
+      </div>
+    </NeoPanel>
+  );
+}
+
+function ExpiringPanel({
+  expiring,
+  canUsers,
+  now,
+  appMap,
+}: {
+  expiring: Array<{ user: User; grant: Grant }>;
+  canUsers: boolean;
+  now: number;
+  appMap: Map<string, HubApp>;
+}) {
+  return (
+    <NeoPanel
+      hud="Time-boxed"
+      title="Expiring grants"
+      actions={
+        canUsers && expiring.length > 0 ? (
+          <Link to={adminHref('users', { grants: 'expiring' })} className="neo-btn neo-btn--ghost neo-btn--xs">
+            All <ArrowRight />
+          </Link>
+        ) : undefined
+      }
+    >
+      {expiring.length === 0 ? (
+        <div className="adm-allclear">
+          <CircleCheck aria-hidden="true" />
+          <div>
+            <b>Nothing expires this week</b>
+            <span>Time-boxed access is on track.</span>
+          </div>
+        </div>
+      ) : (
+        <ul className="adm-mini-list">
+          {expiring.slice(0, 5).map(({ user, grant }) => {
+            const days = Math.max(0, Math.ceil(((grant.expiresAt ?? now) - now) / DAY));
+            return (
+              <li key={`${user.id}:${grant.permission}`} className="adm-mini-row">
+                <Avatar user={user} size={30} />
+                <span className="adm-mini-row__text">
+                  <b className="truncate">{user.name}</b>
+                  <span className="truncate">
+                    {permLabel(grant.permission, appMap)} · {grant.expiresAt ? relativeTime(grant.expiresAt, now) : 'never'}
+                  </span>
+                </span>
+                <span className="neo-chip neo-chip--sm" data-tone={days <= 2 ? 'danger' : 'warning'}>
+                  {days}d
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </NeoPanel>
+  );
+}
+
+function ActivityPanel({ audit, canAudit, now }: { audit: AuditEntry[]; canAudit: boolean; now: number }) {
+  const userMap = useUserMap();
+  const recent = useMemo(() => [...audit].sort((a, b) => b.at - a.at).slice(0, 6), [audit]);
+  return (
+    <NeoPanel
+      hud="Live"
+      title="Recent activity"
+      actions={
+        canAudit ? (
+          <Link to={adminHref('audit')} className="neo-btn neo-btn--ghost neo-btn--xs">
+            All <ArrowRight />
+          </Link>
+        ) : undefined
+      }
+    >
+      {recent.length === 0 ? (
+        <NeoEmpty compact icon={<Activity />} title="No activity yet" />
+      ) : (
+        <ul className="adm-activity">
+          {recent.map((e) => (
+            <li key={e.id} className={cx('adm-activity__row', toneClass(severityTone(e.severity)))}>
+              <span className="adm-activity__dot" aria-hidden="true" />
+              <div className="adm-activity__body">
+                <div className="adm-activity__top">
+                  <code className="adm-action">{e.action}</code>
+                  {e.outcome === 'denied' && <OutcomeBadge outcome="denied" />}
+                </div>
+                <div className="adm-activity__target truncate">{e.target}</div>
+                <div className="adm-activity__meta">
+                  <Actor user={userMap.get(e.actorId)} size={16} />
+                  <span aria-hidden="true">·</span>
+                  <time dateTime={new Date(e.at).toISOString()}>{relativeTime(e.at, now)}</time>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </NeoPanel>
   );
 }

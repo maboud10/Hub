@@ -25,6 +25,7 @@ export function SignTab({ onSign, onOpen }: { onSign: (id: string) => void; onOp
   return (
     <div className="hr-doc-sign">
       <HrPanel
+        hud="Electronic signature"
         title="Waiting for your signature"
         icon={<PenLine aria-hidden="true" />}
         sub={pending.length ? 'Read it, type your name, done. It takes under a minute.' : 'You’re all caught up.'}
@@ -74,7 +75,7 @@ export function SignTab({ onSign, onOpen }: { onSign: (id: string) => void; onOp
         )}
       </HrPanel>
       {signed.length > 0 && (
-        <HrPanel title="Signed" icon={<CircleCheckBig aria-hidden="true" />} sub="Copies stay in your vault, with the time you signed.">
+        <HrPanel hud="Archive" title="Signed" icon={<CircleCheckBig aria-hidden="true" />} sub="Copies stay in your vault, with the time you signed.">
           <ul className="hr-doc-signed-list">
             {signed.map((d) => (
               <li key={d.id}>

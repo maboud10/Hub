@@ -2,13 +2,52 @@ import { Link } from 'react-router';
 import { ArrowLeft, LockKeyhole, ShieldAlert } from 'lucide-react';
 import { useClearance, usePrimaryRole } from '@/store/selectors';
 import { ClearanceBadge } from '@/components/ui/primitives';
+import { NeoEmpty, useNeoTint } from '@/components/neo';
 import { HUB_PERMISSIONS } from '@/data/permissions';
 
-/** Creative 403 screen with a glitching lock and the user's clearance vs. what's required. */
+/**
+ * Creative 403 screen with a glitching lock and the user's clearance vs. what's required.
+ * Inside a NEO workspace (any app) it renders as a holographic NEO empty state
+ * so it sits naturally inside the app's glass stage.
+ */
 export function AccessDenied({ area, required }: { area: string; required: string[] }) {
   const clearance = useClearance();
   const role = usePrimaryRole();
+  const inNeo = useNeoTint() !== null;
   const labels = required.map((p) => HUB_PERMISSIONS.find((h) => h.id === p)?.label ?? p);
+
+  if (inNeo)
+    return (
+      <div className="neo-denied">
+        <NeoEmpty
+          icon={<LockKeyhole />}
+          title={`${area} needs more clearance`}
+          action={
+            <div className="neo-denied__foot">
+              <div className="neo-denied__chips">
+                <ClearanceBadge level={clearance} compact />
+                {labels.slice(0, 3).map((l) => (
+                  <span key={l} className="neo-chip" data-tone="danger">
+                    <ShieldAlert /> {l}
+                  </span>
+                ))}
+                {labels.length > 3 && (
+                  <span className="neo-chip" data-tone="slate">
+                    +{labels.length - 3} more
+                  </span>
+                )}
+              </div>
+              <Link to="/" className="neo-btn neo-btn--soft">
+                <ArrowLeft /> Back to Launchpad
+              </Link>
+            </div>
+          }
+        >
+          Your current role{role ? ` (${role.name})` : ''} doesn’t include the required permission. If you need it for your work, request access from the
+          app’s details or ask an administrator.
+        </NeoEmpty>
+      </div>
+    );
 
   return (
     <div className="page denied">

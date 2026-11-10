@@ -1,6 +1,7 @@
 /* ==========================================================================
    HR Portal — portal-level styles (loaded by HRPage after talent.css + hr.css)
-   Hero additions, tab rail and shared HR components (components/shared.tsx).
+   NEO scope for the HR workspace (`.neo[data-app='hr']`, see HRPage →
+   NeoAppFrame) and the shared HR components (components/shared.tsx).
    Area styles live in ./hr/*.css and are owned by each screen.
    ========================================================================== */
 @import './hr/home.css';
@@ -9,96 +10,25 @@
 @import './hr/documents.css';
 @import './hr/ops.css';
 
-/* ---------- Hero additions ---------- */
-.hr-hero > .hr-hero__main {
-  flex: 1 1 460px;
-}
-.hr-hero > .hr-hero__cta {
-  display: flex;
-  flex: 0 0 auto;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-.hr-hero__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 14px;
-}
-.hr-hero-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 30px;
-  padding: 0 12px;
-  border-radius: var(--r-full);
-  font-size: 12.5px;
-  font-weight: 550;
-  color: var(--text-2);
-  background: rgb(var(--hr-1-rgb) / 0.1);
-  border: 1px solid rgb(var(--hr-1-rgb) / 0.28);
-  transition:
-    background var(--dur),
-    border-color var(--dur);
-}
-.hr-hero-chip svg {
-  width: 14px;
-  height: 14px;
-  color: var(--accent-ink);
-}
-.hr-hero-chip b {
-  font-family: var(--font-display);
-  font-size: 14px;
-  color: var(--text);
-}
-button.hr-hero-chip:hover {
-  background: rgb(var(--hr-1-rgb) / 0.18);
-  border-color: rgb(var(--hr-1-rgb) / 0.5);
-}
-@media (max-width: 560px) {
-  .hr-hero > .hr-hero__cta {
-    width: 100%;
-  }
-  .hr-hero > .hr-hero__cta .btn {
-    flex: 1 1 auto;
-  }
+/* ---------- NEO scope: the legacy HR palette follows the workspace tint ---------- */
+/* talent.css defines --hr-* at :root; inside the HR workspace (and in legacy
+   modals / sheets / NEO portals opened from it) they track the plasma tint. */
+.neo[data-app='hr'],
+body[data-neo-app='hr'] :is(.modal, .sheet, .neo-portal) {
+  --hr-1: var(--app-c1);
+  --hr-2: var(--app-c2);
+  --hr-1-rgb: var(--app-rgb);
+  --hr-2-rgb: var(--app-rgb-2);
+  --hr-grad: var(--app-grad);
+  --gap: 16px;
 }
 
-/* ---------- Tab rail (glass pills, like Talent Hub) ---------- */
-.hr-tabs {
-  position: relative;
-  gap: 6px;
-  padding: 5px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  margin-bottom: 20px;
-}
-.hr-tabs .tab {
-  height: 38px;
-  padding: 0 14px;
-  border-radius: 11px;
-  transition:
-    color var(--dur),
-    background var(--dur);
-}
-.hr-tabs .tab:hover {
-  background: var(--surface-2);
-}
-.hr-tabs .tab.is-active {
-  color: var(--text);
-  background: linear-gradient(135deg, rgb(var(--accent-rgb) / 0.16), rgb(var(--accent-2-rgb) / 0.12));
-  box-shadow: inset 0 0 0 1px rgb(var(--accent-rgb) / 0.35);
-}
-.hr-tabs .tab.is-active::after {
-  left: 18px;
-  right: 18px;
-  bottom: 2px;
-  height: 2px;
-}
-.hr-tabs .tab.is-active svg {
-  color: var(--accent-ink);
+/* Every HR route body: one 16px rhythm between blocks. */
+.neo[data-app='hr'] :is(.hr-home, .hr-to, .hr-bn, .hr-doc, .hr-ap, .hr-ops, .hr-onb-board, .hr-jd) {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
 }
 
 /* ---------- Shared components ---------- */
@@ -215,28 +145,86 @@ button.hr-hero-chip:hover {
   white-space: nowrap;
 }
 
+/* ---------- HrPanel (NeoPanel anatomy: HUD · title · sub · actions) ---------- */
 .hr-panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
 }
-.hr-panel__head {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  flex-wrap: wrap;
+.neo-panel.hr-panel > .neo-panel__head {
+  margin-bottom: 0;
 }
-.hr-panel__head .section-title svg {
-  width: 18px;
-  height: 18px;
-  color: var(--accent-ink);
+.neo-panel--flush.hr-panel {
+  gap: 0;
+}
+.neo-panel--flush.hr-panel > .neo-panel__head {
+  padding: 14px 16px 12px;
 }
 .hr-panel__sub {
   margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-3);
 }
 .hr-panel__actions {
-  display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  justify-content: flex-end;
 }
+.hr-panel__actions .neo-btn--xs svg {
+  width: 13px;
+  height: 13px;
+}
+@media (max-width: 560px) {
+  .neo-panel.hr-panel > .neo-panel__head {
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------- Mobile viewport containment (<= 720px) ---------- */
+@media (max-width: 720px) {
+  .neo[data-app='hr'] {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .neo[data-app='hr'] > .neo-rail,
+  .neo[data-app='hr'] > .neo-stage,
+  .neo[data-app='hr'] .neo-head,
+  .neo[data-app='hr'] .neo-body {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .neo[data-app='hr'] > .neo-stage {
+    overflow-x: hidden;
+  }
+  .neo[data-app='hr'] .neo-head__text {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .neo[data-app='hr'] .neo-head__sub {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .neo[data-app='hr'] .neo-suggest {
+    white-space: normal;
+    height: auto;
+    min-height: 30px;
+    padding: 5px 12px;
+    text-align: left;
+  }
+  .neo[data-app='hr'] .neo-tabs {
+    display: flex;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .neo[data-app='hr'] .neo-tabs::-webkit-scrollbar {
+    display: none;
+  }
+}
+

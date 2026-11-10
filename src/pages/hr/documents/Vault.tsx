@@ -14,6 +14,7 @@ import { formatDate } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import { Modal } from '@/components/ui/Modal';
 import { EmptyState, Segmented, Switch } from '@/components/ui/primitives';
+import { HrPanel } from '../components/shared';
 import { fileSize, KIND_ORDER, SOURCE_LABEL, useMyDocuments } from './model';
 
 interface PickedFile {
@@ -69,22 +70,17 @@ export function Vault({ onOpen, onSign, onLetters }: { onOpen: (id: string) => v
   };
 
   return (
-    <div className="hr-doc-vault">
-      <div className="hr-doc-toolbar">
-        <label className="input-wrap hr-doc-search">
-          <Search aria-hidden="true" />
-          <input className="input" type="search" placeholder="Search your documents" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search your documents" />
-          {q && (
-            <button type="button" className="icon-btn icon-btn--sm input-trail" aria-label="Clear search" onClick={() => setQ('')}>
-              <X />
-            </button>
-          )}
-        </label>
+    <HrPanel
+      className="hr-doc-vault"
+      hud="Personal records"
+      title="Your document vault"
+      sub="Contracts, letters, certificates and IDs — only visible to you and People Ops."
+      actions={
         <div className="hr-doc-toolbar__actions">
-          <button type="button" className="btn btn--ghost" onClick={onLetters}>
+          <button type="button" className="btn btn--ghost btn--sm" onClick={onLetters}>
             <Stamp aria-hidden="true" /> Get a letter
           </button>
-          <button type="button" className="btn btn--primary" onClick={() => fileRef.current?.click()}>
+          <button type="button" className="btn btn--primary btn--sm" onClick={() => fileRef.current?.click()}>
             <Upload aria-hidden="true" /> Upload
           </button>
           <input
@@ -98,6 +94,29 @@ export function Vault({ onOpen, onSign, onLetters }: { onOpen: (id: string) => v
             }}
           />
         </div>
+      }
+    >
+      <div className="hr-doc-toolbar">
+        <label className="input-wrap hr-doc-search">
+          <Search aria-hidden="true" />
+          <input className="input" type="search" placeholder="Search your documents" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search your documents" />
+          {q && (
+            <button type="button" className="icon-btn icon-btn--sm input-trail" aria-label="Clear search" onClick={() => setQ('')}>
+              <X />
+            </button>
+          )}
+        </label>
+        {kind === 'all' && mine.length > 1 && (
+          <Segmented
+            label="Arrange documents"
+            value={view}
+            onChange={setView}
+            options={[
+              { value: 'newest', label: 'Newest', icon: <ArrowDownWideNarrow aria-hidden="true" /> },
+              { value: 'type', label: 'By type', icon: <LayoutGrid aria-hidden="true" /> },
+            ]}
+          />
+        )}
       </div>
       <div className="hr-doc-filterbar">
         <div className="chips hr-doc-chips" role="group" aria-label="Filter by type">
@@ -114,17 +133,6 @@ export function Vault({ onOpen, onSign, onLetters }: { onOpen: (id: string) => v
             );
           })}
         </div>
-        {kind === 'all' && mine.length > 1 && (
-          <Segmented
-            label="Arrange documents"
-            value={view}
-            onChange={setView}
-            options={[
-              { value: 'newest', label: 'Newest', icon: <ArrowDownWideNarrow aria-hidden="true" /> },
-              { value: 'type', label: 'By type', icon: <LayoutGrid aria-hidden="true" /> },
-            ]}
-          />
-        )}
       </div>
 
       {filtered.length === 0 ? (
@@ -182,7 +190,7 @@ export function Vault({ onOpen, onSign, onLetters }: { onOpen: (id: string) => v
         </div>
       )}
       {picked && <UploadModal key={picked.key} file={picked} open={uploadOpen} onClose={() => setUploadOpen(false)} onUploaded={onOpen} />}
-    </div>
+    </HrPanel>
   );
 }
 

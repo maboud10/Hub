@@ -29,13 +29,13 @@ export function CoverageHero({ onEnrol }: { onEnrol: (event?: LifeEvent) => void
   const dl = deadlineInfo(election.deadline, todayISO(now));
 
   return (
-    <section className={cx('hr-bn-hero card', `is-${election.status}`)} aria-labelledby="hr-bn-hero-title">
+    <section className={cx('neo-panel hr-bn-hero card', `is-${election.status}`)} aria-labelledby="hr-bn-hero-title">
       <span className="hr-bn-hero__glow" aria-hidden="true" />
       <div className="hr-bn-hero__card">
         <InsuranceCard election={election} holder={me.name} />
       </div>
       <div className="hr-bn-hero__body">
-        <div className="eyebrow">My coverage · {year}</div>
+        <div className="neo-hud neo-hud--tint">My coverage · {year}</div>
         {election.status === 'not-started' && <EnrolCta election={election} deadline={dl} onEnrol={onEnrol} />}
         {election.status === 'submitted' && <PendingState election={election} onEnrol={onEnrol} />}
         {election.status === 'confirmed' && <ActiveState election={election} onEnrol={onEnrol} />}

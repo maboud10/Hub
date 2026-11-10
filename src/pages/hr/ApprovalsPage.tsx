@@ -73,15 +73,7 @@ export function ApprovalsPage() {
 
   return (
     <div className="hr-ap">
-      <section className="hr-ap-head">
-        <div className="hr-ap-head__text">
-          <span className="eyebrow">Approvals</span>
-          <h2 className="hr-ap-head__title">{items.length ? `${items.length} ${items.length === 1 ? 'request needs' : 'requests need'} you` : 'All clear'}</h2>
-          <p className="muted text-sm">
-            {items.length ? `${urgent ? `${urgent} urgent · ` : ''}oldest waiting ${ageLabel((now - oldest) / 3_600_000)}` : 'Nothing is waiting on your decision.'}
-            {caps.manage ? ' · People Ops view' : caps.manager ? ` · ${caps.reports} direct report${caps.reports === 1 ? '' : 's'}` : ''}
-          </p>
-        </div>
+      <div className="neo-panel hr-ap-toolbar">
         <div className="chips hr-ap-chips" role="group" aria-label="Filter by kind">
           <button type="button" className={cx('chip', filter === 'all' && 'is-active')} aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>
             <Inbox aria-hidden="true" /> All <span className="count">{counts.all}</span>
@@ -96,7 +88,17 @@ export function ApprovalsPage() {
             );
           })}
         </div>
-      </section>
+        {items.length > 0 && (
+          <span className="hr-ap-toolbar__meta">
+            {urgent > 0 && (
+              <span className="hr-ap-urgent">
+                <Flame aria-hidden="true" /> {urgent} urgent
+              </span>
+            )}
+            <span className="neo-hud">Oldest {ageLabel((now - oldest) / 3_600_000)}</span>
+          </span>
+        )}
+      </div>
 
       {items.length === 0 ? (
         <InboxZero manage={caps.manage} />
@@ -161,7 +163,7 @@ export function ApprovalsPage() {
             })}
           </ul>
           {wide && selected && (
-            <aside className="hr-ap-pane" aria-label="Request details">
+            <aside className="neo-panel hr-ap-pane" aria-label="Request details">
               <ApprovalDetail key={selected.id} item={selected} />
             </aside>
           )}
@@ -181,7 +183,7 @@ export function ApprovalsPage() {
 
 function InboxZero({ manage }: { manage: boolean }) {
   return (
-    <section className="hr-ap-zero" aria-live="polite">
+    <section className="neo-panel hr-ap-zero" aria-live="polite">
       <div className="hr-ap-zero__orb" aria-hidden="true">
         <CheckCheck />
       </div>

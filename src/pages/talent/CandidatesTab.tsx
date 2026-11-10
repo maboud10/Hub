@@ -30,7 +30,9 @@ import { scoreMatch } from '@/talent/ai/engine';
 import { useTalentCaps, useTalentLookups, useTalentScope } from '@/talent/selectors';
 import { useTalentUI } from '@/talent/ui';
 import { EmptyState, Switch } from '@/components/ui/primitives';
+import { Chip } from '@/components/neo';
 import { cx } from '@/lib/cx';
+import { HeadActions } from './components/head';
 import { CandidateAvatar, MatchRing, SampleTag, SkillChips, SourceBadge, StageBadge } from './components/shared';
 import { ConsentBadge } from './pipeline/ConsentBadge';
 
@@ -308,31 +310,19 @@ export function CandidatesTab() {
 
   return (
     <div className="tl-pool">
-      <header className="tl-pool-head">
-        <div className="tl-pool-head__text">
-          <span className="eyebrow">Talent pool</span>
-          <h2 className="tl-pool-title">
-            Everyone you’ve met <span className="tl-pool-title__count">{all.length}</span>
-          </h2>
-          <p className="tl-pool-sub">
-            {caps.manage || caps.source
-              ? 'Sourced, referred, applied and silver medalists in one searchable pool. Rank anyone against a role’s decoded JD, then add them to its pipeline.'
-              : 'Candidates in the pipelines of your requisitions.'}
-          </p>
-        </div>
-        <div className="tl-pool-head__actions">
-          {(caps.source || caps.manage) && (
-            <button type="button" className="btn btn--primary" onClick={() => useTalentUI.getState().openModal({ kind: 'import' })}>
-              <Linkedin aria-hidden="true" /> Import from LinkedIn
-            </button>
-          )}
-          {caps.source && (
-            <button type="button" className="btn" onClick={() => navigate('/talent/sourcing')}>
-              <Radar aria-hidden="true" /> AI sourcing
-            </button>
-          )}
-        </div>
-      </header>
+      <HeadActions>
+        <Chip tone="app">{all.length} in pool</Chip>
+        {caps.source && (
+          <button type="button" className="neo-btn neo-btn--soft" onClick={() => navigate('/talent/sourcing')}>
+            <Radar aria-hidden="true" /> <span className="neo-btn__label">AI sourcing</span>
+          </button>
+        )}
+        {(caps.source || caps.manage) && (
+          <button type="button" className="neo-btn neo-btn--plasma" onClick={() => useTalentUI.getState().openModal({ kind: 'import' })}>
+            <Linkedin aria-hidden="true" /> <span className="neo-btn__label">Import from LinkedIn</span>
+          </button>
+        )}
+      </HeadActions>
 
       <section className="tl-pool-bar glass" aria-label="Search and sort">
         <div className="input-wrap tl-pool-search">

@@ -80,7 +80,7 @@ export function DecidedRecently() {
 
   const shown = all ? rows : rows.slice(0, 6);
   return (
-    <HrPanel className="hr-ap-recent" title="Decided recently" icon={<History aria-hidden="true" />} sub="Your decisions in the last 14 days.">
+    <HrPanel className="hr-ap-recent" hud="Audit log" title="Decided recently" icon={<History aria-hidden="true" />} sub="Your decisions in the last 14 days.">
       {rows.length === 0 ? (
         <p className="text-sm muted">Nothing decided in the last 14 days. Decisions you make show up here, with the note you left.</p>
       ) : (

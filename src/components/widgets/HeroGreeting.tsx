@@ -1,112 +1,206 @@
-import { useMemo } from 'react';
-import { useNavigate } from 'react-router';
-import { ArrowUpRight, Command, Inbox, LayoutGrid, Bell } from 'lucide-react';
+/**
+ * Launchpad Nova console — the hub's front-door prompt.
+ *
+ * The old Home hero is folded into the NEO header (greeting, date) and this
+ * console: a Nova prompt that resolves what you type into an app, action,
+ * colleague or page (see `novaIntent.ts`), falls back to the ⌘K palette with
+ * the text prefilled, and carries the day brief — what's live / next, meetings
+ * left, reviews waiting, unread — plus your clearance.
+ */
+import { useMemo, useState, type CSSProperties } from 'react';
+import {
+  ArrowRight,
+  Bell,
+  CalendarClock,
+  ClipboardList,
+  LayoutGrid,
+  Newspaper,
+  PartyPopper,
+  Radio,
+  Search,
+  Settings,
+  Timer,
+  Video,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
+import { NeoNovaPrompt } from '@/components/neo';
 import { useUI } from '@/store/ui';
-import { useAppAccess, useClearance, usePrimaryRole, useReviewableRequests, useSessionUser, useUnreadCount } from '@/store/selectors';
+import { useClearance, usePrimaryRole, useSessionUser, useUnreadCount } from '@/store/selectors';
 import { useNow } from '@/hooks/useNow';
 import { buildAgenda } from '@/data/agenda';
-import { firstName, formatDate, formatTime, greeting, pluralize, tzLabel } from '@/lib/format';
+import { pluralize } from '@/lib/format';
 import { getIcon } from '@/icons';
-import { ClearanceBadge } from '@/components/ui/primitives';
-import { NovaOrb } from '@/components/shell/Brand';
+import { AppIcon, Avatar, ClearanceBadge } from '@/components/ui/primitives';
 import { useLaunchApp } from '@/components/apps/useLaunchApp';
 import { BRAND } from '@/config/brand';
+import { cx } from '@/lib/cx';
+import { useNovaIntents, type IntentGlyph, type IntentKind, type NovaResolution } from './novaIntent';
 
-/** Ordered pool of suggested quick actions; only ones the user can access are shown. */
-const SUGGESTIONS: { appId: string; label: string }[] = [
-  { appId: 'hr', label: 'Request time off' },
-  { appId: 'spaces', label: 'Book a room' },
-  { appId: 'expenses', label: 'Submit expense' },
-  { appId: 'helpdesk', label: 'Raise a ticket' },
-  { appId: 'devhub', label: 'My pull requests' },
-  { appId: 'projects', label: 'Create task' },
-  { appId: 'meet', label: 'Start instant meeting' },
-];
+/** Ordered pool of suggested asks; only ones the person can act on right now are shown. */
+const SUGGESTIONS = ['Request time off', 'Book travel', 'My payslip', 'Reset my passkey', 'Raise an IT ticket', 'Submit an expense', 'Give kudos', 'Ask Nova Docs', 'Focus mode'];
 
-export function HeroGreeting() {
+/** Lucide icons the shared icon registry doesn't carry. */
+const EXTRA_ICONS: Record<string, LucideIcon> = { PartyPopper, Timer, ClipboardList, LayoutGrid, Newspaper, Settings };
+export const glyphIcon = (name: string): LucideIcon => EXTRA_ICONS[name] ?? getIcon(name);
+
+const KIND_LABEL: Record<IntentKind, string> = { action: 'Action', app: 'App', person: 'Person', page: 'Page' };
+
+export function IntentGlyphView({ glyph, size = 34 }: { glyph: IntentGlyph; size?: number }) {
+  if (glyph.kind === 'app') return <AppIcon app={glyph.app} size={size} locked={glyph.locked} />;
+  if (glyph.kind === 'user') return <Avatar user={glyph.user} size={size} presence />;
+  const Icon = glyphIcon(glyph.icon);
+  const style = { '--size': `${size}px`, ...(glyph.gradient ? { '--c1': glyph.gradient[0], '--c2': glyph.gradient[1] } : {}) } as CSSProperties;
+  return (
+    <span className={cx('lp-glyph', !glyph.gradient && 'lp-glyph--tint')} style={style} aria-hidden="true">
+      <Icon />
+    </span>
+  );
+}
+
+export function NovaLaunch() {
+  const resolve = useNovaIntents();
+  const openPalette = useUI((s) => s.openPalette);
+  const [result, setResult] = useState<NovaResolution | null>(null);
+
+  const suggestions = useMemo(() => SUGGESTIONS.filter((s) => resolve(s).confident).slice(0, 4), [resolve]);
+
+  const onSubmit = (text: string) => {
+    const r = resolve(text);
+    if (r.confident && r.matches[0]) {
+      setResult(null);
+      r.matches[0].run();
+      return;
+    }
+    if (!r.matches.length) {
+      setResult(null);
+      openPalette(text);
+      return;
+    }
+    setResult(r);
+  };
+
+  return (
+    <NeoNovaPrompt
+      className="lp-nova"
+      hud={`${BRAND.assistant} · Launch console`}
+      title="What do you need?"
+      badge={
+        <>
+          <kbd className="lp-kbd">⌘K</kbd> works everywhere
+        </>
+      }
+      placeholder={`Ask ${BRAND.assistant} or jump to an app, person or action…`}
+      suggestions={suggestions}
+      onSubmit={onSubmit}
+      submitLabel="Go"
+      submitIcon={<ArrowRight />}
+      label={`Ask ${BRAND.assistant}`}
+    >
+      {result && <NovaResults result={result} onClose={() => setResult(null)} onSearch={() => (setResult(null), openPalette(result.query))} />}
+      <DayBrief />
+    </NeoNovaPrompt>
+  );
+}
+
+/** Inline "here's what I found" list when the ask isn't a clear one-shot. */
+function NovaResults({ result, onClose, onSearch }: { result: NovaResolution; onClose: () => void; onSearch: () => void }) {
+  return (
+    <div className="lp-results" role="region" aria-live="polite" aria-label={`${BRAND.assistant} results`}>
+      <div className="lp-results__head">
+        <span className="neo-hud neo-hud--tint">
+          {pluralize(result.matches.length, 'match', 'matches')} for “{result.query}”
+        </span>
+        <button type="button" className="neo-iconbtn neo-iconbtn--sm" onClick={onClose} aria-label="Dismiss results">
+          <X />
+        </button>
+      </div>
+      <ul className="lp-results__list neo-stagger">
+        {result.matches.map((m, i) => (
+          <li key={m.id} style={{ ['--i' as string]: i }}>
+            <button
+              type="button"
+              className={cx('lp-result neo-spot', m.locked && 'is-locked')}
+              onClick={() => {
+                onClose();
+                m.run();
+              }}
+            >
+              <IntentGlyphView glyph={m.glyph} />
+              <span className="lp-result__text">
+                <b className="truncate">{m.title}</b>
+                <small className="truncate">{m.detail}</small>
+              </span>
+              <span className="lp-result__kind neo-hud">{m.locked ? 'Request' : KIND_LABEL[m.kind]}</span>
+              <ArrowRight className="lp-result__go" aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <button type="button" className="lp-results__more" onClick={onSearch}>
+        <Search /> Search everything for “{result.query}” <kbd className="lp-kbd">⌘K</kbd>
+      </button>
+    </div>
+  );
+}
+
+/** The day at a glance — what used to be the hero's subtitle and chips. */
+export function DayBrief() {
   const user = useSessionUser();
   const role = usePrimaryRole();
   const clearance = useClearance();
-  const apps = useAppAccess();
-  const reviewable = useReviewableRequests();
   const unread = useUnreadCount();
-  const setPaletteOpen = useUI((s) => s.setPaletteOpen);
   const launch = useLaunchApp();
-  const navigate = useNavigate();
+  const setNotificationsOpen = useUI((s) => s.setNotificationsOpen);
   const now = useNow(30_000);
-
   const agenda = useMemo(() => buildAgenda(new Date(now)), [Math.floor(now / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!user) return null;
 
-  const granted = apps.filter((a) => a.access === 'granted');
-  const meetingsLeft = agenda.filter((e) => e.end.getTime() > now && e.appId === 'meet').length;
+  const live = agenda.find((e) => e.start.getTime() <= now && e.end.getTime() > now);
   const next = agenda.find((e) => e.start.getTime() > now);
-  const minsToNext = next ? Math.round((next.start.getTime() - now) / 60_000) : null;
-
-  const suggestions = SUGGESTIONS.map((s) => ({ ...s, item: granted.find((g) => g.app.id === s.appId) }))
-    .filter((s) => s.item)
-    .slice(0, 4);
-
-  const lines: string[] = [];
-  if (meetingsLeft) lines.push(`${pluralize(meetingsLeft, 'meeting')} left today`);
-  if (reviewable.length) lines.push(`${pluralize(reviewable.length, 'access request')} awaiting your review`);
-  if (next && minsToNext !== null) lines.push(`next up: ${next.title} in ${minsToNext}m`);
-  const sub = lines.length ? lines.join(' · ') : 'Your day looks clear — perfect for deep work.';
+  const meetingsLeft = agenda.filter((e) => e.end.getTime() > now && e.appId === 'meet').length;
+  const focus = live ?? next;
+  const mins = next ? Math.max(1, Math.round((next.start.getTime() - now) / 60_000)) : 0;
 
   return (
-    <section className="hero card glow-border" aria-label="Welcome">
-      <div className="hero__scan" aria-hidden="true" />
-      <div className="hero__main">
-        <div className="eyebrow">
-          {formatDate(now, { weekday: 'long', day: 'numeric', month: 'long' })} · {formatTime(now)} {tzLabel()}
-        </div>
-        <h1 className="hero__title">
-          {greeting(new Date(now))}, <span className="hero__name">{firstName(user.name)}</span>
-        </h1>
-        <p className="hero__sub">{sub.charAt(0).toUpperCase() + sub.slice(1)}.</p>
-        <div className="hero__chips">
-          <ClearanceBadge level={clearance} label={role?.name} />
-          <span className="hero-chip">
-            <LayoutGrid /> {pluralize(granted.length, 'app')} available
+    <div className="lp-brief" aria-label="Your day">
+      {focus ? (
+        <div className={cx('lp-brief__now', live && 'is-live')}>
+          <span className="lp-brief__tag neo-hud">
+            {live ? <Radio /> : <CalendarClock />}
+            {live ? 'Live now' : `Next · in ${mins}m`}
           </span>
-          {unread > 0 && (
-            <button className="hero-chip hero-chip--btn" onClick={() => useUI.getState().setNotificationsOpen(true)}>
-              <Bell /> {unread} unread
+          <span className="lp-brief__title truncate">{focus.title}</span>
+          {live && live.appId === 'meet' ? (
+            <button type="button" className="neo-btn neo-btn--plasma neo-btn--xs" onClick={() => launch('meet', `Join “${live.title}”`)}>
+              <Video /> Join
             </button>
-          )}
-          {reviewable.length > 0 && (
-            <button className="hero-chip hero-chip--btn hero-chip--alert" onClick={() => navigate('/admin/requests')}>
-              <Inbox /> {reviewable.length} to review
+          ) : (
+            <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={() => launch(focus.appId)}>
+              Open <ArrowRight />
             </button>
           )}
         </div>
-      </div>
-
-      <div className="hero__nova">
-        <NovaOrb size={92} onClick={() => setPaletteOpen(true)} label={`Ask ${BRAND.assistant}`} className="hero__orb" />
-        <button className="hero__ask" onClick={() => setPaletteOpen(true)}>
-          <span className="grow">Ask {BRAND.assistant} anything…</span>
-          <span className="kbd">
-            <Command size={11} />
+      ) : (
+        <div className="lp-brief__now">
+          <span className="lp-brief__tag neo-hud">
+            <CalendarClock /> Clear
           </span>
-          <span className="kbd">K</span>
-        </button>
-        {suggestions.length > 0 && (
-          <div className="hero__suggest">
-            {suggestions.map(({ appId, label, item }) => {
-              const qa = item!.app.quickActions?.find((q) => q.label === label);
-              const Icon = getIcon(qa?.icon ?? item!.app.icon);
-              return (
-                <button key={label} className="suggest-chip" onClick={() => launch(appId, label)}>
-                  <Icon />
-                  {label}
-                  <ArrowUpRight className="suggest-chip__go" />
-                </button>
-              );
-            })}
-          </div>
+          <span className="lp-brief__title">Your day looks clear — perfect for deep work.</span>
+        </div>
+      )}
+      <div className="lp-brief__stats">
+        {meetingsLeft > 0 && <span className="lp-brief__stat">{pluralize(meetingsLeft, 'meeting')} left</span>}
+        {unread > 0 && (
+          <button type="button" className="lp-brief__stat" onClick={() => setNotificationsOpen(true)}>
+            <Bell /> {unread} unread
+          </button>
         )}
+        <ClearanceBadge level={clearance} label={role?.name} />
       </div>
-    </section>
+    </div>
   );
 }
+
+/** @deprecated The hero is now the Launchpad header + `NovaLaunch`. */
+export const HeroGreeting = NovaLaunch;

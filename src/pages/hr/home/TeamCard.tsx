@@ -15,7 +15,7 @@ import { useSessionUser } from '@/store/selectors';
 import { useNow } from '@/hooks/useNow';
 import { Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/cx';
-import { HrPanel, LeaveTypeBadge } from '../components/shared';
+import { AllLink, HrPanel, LeaveTypeBadge } from '../components/shared';
 import { fmtRange } from './format';
 
 export function TeamCard() {
@@ -37,9 +37,11 @@ export function TeamCard() {
   return (
     <HrPanel
       className="hr-home-team"
+      hud="Manager view"
       title="Your team"
       icon={<Users aria-hidden="true" />}
       sub={`${reports.length} direct report${reports.length === 1 ? '' : 's'}${outToday ? ` · ${outToday} out today` : ' · everyone’s in today'}`}
+      actions={<AllLink to="/hr/time-off">Who’s away</AllLink>}
     >
       <div className="hr-home-team__grid">
         <div className="hr-home-team__people">

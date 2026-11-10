@@ -1,24 +1,42 @@
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  AlertTriangle,
   ArrowRight,
-  CheckCircle2,
+  BadgeCheck,
+  Banknote,
+  BedDouble,
+  CalendarClock,
+  CalendarDays,
+  Car,
+  CircleCheck,
+  Cpu,
   CreditCard,
   ExternalLink,
+  FileSpreadsheet,
+  Handshake,
+  MapPin,
+  Plane,
+  Receipt,
   RotateCcw,
+  ScanLine,
   ShieldAlert,
-  Sparkles,
+  ShieldCheck,
+  Ticket,
+  TriangleAlert,
+  Utensils,
 } from 'lucide-react';
+import { Chip, type Tone } from '@/components/neo';
 import { cx } from '@/lib/cx';
 import { formatDay } from '@/hr/calendar';
 import {
+  CATEGORY_META,
   FLOW_STEPS,
   REPORT_STATUS_META,
   TRIP_STATUS_META,
 } from '@/expenses/constants';
 import type {
   CurrencyCode,
+  ExpenseCategory,
   ExpenseReportStatus,
   PolicyWarning,
   SpendFlowStage,
@@ -28,12 +46,24 @@ import type {
 import { usePayroll } from '@/payroll/store';
 import { formatPeriodLabel, periodDates, periodFromTimestamp } from '@/payroll/engine';
 
+/** DOM id of the Receipt vault's hidden file input (the header "Upload" action clicks it). */
+export const RECEIPT_FILE_INPUT_ID = 'ex-receipt-file';
+
 export function formatAed(amount: number, showDecimals = false): string {
   const rounded = showDecimals ? amount : Math.round(amount);
   return `AED ${rounded.toLocaleString(undefined, {
     minimumFractionDigits: showDecimals ? 2 : 0,
     maximumFractionDigits: showDecimals ? 2 : 0,
   })}`;
+}
+
+/** "AED 1.24M" / "AED 48.2K" / "AED 4,890" for HUD ribbons and tight spots. */
+export function compactAed(amount: number): string {
+  const abs = Math.abs(amount);
+  if (abs >= 1_000_000) return `AED ${(amount / 1_000_000).toFixed(2)}M`;
+  if (abs >= 100_000) return `AED ${Math.round(amount / 1000)}K`;
+  if (abs >= 10_000) return `AED ${(amount / 1000).toFixed(1)}K`;
+  return formatAed(amount);
 }
 
 export function formatOrigCurrency(amount: number, currency: CurrencyCode): string {
@@ -43,35 +73,39 @@ export function formatOrigCurrency(amount: number, currency: CurrencyCode): stri
   })}`;
 }
 
-const TONE_CLASS: Record<'neutral' | 'info' | 'warning' | 'success' | 'danger', string> = {
-  neutral: 'badge--muted',
-  info: 'badge--info',
-  warning: 'badge--warning',
-  success: 'badge--success',
-  danger: 'badge--danger',
+/** Engine status tones → NEO chip tones. */
+export const STATUS_TONE: Record<'neutral' | 'info' | 'warning' | 'success' | 'danger', Tone> = {
+  neutral: 'slate',
+  info: 'cyan',
+  warning: 'warning',
+  success: 'success',
+  danger: 'danger',
 };
 
-export function TripStatusBadge({ status }: { status: TripStatus }) {
+export function TripStatusBadge({ status, size }: { status: TripStatus; size?: 'sm' }) {
   const meta = TRIP_STATUS_META[status];
-  return <span className={cx('badge', TONE_CLASS[meta.tone])}>{meta.label}</span>;
+  return (
+    <Chip tone={STATUS_TONE[meta.tone]} size={size}>
+      {meta.label}
+    </Chip>
+  );
 }
 
-export function ReportStatusBadge({ status }: { status: ExpenseReportStatus }) {
+export function ReportStatusBadge({ status, size }: { status: ExpenseReportStatus; size?: 'sm' }) {
   const meta = REPORT_STATUS_META[status];
-  return <span className={cx('badge', TONE_CLASS[meta.tone])}>{meta.label}</span>;
+  return (
+    <Chip tone={STATUS_TONE[meta.tone]} size={size}>
+      {meta.label}
+    </Chip>
+  );
 }
 
 export function PolicyWarningChips({ warnings }: { warnings: PolicyWarning[] }) {
   if (!warnings.length) return null;
   return (
-    <div className="row row--wrap" style={{ gap: 6 }}>
+    <div className="ex-chips">
       {warnings.map((w, idx) => (
-        <span
-          key={`${w.code}-${idx}`}
-          className={cx('badge', w.severity === 'warn' ? 'badge--warning' : 'badge--info')}
-          title={w.message}
-        >
-          <AlertTriangle />
+        <Chip key={`${w.code}-${idx}`} size="sm" tone={w.severity === 'warn' ? 'warning' : 'cyan'} icon={<TriangleAlert />} title={w.message}>
           {w.code === 'over_meal_cap'
             ? 'Meal cap guideline'
             : w.code === 'missing_receipt'
@@ -81,7 +115,7 @@ export function PolicyWarningChips({ warnings }: { warnings: PolicyWarning[] }) 
                 : w.code === 'high_spend'
                   ? 'High-value VAT check'
                   : w.message}
-        </span>
+        </Chip>
       ))}
     </div>
   );
@@ -89,16 +123,44 @@ export function PolicyWarningChips({ warnings }: { warnings: PolicyWarning[] }) 
 
 export function SeparationOfDutiesBadge({ breakGlass = false }: { breakGlass?: boolean }) {
   return (
-    <span
-      className="ex-sod-banner"
+    <Chip
+      size="sm"
+      tone="warning"
+      icon={<ShieldAlert />}
       title={
         breakGlass
           ? 'You are viewing your own item. System Admin (*) break-glass is active in demo mode.'
           : 'Four-eyes policy: another manager or Finance auditor must review your own item.'
       }
     >
-      <ShieldAlert />
-      {breakGlass ? 'Own Item · Admin Break-Glass' : 'Separation of Duties · Peer Sign-Off Required'}
+      {breakGlass ? 'Own item · break-glass' : 'Four-eyes · peer sign-off'}
+    </Chip>
+  );
+}
+
+/** Category glyphs for receipts and line items. */
+export const CATEGORY_ICON: Record<ExpenseCategory, ReactNode> = {
+  flights: <Plane />,
+  lodging: <BedDouble />,
+  meals: <Utensils />,
+  per_diem: <CalendarDays />,
+  ground: <Car />,
+  client: <Handshake />,
+  conference: <Ticket />,
+  software: <Cpu />,
+  other: <Receipt />,
+};
+
+/** Hue-tinted icon tile for an expense category (colour comes from `CATEGORY_META.hue`). */
+export function CategoryGlyph({ category, size }: { category: ExpenseCategory; size?: 'sm' }) {
+  return (
+    <span
+      className={cx('ex-cat', size === 'sm' && 'ex-cat--sm')}
+      style={{ '--hue': CATEGORY_META[category].hue } as CSSProperties}
+      title={CATEGORY_META[category].label}
+      aria-hidden="true"
+    >
+      {CATEGORY_ICON[category]}
     </span>
   );
 }
@@ -122,26 +184,22 @@ export function VirtualCorporateCard({
       <div className="ex-vcard__top">
         <div className="ex-vcard__brand">
           <span className="ex-vcard__chip" aria-hidden="true" />
-          <span>Helix Corporate Mobility</span>
+          <span>Helix Mobility</span>
         </div>
         <span className={cx('ex-vcard__status', card.frozen && 'ex-vcard__status--frozen')}>
-          <CreditCard style={{ width: 12, height: 12 }} />
+          <CreditCard />
           {card.frozen ? 'Frozen' : 'Scoped · Active'}
         </span>
       </div>
 
       <div className="ex-vcard__pan">
-        <span>•••• &nbsp;•••• &nbsp;•••• &nbsp;{card.last4}</span>
-        {tripLabel && (
-          <span className="text-xs" style={{ letterSpacing: '0.03em', color: '#99f6e4', fontWeight: 500 }}>
-            {tripLabel}
-          </span>
-        )}
+        <span>•••• •••• •••• {card.last4}</span>
+        {tripLabel && <span className="ex-vcard__trip">{tripLabel}</span>}
       </div>
 
       <div className="ex-vcard__meter">
         <div className="ex-vcard__meter-row">
-          <span>Card spend ({pct}% of trip limit)</span>
+          <span>Spend · {pct}% of limit</span>
           <b>
             {formatAed(card.spentAed)} / {formatAed(card.limitAed)}
           </b>
@@ -152,63 +210,84 @@ export function VirtualCorporateCard({
       </div>
 
       <div className="ex-vcard__foot">
-        <span>{holderName ? holderName.toUpperCase() : 'SCOPED TRAVEL CARD'}</span>
+        <span className="truncate">{holderName ? holderName.toUpperCase() : 'SCOPED TRAVEL CARD'}</span>
         <span>
-          VALID {formatDay(card.activeFrom, { day: 'numeric', month: 'short' })} →{' '}
-          {formatDay(card.activeTo, { day: 'numeric', month: 'short' })}
+          VALID {formatDay(card.activeFrom, { day: 'numeric', month: 'short' })} → {formatDay(card.activeTo, { day: 'numeric', month: 'short' })}
         </span>
       </div>
     </div>
   );
 }
 
+/** Stage glyphs for the 7-stage trip-to-paycheck flow. */
+export const STAGE_ICON: Record<SpendFlowStage, ReactNode> = {
+  1: <MapPin />,
+  2: <BadgeCheck />,
+  3: <ScanLine />,
+  4: <FileSpreadsheet />,
+  5: <ShieldCheck />,
+  6: <CalendarClock />,
+  7: <Banknote />,
+};
+
 export const STAGE_WORKSPACE_META: Record<
   SpendFlowStage,
   { detail: string; actionLabel: string; to: string; externalTab?: boolean }
 > = {
   1: {
-    detail: 'Destination benchmark, per-diem rate, CO₂ footprint & pre-trip policy check.',
-    actionLabel: 'Request Travel',
+    detail: 'Benchmark the destination, per diem and CO₂, with a live travel-policy check.',
+    actionLabel: 'Request travel',
     to: '/expenses/travel?new=1',
   },
   2: {
-    detail: 'Manager pre-approval, scoped Virtual Corporate Card (`•••• XXXX`) & flight/hotel PNR.',
-    actionLabel: 'Open Travel Desk',
+    detail: 'Manager pre-approval issues a scoped virtual card; then confirm flight PNR and hotel.',
+    actionLabel: 'Open travel desk',
     to: '/expenses/travel',
   },
   3: {
-    detail: 'Drag-and-drop or 1-click AI OCR scan with live FX-to-AED conversion & VAT extraction.',
-    actionLabel: 'Open Smart Receipt Vault',
+    detail: 'Drop a receipt or describe it to Nova — merchant, FX to AED and VAT are extracted for you.',
+    actionLabel: 'Open receipt vault',
     to: '/expenses/receipts',
   },
   4: {
-    detail: 'Bundle vault receipts + 1-click statutory Trip Per Diem, splitting Virtual Card vs Out-of-Pocket.',
-    actionLabel: 'Build Expense Report',
+    detail: 'Bundle vault receipts plus the trip per diem; card spend and out-of-pocket split automatically.',
+    actionLabel: 'Build a report',
     to: '/expenses/reports?new=1',
   },
   5: {
-    detail: 'Four-eyes workflow: Manager business sign-off followed by Finance GL & VAT audit.',
-    actionLabel: 'View Reports & Audit',
+    detail: 'Four-eyes review: your manager signs off, then Finance audits GL codes and VAT.',
+    actionLabel: 'View my reports',
     to: '/expenses/reports',
   },
   6: {
-    detail: 'Finance-verified `payroll_queued` claims sync automatically into the monthly Payroll Console run.',
-    actionLabel: 'Track Payday Queue',
+    detail: 'Finance-verified claims sync into the monthly Payroll Console run before cut-off.',
+    actionLabel: 'Track payday',
     to: '/expenses/reimbursements',
   },
   7: {
-    detail: 'Disbursed via WPS bank batch (`WPS-HX-...`) and published tax-free on your HR Portal Payslip.',
-    actionLabel: 'View on HR Payslip',
+    detail: 'Paid with the WPS bank batch and shown tax-free on your HR payslip.',
+    actionLabel: 'View payslip',
     to: '/hr/documents?tab=payslips',
     externalTab: true,
   },
 };
 
+/** 1..7 segmented progress bar for a single journey. */
+export function JourneyProgress({ stage }: { stage: SpendFlowStage }) {
+  return (
+    <div className="ex-jprog" role="img" aria-label={`Stage ${stage} of 7`}>
+      {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+        <i key={n} className={cx(n < stage && 'is-done', n === stage && 'is-current')} />
+      ))}
+    </div>
+  );
+}
+
 /**
- * Interactive 7-Stage Process Flow Stepper (`FLOW_STEPS`).
- * Clicking a stage filters active journeys (when `onSelectStage` is provided)
- * AND reveals a direct 1-click jump button to that stage's workspace/action,
- * or navigates immediately when `onSelectStage` is omitted.
+ * Interactive 7-stage trip-to-paycheck flow (`FLOW_STEPS`).
+ * Clicking a stage filters journeys (when `onSelectStage` is provided) and
+ * reveals a one-click jump into that stage's workspace; without
+ * `onSelectStage` it navigates straight away.
  */
 export function ProcessFlowRail({
   selectedStage,
@@ -238,82 +317,69 @@ export function ProcessFlowRail({
     selectedStage === 5 && canApproveOrAudit
       ? '/expenses/approvals'
       : activeMeta?.to ?? '/expenses';
+  const furthest = Math.max(0, ...FLOW_STEPS.filter((s) => (stageCounts?.[s.step as SpendFlowStage] ?? 0) > 0).map((s) => s.step));
 
   return (
-    <section className="ex-flow-shell" aria-label="End-to-end Travel to Paycheck process flow">
-      <div className="ex-flow-head">
-        <div>
-          <div className="row" style={{ gap: 8 }}>
-            <Sparkles style={{ width: 16, height: 16, color: 'var(--ex-ink)' }} />
-            <h2 className="section-title" style={{ fontSize: 16 }}>
-              End-to-End Trip-to-Paycheck Pipeline
-            </h2>
-          </div>
-          <p className="text-xs muted" style={{ marginTop: 3 }}>
-            Click any stage to filter journeys below or jump straight into its workspace.
-          </p>
-        </div>
-
-        {selectedStage && onSelectStage && (
-          <button
-            type="button"
-            className="btn btn--sm btn--ghost"
-            onClick={() => onSelectStage(null)}
-          >
-            <RotateCcw /> Show all stages
-          </button>
-        )}
+    <div className="ex-flow">
+      <div className="ex-flow__scroll">
+        <ol
+          className="ex-flow__track"
+          aria-label="Trip-to-paycheck stages"
+          style={{ '--ex-flow-fill': furthest > 1 ? `${((furthest - 1) / 6) * 100}%` : '0%' } as CSSProperties}
+        >
+          {FLOW_STEPS.map((s) => {
+            const step = s.step as SpendFlowStage;
+            const count = stageCounts?.[step] ?? 0;
+            const selected = selectedStage === step;
+            return (
+              <li key={s.step} className="ex-flow__stage">
+                <button
+                  type="button"
+                  className={cx('ex-flow__node', selected && 'is-selected', count > 0 && 'has-items')}
+                  onClick={() => handleStepClick(step)}
+                  aria-pressed={onSelectStage ? selected : undefined}
+                  title={s.sub}
+                >
+                  <span className="ex-flow__dot">
+                    {STAGE_ICON[step]}
+                    {count > 0 && <span className="ex-flow__count">{count}</span>}
+                  </span>
+                  <span className="ex-flow__num">{String(s.step).padStart(2, '0')}</span>
+                  <span className="ex-flow__title">{s.title}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
       </div>
 
-      <div className="ex-flow-rail" role="list">
-        {FLOW_STEPS.map((s) => {
-          const stepNum = s.step as SpendFlowStage;
-          const count = stageCounts?.[stepNum] ?? 0;
-          const isSelected = selectedStage === stepNum;
-          return (
-            <button
-              key={s.step}
-              type="button"
-              role="listitem"
-              className={cx('ex-flow-step', isSelected && 'is-selected')}
-              onClick={() => handleStepClick(stepNum)}
-            >
-              <div className="ex-flow-step__top">
-                <span className="ex-flow-step__num">{s.step}</span>
-                <span className={cx('ex-flow-step__count', count > 0 && 'has-items')}>
-                  {count > 0 ? `${count} active` : `Stage ${s.step}`}
-                </span>
-              </div>
-              <div className="ex-flow-step__title">{s.title}</div>
-              <div className="ex-flow-step__sub">{s.sub}</div>
-            </button>
-          );
-        })}
-      </div>
-
-      {selectedStage && activeMeta && activeStepObj && (
-        <div className="ex-flow-banner">
-          <div className="grow" style={{ minWidth: 200 }}>
-            <div className="text-sm" style={{ fontWeight: 650 }}>
-              Stage {selectedStage}: {activeStepObj.title}
-            </div>
-            <div className="text-xs muted" style={{ marginTop: 2 }}>
-              {activeMeta.detail}
-            </div>
+      {selectedStage && activeMeta && activeStepObj ? (
+        <div className="ex-flow__detail">
+          <span className="ex-flow__detail-icon" aria-hidden="true">
+            {STAGE_ICON[selectedStage]}
+          </span>
+          <div className="ex-flow__detail-text">
+            <b>
+              Stage {selectedStage} · {activeStepObj.title}
+            </b>
+            <span>{activeMeta.detail}</span>
           </div>
-          <div className="row row--wrap" style={{ gap: 8 }}>
-            <button
-              type="button"
-              className="btn btn--sm ex-btn-teal"
-              onClick={() => navigate(activeJumpTo)}
-            >
-              {selectedStage === 5 && canApproveOrAudit ? 'Open Approvals & Audit' : activeMeta.actionLabel}
+          <div className="ex-flow__detail-actions">
+            {onSelectStage && (
+              <button type="button" className="neo-btn neo-btn--ghost neo-btn--sm" onClick={() => onSelectStage(null)}>
+                <RotateCcw /> All stages
+              </button>
+            )}
+            <button type="button" className="neo-btn neo-btn--plasma neo-btn--sm" onClick={() => navigate(activeJumpTo)}>
+              {selectedStage === 5 && canApproveOrAudit ? 'Open approvals' : activeMeta.actionLabel}
               {activeMeta.externalTab ? <ExternalLink /> : <ArrowRight />}
             </button>
           </div>
         </div>
+      ) : (
+        <p className="ex-flow__hint">Tap a stage to filter your journeys — or jump straight into its workspace.</p>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -325,10 +391,10 @@ export function useActivePaydayInfo() {
     if (openRun) {
       const statusLabel =
         openRun.status === 'draft'
-          ? 'Open · Preparing Run'
+          ? 'Open · preparing run'
           : openRun.status === 'pending_signoff'
-            ? 'Pending 4-Eyes Sign-Off'
-            : 'Approved · Ready for WPS';
+            ? 'Pending four-eyes sign-off'
+            : 'Approved · ready for WPS';
       return {
         period: openRun.period,
         label: openRun.label,
@@ -347,7 +413,7 @@ export function useActivePaydayInfo() {
       payDate: dates.payDate,
       cutoffDate: dates.cutoffDate,
       runStatus: 'draft' as const,
-      statusLabel: 'Scheduled Next Cycle',
+      statusLabel: 'Scheduled next cycle',
       wpsRef: undefined,
     };
   }, [runs]);
@@ -356,8 +422,21 @@ export function useActivePaydayInfo() {
 export function PayRunStatusPill() {
   const info = useActivePaydayInfo();
   return (
-    <span className="badge badge--info" title={`Cutoff ${info.cutoffDate} · Payday ${info.payDate}`}>
-      <CheckCircle2 /> {info.label} · Payday {formatDay(info.payDate, { day: 'numeric', month: 'short' })}
-    </span>
+    <Chip tone="cyan" icon={<CircleCheck />} title={`Cutoff ${info.cutoffDate} · Payday ${info.payDate}`}>
+      {info.label} · Payday {formatDay(info.payDate, { day: 'numeric', month: 'short' })}
+    </Chip>
+  );
+}
+
+/** Compact "all clear" row for empty queues inside panels. */
+export function AllClear({ title, children }: { title: string; children?: ReactNode }) {
+  return (
+    <div className="ex-allclear">
+      <CircleCheck />
+      <div>
+        <b>{title}</b>
+        {children && <span>{children}</span>}
+      </div>
+    </div>
   );
 }

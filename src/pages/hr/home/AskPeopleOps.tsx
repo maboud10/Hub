@@ -1,13 +1,14 @@
 /**
- * HR Home · Ask People Ops: the home card (quick answers, your open
- * questions, "Write to People Ops") and the modal — quick answers first, then
- * a guided new-question form (category incl. Wellbeing & support, subject,
- * message, confidential toggle) and "My questions" with threads, replies and
- * "Mark resolved". Deep link: `/hr?ask=1[&case=<id>]`.
+ * HR Home · Ask People Ops: the home's Nova console (instant answers to the
+ * common questions, routed from free text; anything else goes to a person,
+ * pre-filled) with your open questions, and the modal — quick answers first,
+ * then a guided new-question form (category incl. Wellbeing & support,
+ * subject, message, confidential toggle) and "My questions" with threads,
+ * replies and "Mark resolved". Deep link: `/hr?ask=1[&case=<id>]`.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { ArrowLeft, ArrowRight, Check, CircleCheckBig, LifeBuoy, Lock, MessageCircleQuestion, MessagesSquare, PenLine, Send } from 'lucide-react';
+import { Link, useNavigate } from 'react-router';
+import { ArrowLeft, ArrowRight, Check, CircleCheckBig, LifeBuoy, Lock, MessageCircleQuestion, MessagesSquare, PenLine, Send, X } from 'lucide-react';
 import type { CaseCategory, HrCase } from '@/hr/types';
 import { CASE_CATEGORY_META, CASE_STATUS_META } from '@/hr/constants';
 import { canReplyCase } from '@/hr/access';
@@ -20,8 +21,9 @@ import { toast } from '@/store/toast';
 import { useNow } from '@/hooks/useNow';
 import { Modal } from '@/components/ui/Modal';
 import { EmptyState, Segmented, Switch } from '@/components/ui/primitives';
+import { NeoNovaPrompt, useTypewriter } from '@/components/neo';
 import { cx } from '@/lib/cx';
-import { HrPanel, ToneBadge, UserLine } from '../components/shared';
+import { ToneBadge, UserLine } from '../components/shared';
 import { ago } from './format';
 
 export type AskMode = 'new' | 'cases';
@@ -30,6 +32,8 @@ export interface AskOptions {
   mode?: AskMode | null;
   category?: CaseCategory | null;
   confidential?: boolean;
+  /** Free text typed into the home's Nova console: pre-fills the subject and message. */
+  draft?: string | null;
 }
 
 const CATEGORIES: CaseCategory[] = ['pay', 'leave', 'benefits', 'documents', 'visa', 'wellbeing', 'other'];
@@ -44,16 +48,20 @@ export function useMyCases(): HrCase[] {
 }
 
 // ───────────────────────── quick answers ─────────────────────────
-interface QuickAnswer {
+export interface QuickAnswer {
   id: string;
   q: string;
   a: string;
   cta: string;
   to?: string;
   care?: boolean;
+  /** Phrases that route a free-text question to this answer (lower case). */
+  keywords: string[];
+  /** Case category used when the person still wants to write to People Ops. */
+  category: CaseCategory;
 }
 
-function useQuickAnswers(): QuickAnswer[] {
+export function useQuickAnswers(): QuickAnswer[] {
   const me = useSessionUser();
   const comp = useHr((s) => (me ? s.comp.find((c) => c.userId === me.id) : undefined));
   const balances = useBalances();
@@ -73,6 +81,8 @@ function useQuickAnswers(): QuickAnswer[] {
             : 'Salaries land on the 25th of every month. Your pay details are still being set up.',
         to: '/hr/documents?tab=payslips',
         cta: 'See my payslips',
+        keywords: ['payday', 'pay day', 'paid', 'paycheck', 'pay check', 'salary', 'wage', 'pay date', 'next pay'],
+        category: 'pay',
       },
       {
         id: 'salary-cert',
@@ -80,6 +90,8 @@ function useQuickAnswers(): QuickAnswer[] {
         a: 'Generate it yourself in seconds: Documents → Letters → Salary certificate. It’s issued instantly with a reference number and a verification code that banks and landlords can check.',
         to: '/hr/documents?tab=letters&new=salary-certificate',
         cta: 'Create a salary certificate',
+        keywords: ['certificate', 'salary letter', 'employment letter', 'experience letter', 'bank letter', 'letter', 'noc', 'proof of employment', 'embassy'],
+        category: 'documents',
       },
       {
         id: 'leave',
@@ -90,6 +102,8 @@ function useQuickAnswers(): QuickAnswer[] {
             : 'Your balances are on the Time off page, with a breakdown of what’s taken, booked and pending.',
         to: '/hr/time-off',
         cta: 'Open time off',
+        keywords: ['leave', 'holiday', 'vacation', 'days off', 'day off', 'time off', 'annual', 'balance', 'pto', 'work from anywhere'],
+        category: 'leave',
       },
       {
         id: 'dependent',
@@ -97,6 +111,8 @@ function useQuickAnswers(): QuickAnswer[] {
         a: 'Add your spouse, children or parents in Benefits. Life events like a new baby or a marriage can be added any time within 30 days, and People Ops confirms with the insurer within a day.',
         to: '/hr/benefits?enrol=1',
         cta: 'Update my benefits',
+        keywords: ['dependent', 'dependant', 'spouse', 'wife', 'husband', 'child', 'baby', 'kids', 'family', 'insurance', 'medical', 'health plan', 'married', 'marriage'],
+        category: 'benefits',
       },
       {
         id: 'docs',
@@ -104,6 +120,8 @@ function useQuickAnswers(): QuickAnswer[] {
         a: 'Everything lives in Documents: your offer letter, contract, agreements, letters and payslips, ready to download any time.',
         to: '/hr/documents?tab=vault',
         cta: 'Open my documents',
+        keywords: ['contract', 'offer letter', 'agreement', 'document', 'payslip', 'pay slip'],
+        category: 'documents',
       },
       {
         id: 'talk',
@@ -111,6 +129,8 @@ function useQuickAnswers(): QuickAnswer[] {
         a: 'You’re not alone. Our Employee Assistance Programme offers free, confidential counselling 24/7 for you and your family, and nobody at Helix ever sees who uses it. You can also write to People Ops confidentially.',
         cta: 'Write confidentially',
         care: true,
+        keywords: ['talk to someone', 'someone to talk', 'stress', 'anxious', 'anxiety', 'burnout', 'burned out', 'burnt out', 'overwhelmed', 'depressed', 'lonely', 'struggling', 'harass', 'bully', 'mental health', 'counsel', 'wellbeing', 'well-being'],
+        category: 'wellbeing',
       },
     ];
   }, [comp, balances, now]);
@@ -161,47 +181,171 @@ function CatIcon({ category }: { category: CaseCategory }) {
   );
 }
 
-// ───────────────────────── card ─────────────────────────
-export function AskCard({ onOpen }: { onOpen: (o: AskOptions) => void }) {
+// ───────────────────────── routing ─────────────────────────
+const normalise = (t: string) => ` ${t.toLowerCase().replace(/[’']/g, '').replace(/[^a-z0-9-]+/g, ' ')} `;
+
+/** Best quick answer for a free-text question (longest matching phrases win), if any. */
+export function matchQuickAnswer(text: string, answers: QuickAnswer[]): QuickAnswer | null {
+  const t = normalise(text);
+  const exact = answers.find((a) => normalise(a.q) === t);
+  if (exact) return exact;
+  let best: QuickAnswer | null = null;
+  let bestScore = 0;
+  for (const a of answers) {
+    const score = a.keywords.reduce((n, k) => (t.includes(` ${k} `) || (k.length > 5 && t.includes(k)) ? n + k.length : n), 0);
+    if (score > bestScore) {
+      best = a;
+      bestScore = score;
+    }
+  }
+  return bestScore >= 3 ? best : null;
+}
+
+const VISA_WORDS = ['visa', 'residency', 'emirates id', 'work permit', 'passport', 'golden visa'];
+
+/** Case category for a question that goes to a person. */
+export function guessCategory(text: string, answers: QuickAnswer[]): CaseCategory | null {
+  const t = normalise(text);
+  if (VISA_WORDS.some((w) => t.includes(w))) return 'visa';
+  return matchQuickAnswer(text, answers)?.category ?? null;
+}
+
+/** "How do I add my baby to my insurance?" → a subject line of at most ~80 characters. */
+function subjectFrom(draft: string): string {
+  const first = draft.trim().split(/(?<=[.!?])\s+|\n/)[0] ?? '';
+  if (first.length <= 80) return first;
+  const cut = first.slice(0, 80);
+  return `${cut.slice(0, Math.max(40, cut.lastIndexOf(' ')))}…`;
+}
+
+// ───────────────────────── Nova console (home) ─────────────────────────
+/**
+ * The home's "Ask People Ops" console: the common questions answer instantly
+ * (typed or tapped), everything else opens the new-question form pre-filled.
+ * Your open questions and a gentle, confidential way to reach out sit below.
+ */
+export function AskNova({ onOpen }: { onOpen: (o: AskOptions) => void }) {
+  const answers = useQuickAnswers();
   const cases = useMyCases();
   const now = useNow(60_000);
+  const [asked, setAsked] = useState<{ q: string; id: string } | null>(null);
   const active = cases.filter((c) => c.status !== 'closed');
+  const answer = asked ? answers.find((a) => a.id === asked.id) : undefined;
+  const care = answers.find((a) => a.care);
+  const openCare = () => onOpen({ mode: 'new', category: 'wellbeing', confidential: true });
+
+  const submit = (text: string) => {
+    const hit = matchQuickAnswer(text, answers);
+    if (hit) setAsked({ q: text, id: hit.id });
+    else {
+      setAsked(null);
+      onOpen({ mode: 'new', draft: text, category: guessCategory(text, answers) });
+    }
+  };
+
   return (
-    <HrPanel className="hr-home-ask" title="Ask People Ops" icon={<MessageCircleQuestion aria-hidden="true" />} sub="Real people, usually within one working day.">
-      <QuickAnswers ids={['payday', 'salary-cert', 'leave', 'talk']} onCare={() => onOpen({ mode: 'new', category: 'wellbeing', confidential: true })} />
+    <NeoNovaPrompt
+      className="hr-nova"
+      hud="Nova · People Ops"
+      title="What can People Ops help with?"
+      badge="Instant answers · real people"
+      placeholder="Ask anything: payday, leave, visas, letters, insurance…"
+      suggestions={answers.filter((a) => !a.care).map((a) => a.q)}
+      onSubmit={submit}
+      submitLabel="Ask"
+      submitIcon={<MessageCircleQuestion />}
+      clearOnSubmit
+      label="Ask People Ops"
+    >
+      {answer && asked && (
+        <NovaAnswer
+          key={`${asked.id}:${asked.q}`}
+          q={asked.q}
+          answer={answer}
+          onClose={() => setAsked(null)}
+          onCare={openCare}
+          onEscalate={() => onOpen({ mode: 'new', draft: asked.q, category: answer.category, confidential: answer.care })}
+        />
+      )}
       {active.length > 0 && (
-        <div className="hr-home-ask__cases">
-          <span className="stat-label">Your questions</span>
+        <div className="hr-nova-cases">
+          <span className="neo-hud">Your questions · {active.length}</span>
           <ul>
             {active.slice(0, 3).map((c) => (
               <li key={c.id}>
-                <button type="button" className={cx('hr-home-ask__case', c.status === 'answered' && 'is-answered')} onClick={() => onOpen({ caseId: c.id, mode: 'cases' })}>
+                <button type="button" className={cx('hr-nova-case', c.status === 'answered' && 'is-answered')} onClick={() => onOpen({ caseId: c.id, mode: 'cases' })}>
                   <CatIcon category={c.category} />
-                  <span className="grow">
-                    <span className="hr-home-ask__subject truncate">{c.subject}</span>
-                    <span className="text-xs faint">
+                  <span className="hr-nova-case__text">
+                    <span className="hr-nova-case__subject truncate">{c.subject}</span>
+                    <span className="hr-nova-case__meta">
                       {c.status === 'answered' ? 'People Ops replied' : 'With People Ops'} · {ago(c.updatedAt, now)}
                     </span>
                   </span>
-                  {c.confidential && <Lock className="hr-home-ask__lock" aria-label="Confidential" />}
-                  {c.status === 'answered' && <span className="hr-home-ask__dot" aria-label="New reply" />}
+                  {c.confidential && <Lock className="hr-nova-case__lock" aria-label="Confidential" />}
+                  {c.status === 'answered' && <span className="hr-nova-case__dot" aria-label="New reply" />}
+                  <ArrowRight className="hr-nova-case__go" aria-hidden="true" />
                 </button>
               </li>
             ))}
           </ul>
         </div>
       )}
-      <div className="hr-home-ask__foot">
-        <button type="button" className="btn btn--primary btn--block" onClick={() => onOpen({ mode: 'new' })}>
+      <div className="hr-nova-foot">
+        {care && (
+          <button type="button" className="hr-nova-care" onClick={openCare}>
+            <LifeBuoy aria-hidden="true" /> {care.q}
+            <span className="hr-nova-care__hint">Confidential</span>
+          </button>
+        )}
+        <span className="hr-nova-foot__spacer" />
+        {cases.length > 0 && (
+          <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={() => onOpen({ mode: 'cases' })}>
+            <MessagesSquare /> My questions ({cases.length})
+          </button>
+        )}
+        <button type="button" className="neo-btn neo-btn--soft neo-btn--xs" onClick={() => onOpen({ mode: 'new' })}>
           <PenLine /> Write to People Ops
         </button>
-        {cases.length > 0 && (
-          <button type="button" className="btn btn--ghost btn--sm btn--block" onClick={() => onOpen({ mode: 'cases' })}>
-            <MessagesSquare /> All my questions ({cases.length})
+      </div>
+    </NeoNovaPrompt>
+  );
+}
+
+function NovaAnswer({ q, answer, onClose, onCare, onEscalate }: { q: string; answer: QuickAnswer; onClose: () => void; onCare: () => void; onEscalate: () => void }) {
+  const [typed, done] = useTypewriter(answer.a, 160);
+  return (
+    <div className={cx('hr-nova-answer', answer.care && 'is-care')} role="region" aria-live="polite" aria-label={`Answer: ${answer.q}`}>
+      <div className="hr-nova-answer__head">
+        <span className="neo-hud">You asked</span>
+        <span className="hr-nova-answer__q truncate">{q}</span>
+        <button type="button" className="neo-iconbtn hr-nova-answer__close" onClick={onClose} aria-label="Dismiss the answer">
+          <X />
+        </button>
+      </div>
+      <p className="hr-nova-answer__text" aria-hidden="true">
+        {typed}
+        {!done && <span className="hr-nova-answer__caret" />}
+      </p>
+      <p className="sr-only">{answer.a}</p>
+      <div className={cx('hr-nova-answer__actions', done && 'is-in')}>
+        {answer.care ? (
+          <button type="button" className="neo-btn neo-btn--plasma neo-btn--sm" onClick={onCare}>
+            <Lock /> {answer.cta}
+          </button>
+        ) : (
+          answer.to && (
+            <Link to={answer.to} className="neo-btn neo-btn--plasma neo-btn--sm">
+              {answer.cta} <ArrowRight />
+            </Link>
+          )
+        )}
+        {!answer.care && (
+          <button type="button" className="neo-btn neo-btn--ghost neo-btn--sm" onClick={onEscalate}>
+            <PenLine /> Still need a person? Ask People Ops
           </button>
         )}
       </div>
-    </HrPanel>
+    </div>
   );
 }
 
@@ -226,9 +370,10 @@ export function AskModal({ open, onClose, options }: { open: boolean; onClose: (
     setSelected(target?.id ?? answered?.id ?? cases.find((c) => c.status !== 'closed')?.id ?? cases[0]?.id ?? null);
     setShowThread(!!target);
     setCategory(options.category ?? null);
-    setSubject('');
-    setMessage('');
-    setConfidential(!!options.confidential);
+    const draft = options.draft?.trim() ?? '';
+    setSubject(draft ? subjectFrom(draft) : '');
+    setMessage(draft);
+    setConfidential(!!options.confidential || options.category === 'wellbeing');
     setSentId(null);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 

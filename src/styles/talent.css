@@ -9,6 +9,7 @@
 @import './talent/sourcing.css';
 @import './talent/reqs.css';
 @import './talent/interviews.css';
+@import './talent/modals.css';
 
 /* ---------- Palette (root fallbacks so portaled modals can use them) ---------- */
 :root {
@@ -27,8 +28,12 @@
 /* Module identity: inside Talent Hub (and its portaled modals/sheets) the
    accent becomes amber → rose; inside HR Portal it becomes lilac → violet. */
 .page.talent,
+.neo.talent,
+.neo[data-app='talent'],
 body:has(.page.talent) > .modal,
-body:has(.page.talent) > .sheet {
+body:has(.page.talent) > .sheet,
+body[data-neo-app='talent'] > .modal,
+body[data-neo-app='talent'] > .sheet {
   --accent: #f59e0b;
   --accent-rgb: 245 158 11;
   --accent-2: #f43f5e;
@@ -38,8 +43,12 @@ body:has(.page.talent) > .sheet {
   --glow-accent: 0 0 0 1px rgb(var(--accent-rgb) / 0.35), 0 8px 30px -6px rgb(var(--accent-rgb) / 0.45);
 }
 .page.hr,
+.neo.hr,
+.neo[data-app='hr'],
 body:has(.page.hr) > .modal,
-body:has(.page.hr) > .sheet {
+body:has(.page.hr) > .sheet,
+body[data-neo-app='hr'] > .modal,
+body[data-neo-app='hr'] > .sheet {
   --accent: #c084fc;
   --accent-rgb: 192 132 252;
   --accent-2: #9333ea;
@@ -49,13 +58,21 @@ body:has(.page.hr) > .sheet {
   --glow-accent: 0 0 0 1px rgb(var(--accent-rgb) / 0.35), 0 8px 30px -6px rgb(var(--accent-rgb) / 0.45);
 }
 [data-theme='light'] .page.talent,
+[data-theme='light'] .neo.talent,
+[data-theme='light'] .neo[data-app='talent'],
 [data-theme='light'] body:has(.page.talent) > .modal,
-[data-theme='light'] body:has(.page.talent) > .sheet {
+[data-theme='light'] body:has(.page.talent) > .sheet,
+[data-theme='light'] body[data-neo-app='talent'] > .modal,
+[data-theme='light'] body[data-neo-app='talent'] > .sheet {
   --accent-ink: #b45309;
 }
 [data-theme='light'] .page.hr,
+[data-theme='light'] .neo.hr,
+[data-theme='light'] .neo[data-app='hr'],
 [data-theme='light'] body:has(.page.hr) > .modal,
-[data-theme='light'] body:has(.page.hr) > .sheet {
+[data-theme='light'] body:has(.page.hr) > .sheet,
+[data-theme='light'] body[data-neo-app='hr'] > .modal,
+[data-theme='light'] body[data-neo-app='hr'] > .sheet {
   --accent-ink: #7e22ce;
 }
 
@@ -2270,3 +2287,1196 @@ body:has(.page.hr) > .sheet {
     flex: 1 1 auto;
   }
 }
+
+/* ==========================================================================
+   NEO shell & Talent Deck (TalentPage → NeoAppFrame, OverviewTab)
+   ========================================================================== */
+/* Views portal header actions into this slot (components/head.tsx). */
+.tl-headslot {
+  display: contents;
+}
+
+.neo[data-app='talent'] .tl-deck {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ---------- Nova console footer (step pills + resume link) ---------- */
+.neo[data-app='talent'] .tl-deck-nova__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--plane-border);
+}
+.neo[data-app='talent'] .tl-deck-flow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: tl-step;
+}
+.neo[data-app='talent'] .tl-deck-flow > li {
+  counter-increment: tl-step;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 27px;
+  padding: 0 11px 0 8px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 560;
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--plane-border);
+  white-space: nowrap;
+}
+.neo[data-app='talent'] .tl-deck-flow > li::before {
+  content: counter(tl-step);
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--app-ink);
+  background: rgb(var(--app-rgb) / 0.14);
+}
+.neo[data-app='talent'] .tl-deck-flow > li svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--app-ink);
+}
+.neo[data-app='talent'] .tl-deck-resume {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+  background: linear-gradient(135deg, rgb(var(--app-rgb) / 0.16), rgb(var(--app-rgb-2) / 0.1));
+  border: 1px solid rgb(var(--app-rgb) / 0.38);
+  transition:
+    border-color var(--dur-fast),
+    transform var(--dur-fast);
+}
+.neo[data-app='talent'] .tl-deck-resume:hover {
+  border-color: rgb(var(--app-rgb) / 0.65);
+  transform: translateY(-1px);
+}
+.neo[data-app='talent'] .tl-deck-resume .neo-hud {
+  color: var(--app-ink);
+}
+.neo[data-app='talent'] .tl-deck-resume__step {
+  padding: 1px 6px;
+  border-radius: 99px;
+  font-size: 10.5px;
+  color: var(--text-2);
+  background: var(--surface);
+}
+.neo[data-app='talent'] .tl-deck-resume svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--app-ink);
+}
+
+/* ---------- Deck grid & panels ---------- */
+.neo[data-app='talent'] .tl-deck-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+.neo[data-app='talent'] .tl-deck-panel {
+  display: flex;
+  flex-direction: column;
+}
+.neo[data-app='talent'] .tl-deck-faint {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.neo[data-app='talent'] .tl-deck-clear {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--plane-border);
+}
+.neo[data-app='talent'] .tl-deck-clear > svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--success);
+}
+.neo[data-app='talent'] .tl-deck-clear > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.neo[data-app='talent'] .tl-deck-clear b {
+  font-size: 13px;
+  font-weight: 620;
+  color: var(--text);
+}
+.neo[data-app='talent'] .tl-deck-clear span {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ---------- Next steps ---------- */
+.neo[data-app='talent'] .tl-deck-tasks,
+.neo[data-app='talent'] .tl-deck-insights,
+.neo[data-app='talent'] .tl-deck-reqs,
+.neo[data-app='talent'] .tl-deck-sources,
+.neo[data-app='talent'] .tl-deck-ivs,
+.neo[data-app='talent'] .tl-deck-offers,
+.neo[data-app='talent'] .tl-deck-late,
+.neo[data-app='talent'] .tl-deck-feed,
+.neo[data-app='talent'] .tl-deck-sys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.neo[data-app='talent'] .tl-deck-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.neo[data-app='talent'] .tl-deck-task {
+  --t: hsl(var(--h, 38) 85% 66%);
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: 13px;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--plane-border);
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast),
+    transform var(--dur-fast);
+}
+.neo[data-app='talent'] .tl-deck-task:hover {
+  background: var(--hover-2);
+  border-color: hsl(var(--h, 38) 85% 60% / 0.42);
+  transform: translateX(2px);
+}
+.neo[data-app='talent'] .tl-deck-task[data-urgent] {
+  box-shadow: inset 3px 0 0 rgb(var(--danger-rgb));
+}
+.neo[data-app='talent'] .tl-deck-task__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: var(--t);
+  background: hsl(var(--h, 38) 85% 60% / 0.14);
+  box-shadow: inset 0 0 0 1px hsl(var(--h, 38) 85% 60% / 0.24);
+}
+.neo[data-app='talent'] .tl-deck-task__icon svg {
+  width: 16px;
+  height: 16px;
+}
+.neo[data-app='talent'] .tl-deck-task__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='talent'] .tl-deck-task__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.neo[data-app='talent'] .tl-deck-task__kind {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--t);
+}
+.neo[data-app='talent'] .tl-deck-task__when {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.neo[data-app='talent'] .tl-deck-task[data-urgent] .tl-deck-task__when {
+  color: var(--danger);
+}
+.neo[data-app='talent'] .tl-deck-task__title {
+  font-size: 13.5px;
+  font-weight: 620;
+  color: var(--text);
+}
+.neo[data-app='talent'] .tl-deck-task__detail {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='talent'] .tl-deck-task__chev {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
+}
+.neo[data-app='talent'] .tl-deck-more {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+}
+[data-theme='light'] .neo[data-app='talent'] .tl-deck-task {
+  --t: hsl(var(--h, 38) 72% 36%);
+}
+
+/* ---------- Copilot insights ---------- */
+.neo[data-app='talent'] .tl-deck-sparkle {
+  width: 16px;
+  height: 16px;
+  color: var(--app-ink);
+}
+.neo[data-app='talent'] .tl-deck-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.neo[data-app='talent'] .tl-deck-insight {
+  --tone: var(--app-rgb);
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 11px 12px;
+  border-radius: 13px;
+  background:
+    linear-gradient(135deg, rgb(var(--tone) / 0.1), transparent 72%),
+    var(--surface);
+  border: 1px solid rgb(var(--tone) / 0.26);
+}
+.neo[data-app='talent'] .tl-deck-insight__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: rgb(var(--tone));
+  background: rgb(var(--tone) / 0.15);
+}
+.neo[data-app='talent'] .tl-deck-insight__icon svg {
+  width: 15px;
+  height: 15px;
+}
+.neo[data-app='talent'] .tl-deck-insight__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='talent'] .tl-deck-insight__text b {
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.35;
+  color: var(--text);
+}
+.neo[data-app='talent'] .tl-deck-insight__text span {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+.neo[data-app='talent'] .tl-deck-insight__cta {
+  flex: none;
+  align-self: center;
+}
+[data-theme='light'] .neo[data-app='talent'] .tl-deck-insight__icon {
+  color: color-mix(in oklab, rgb(var(--tone)) 70%, #0b1020);
+}
+
+/* ---------- Hiring flight path ---------- */
+.neo[data-app='talent'] .tl-flight {
+  overflow: hidden;
+  background:
+    radial-gradient(640px 200px at 50% 120%, rgb(var(--app-rgb-2) / 0.08), transparent 70%),
+    var(--plane-2);
+}
+.neo[data-app='talent'] .tl-flight > :not(.tl-flight__scan) {
+  position: relative;
+}
+.neo[data-app='talent'] .tl-flight__scan {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgb(var(--app-rgb) / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--app-rgb) / 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+  -webkit-mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent);
+  mask-image: linear-gradient(180deg, transparent, #000 30%, #000 70%, transparent);
+}
+.neo[data-app='talent'] .tl-flight__track {
+  display: grid;
+  grid-template-columns: minmax(276px, 3fr) minmax(186px, 2fr) minmax(186px, 2fr) minmax(104px, 1fr);
+  gap: 10px;
+  overflow-x: auto;
+  padding: 2px 2px 4px;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+}
+.neo[data-app='talent'] .tl-flight__phase {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 8px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--plane-border);
+  background: var(--surface);
+  scroll-snap-align: start;
+}
+.neo[data-app='talent'] .tl-flight__label {
+  padding: 0 6px;
+}
+.neo[data-app='talent'] .tl-flight__label span {
+  color: var(--app-ink);
+  margin-right: 4px;
+}
+.neo[data-app='talent'] .tl-flight__nodes {
+  position: relative;
+  display: flex;
+  justify-content: space-around;
+}
+.neo[data-app='talent'] .tl-flight__nodes::before {
+  content: '';
+  position: absolute;
+  top: 24px;
+  left: 14%;
+  right: 14%;
+  height: 2px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(90deg, rgb(var(--app-rgb) / 0.5) 0 8px, transparent 8px 14px);
+  background-size: 28px 2px;
+  opacity: 0.55;
+  animation: tl-flow 1.6s linear infinite;
+}
+.neo[data-app='talent'] .tl-flight__phase:last-child .tl-flight__nodes::before {
+  display: none;
+}
+.neo[data-app='talent'] .tl-flight__node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 2px 2px;
+  border-radius: 10px;
+  color: var(--text);
+}
+.neo[data-app='talent'] .tl-flight__orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  color: hsl(var(--stage-h) 85% 66%);
+  background: var(--plane-solid);
+  border: 1px solid hsl(var(--stage-h) 85% 62% / 0.32);
+  transition:
+    transform var(--dur) var(--ease-spring),
+    box-shadow var(--dur);
+}
+.neo[data-app='talent'] .tl-flight__orb svg {
+  width: 18px;
+  height: 18px;
+}
+.neo[data-app='talent'] .tl-flight__node.has-items .tl-flight__orb {
+  background:
+    radial-gradient(circle at 50% 35%, hsl(var(--stage-h) 85% 62% / 0.28), transparent 70%),
+    var(--plane-solid);
+  border-color: hsl(var(--stage-h) 85% 62% / 0.6);
+  box-shadow: 0 0 20px -6px hsl(var(--stage-h) 85% 60% / 0.85);
+}
+.neo[data-app='talent'] .tl-flight__node:hover .tl-flight__orb {
+  transform: translateY(-2px) scale(1.06);
+}
+.neo[data-app='talent'] .tl-flight__count {
+  position: absolute;
+  top: -5px;
+  right: -8px;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 99px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-3);
+  background: var(--track);
+  border: 2px solid var(--plane-solid);
+}
+.neo[data-app='talent'] .tl-flight__node.has-items .tl-flight__count {
+  color: #070810;
+  background: hsl(var(--stage-h) 85% 64%);
+}
+.neo[data-app='talent'] .tl-flight__node.is-late .tl-flight__orb::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px dashed rgb(var(--warning-rgb) / 0.8);
+  animation: spin 9s linear infinite;
+}
+.neo[data-app='talent'] .tl-flight__name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.neo[data-app='talent'] .tl-flight__meta {
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.neo[data-app='talent'] .tl-flight__late {
+  color: var(--warning);
+}
+.neo[data-app='talent'] .tl-flight__lede {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+[data-theme='light'] .neo[data-app='talent'] .tl-flight__orb {
+  color: hsl(var(--stage-h) 70% 38%);
+}
+
+/* ---------- Requisition radar ---------- */
+.neo[data-app='talent'] .tl-deck-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px 10px;
+  border-bottom: 1px solid var(--plane-border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.neo[data-app='talent'] .tl-deck-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.neo[data-app='talent'] .tl-deck-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+.neo[data-app='talent'] .tl-deck-legend .is-acquire,
+.neo[data-app='talent'] .tl-deck-req__bar .is-acquire {
+  background: hsl(210 85% 62%);
+}
+.neo[data-app='talent'] .tl-deck-legend .is-assess,
+.neo[data-app='talent'] .tl-deck-req__bar .is-assess {
+  background: hsl(285 80% 66%);
+}
+.neo[data-app='talent'] .tl-deck-legend .is-decide,
+.neo[data-app='talent'] .tl-deck-req__bar .is-decide {
+  background: hsl(18 92% 60%);
+}
+.neo[data-app='talent'] .tl-deck-reqs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px 8px;
+}
+.neo[data-app='talent'] .tl-deck-req {
+  display: grid;
+  grid-template-columns: 4px minmax(0, 1fr) minmax(88px, 136px) 52px 52px 16px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 12px;
+  text-align: left;
+  color: var(--text);
+  transition: background var(--dur-fast);
+}
+.neo[data-app='talent'] .tl-deck-req:hover {
+  background: var(--hover-2);
+}
+.neo[data-app='talent'] .tl-deck-req__pri {
+  width: 4px;
+  height: 32px;
+  border-radius: 2px;
+  background: var(--info);
+}
+.neo[data-app='talent'] .tl-deck-req__pri.is-critical {
+  background: var(--danger);
+  box-shadow: 0 0 10px rgb(var(--danger-rgb) / 0.7);
+}
+.neo[data-app='talent'] .tl-deck-req__pri.is-high {
+  background: var(--warning);
+}
+.neo[data-app='talent'] .tl-deck-req__pri.is-low {
+  background: var(--text-3);
+}
+.neo[data-app='talent'] .tl-deck-req__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.neo[data-app='talent'] .tl-deck-req__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 620;
+}
+.neo[data-app='talent'] .tl-deck-req__meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='talent'] .tl-deck-req__bar {
+  display: flex;
+  gap: 2px;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--track);
+}
+.neo[data-app='talent'] .tl-deck-req__bar i {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  flex-basis: 0;
+}
+.neo[data-app='talent'] .tl-deck-req__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+.neo[data-app='talent'] .tl-deck-req__stat b {
+  font-family: var(--font-display);
+  font-size: 13.5px;
+  font-weight: 620;
+}
+.neo[data-app='talent'] .tl-deck-req__stat small {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.neo[data-app='talent'] .tl-deck-req__stat.is-warn b,
+.neo[data-app='talent'] .tl-deck-req__stat.is-warn small {
+  color: var(--warning);
+}
+.neo[data-app='talent'] .tl-deck-req__chev {
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
+}
+
+/* ---------- Source mix ---------- */
+.neo[data-app='talent'] .tl-deck-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.neo[data-app='talent'] .tl-deck-source {
+  display: grid;
+  grid-template-columns: minmax(90px, 116px) minmax(0, 1fr) 52px;
+  align-items: center;
+  gap: 10px;
+}
+.neo[data-app='talent'] .tl-deck-source__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.neo[data-app='talent'] .tl-deck-source__label svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: hsl(var(--src-h) 80% 62%);
+}
+.neo[data-app='talent'] .tl-deck-source__bar {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--track);
+}
+.neo[data-app='talent'] .tl-deck-source__bar i {
+  display: block;
+  width: var(--w);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, hsl(var(--src-h) 85% 60% / 0.35), hsl(var(--src-h) 85% 60%));
+  box-shadow: 0 0 12px -2px hsl(var(--src-h) 85% 60% / 0.7);
+  transform-origin: left;
+  animation: tl-grow var(--dur-slow) var(--ease-out) both;
+  animation-delay: calc(var(--i) * 50ms);
+}
+.neo[data-app='talent'] .tl-deck-source__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 650;
+}
+.neo[data-app='talent'] .tl-deck-source__num small {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10.5px;
+  color: var(--success);
+}
+.neo[data-app='talent'] .tl-deck-source__num small svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* ---------- Side panel: Upcoming interviews ---------- */
+.neo[data-app='talent'] .tl-deck-ivs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.neo[data-app='talent'] .tl-deck-iv {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  grid-template-areas:
+    'kind main time'
+    'kind main stack';
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 2px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 12px;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--plane-border);
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast);
+}
+.neo[data-app='talent'] .tl-deck-iv:hover {
+  background: var(--hover-2);
+  border-color: var(--plane-border-2);
+}
+.neo[data-app='talent'] .tl-deck-iv.is-live {
+  border-color: rgb(var(--success-rgb) / 0.45);
+  background:
+    linear-gradient(90deg, rgb(var(--success-rgb) / 0.08), transparent 65%),
+    var(--surface);
+}
+.neo[data-app='talent'] .tl-deck-iv__kind {
+  grid-area: kind;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: var(--app-ink);
+  background: rgb(var(--app-rgb) / 0.14);
+  box-shadow: inset 0 0 0 1px rgb(var(--app-rgb) / 0.25);
+}
+.neo[data-app='talent'] .tl-deck-iv__kind svg {
+  width: 15px;
+  height: 15px;
+}
+.neo[data-app='talent'] .tl-deck-iv__main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.neo[data-app='talent'] .tl-deck-iv__who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 620;
+  color: var(--text);
+}
+.neo[data-app='talent'] .tl-deck-iv__what {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='talent'] .tl-deck-iv__time {
+  grid-area: time;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.neo[data-app='talent'] .tl-deck-iv .people-stack {
+  grid-area: stack;
+  justify-self: end;
+}
+
+/* ---------- Side panel: Offers in flight ---------- */
+.neo[data-app='talent'] .tl-deck-offers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.neo[data-app='talent'] .tl-deck-offer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 12px;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--plane-border);
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast);
+}
+.neo[data-app='talent'] .tl-deck-offer:hover {
+  background: var(--hover-2);
+  border-color: var(--plane-border-2);
+}
+.neo[data-app='talent'] .tl-deck-offer__ph {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--track);
+  flex: none;
+}
+.neo[data-app='talent'] .tl-deck-offer__main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='talent'] .tl-deck-offer__who {
+  font-size: 13px;
+  font-weight: 620;
+  color: var(--text);
+}
+.neo[data-app='talent'] .tl-deck-offer__what {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='talent'] .tl-deck-offer__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex: none;
+}
+.neo[data-app='talent'] .tl-deck-offer__chain {
+  display: inline-flex;
+  gap: 3px;
+}
+.neo[data-app='talent'] .tl-deck-offer__chain i {
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--track);
+}
+.neo[data-app='talent'] .tl-deck-offer__chain i[data-state='approved'] {
+  background: var(--success);
+}
+.neo[data-app='talent'] .tl-deck-offer__chain i[data-state='rejected'] {
+  background: var(--danger);
+}
+.neo[data-app='talent'] .tl-deck-offer__chain i[data-state='pending'] {
+  background: var(--warning);
+}
+
+/* ---------- Side panel: SLA watch ---------- */
+.neo[data-app='talent'] .tl-deck-sla {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.neo[data-app='talent'] .tl-deck-sla__bar {
+  display: flex;
+  gap: 3px;
+  height: 8px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--track);
+}
+.neo[data-app='talent'] .tl-deck-sla__bar i {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  flex-basis: 0;
+}
+.neo[data-app='talent'] .tl-deck-sla__bar i[data-state='ok'] {
+  background: var(--success);
+}
+.neo[data-app='talent'] .tl-deck-sla__bar i[data-state='warn'] {
+  background: var(--warning);
+}
+.neo[data-app='talent'] .tl-deck-sla__bar i[data-state='stale'] {
+  background: var(--danger);
+}
+.neo[data-app='talent'] .tl-deck-sla__legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='talent'] .tl-deck-sla__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.neo[data-app='talent'] .tl-deck-sla__legend span::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.neo[data-app='talent'] .tl-deck-sla__legend span[data-state='ok']::before {
+  background: var(--success);
+}
+.neo[data-app='talent'] .tl-deck-sla__legend span[data-state='warn']::before {
+  background: var(--warning);
+}
+.neo[data-app='talent'] .tl-deck-sla__legend span[data-state='stale']::before {
+  background: var(--danger);
+}
+.neo[data-app='talent'] .tl-deck-sla__legend b {
+  color: var(--text);
+  font-weight: 650;
+}
+.neo[data-app='talent'] .tl-deck-late {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.neo[data-app='talent'] .tl-deck-late__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 11px;
+  text-align: left;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--plane-border);
+  transition: background var(--dur-fast);
+}
+.neo[data-app='talent'] .tl-deck-late__row:hover {
+  background: var(--hover-2);
+}
+.neo[data-app='talent'] .tl-deck-late__main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.neo[data-app='talent'] .tl-deck-late__main small {
+  font-size: 11.5px;
+  font-weight: 450;
+  color: var(--text-3);
+}
+.neo[data-app='talent'] .tl-deck-late__over {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--danger);
+  background: rgb(var(--danger-rgb) / 0.12);
+  border: 1px solid rgb(var(--danger-rgb) / 0.28);
+}
+
+/* ---------- Side panel: Activity feed ---------- */
+.neo[data-app='talent'] .tl-deck-feed {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.neo[data-app='talent'] .tl-deck-feed::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 8px;
+  bottom: 8px;
+  width: 1px;
+  background: linear-gradient(180deg, var(--plane-border-2), transparent);
+}
+.neo[data-app='talent'] .tl-deck-feed__item {
+  --f: var(--text-2);
+  position: relative;
+  display: flex;
+  gap: 10px;
+}
+.neo[data-app='talent'] .tl-deck-feed__icon {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  color: var(--f);
+  background: var(--plane-solid);
+  border: 1px solid var(--plane-border-2);
+}
+.neo[data-app='talent'] .tl-deck-feed__icon svg {
+  width: 13px;
+  height: 13px;
+}
+.neo[data-app='talent'] .tl-deck-feed__item.is-hired {
+  --f: var(--success);
+}
+.neo[data-app='talent'] .tl-deck-feed__item.is-rejected {
+  --f: var(--danger);
+}
+.neo[data-app='talent'] .tl-deck-feed__item.is-offer,
+.neo[data-app='talent'] .tl-deck-feed__item.is-decision {
+  --f: var(--app-ink);
+}
+.neo[data-app='talent'] .tl-deck-feed__item.is-outreach,
+.neo[data-app='talent'] .tl-deck-feed__item.is-reply {
+  --f: var(--info);
+}
+.neo[data-app='talent'] .tl-deck-feed__item.is-handoff {
+  --f: var(--hr-1);
+}
+.neo[data-app='talent'] .tl-deck-feed__body {
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='talent'] .tl-deck-feed__text {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.neo[data-app='talent'] .tl-deck-feed__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.neo[data-app='talent'] .tl-deck-feed__cand {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-2);
+  font-weight: 560;
+}
+.neo[data-app='talent'] .tl-deck-feed__cand:hover {
+  color: var(--app-ink);
+}
+
+/* ---------- Side panel: Systems ---------- */
+.neo[data-app='talent'] .tl-deck-sys {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.neo[data-app='talent'] .tl-deck-sys > li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--plane-border);
+}
+.neo[data-app='talent'] .tl-deck-sys__icon {
+  --tone: var(--app-rgb);
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: rgb(var(--tone));
+  background: rgb(var(--tone) / 0.14);
+}
+.neo[data-app='talent'] .tl-deck-sys__icon svg {
+  width: 15px;
+  height: 15px;
+}
+.neo[data-app='talent'] .tl-deck-sys__main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+[data-theme='light'] .neo[data-app='talent'] .tl-deck-sys__icon {
+  color: color-mix(in oklab, rgb(var(--tone)) 70%, #0b1020);
+}
+
+/* ---------- NEO stage refinements across Talent routes ---------- */
+.neo[data-app='talent'] .stepper {
+  border-color: var(--plane-border);
+  background: var(--plane-2);
+  border-radius: 16px;
+}
+.neo[data-app='talent'] .tl-pipe-board {
+  height: clamp(460px, calc(100dvh - 280px), 840px);
+}
+.neo[data-app='talent'] .tl-pipe-toolbar,
+.neo[data-app='talent'] .tl-pool-bar,
+.neo[data-app='talent'] .tl-req-toolbar,
+.neo[data-app='talent'] .tl-iv-toolbar {
+  background: var(--plane-2);
+  border: 1px solid var(--plane-border);
+  border-radius: 16px;
+  box-shadow: var(--plane-inset);
+}
+.neo[data-app='talent'] .tl-pool-facets {
+  top: 0;
+  max-height: none;
+  background: var(--plane-2);
+  border-color: var(--plane-border);
+  border-radius: 18px;
+}
+.neo[data-app='talent'] .tl-src-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: var(--plane-2);
+  border: 1px solid var(--plane-border);
+  box-shadow: var(--plane-inset);
+}
+.neo[data-app='talent'] .tl-src-hud .tl-src-telemetry {
+  flex: 1 1 480px;
+  border: 0;
+  background: transparent;
+}
+.neo[data-app='talent'] .tl-src-hud .tl-src-target {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.neo[data-app='talent'] .tl-src-hud .tl-src-target .select {
+  min-width: 210px;
+  height: 34px;
+  font-size: 13px;
+}
+
+@media (max-width: 820px) {
+  .neo[data-app='talent'] .tl-deck-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .neo[data-app='talent'] .tl-deck-req {
+    grid-template-columns: 4px minmax(0, 1fr) 50px 14px;
+    grid-template-areas:
+      'pri main stat chev'
+      'pri bar bar bar';
+    row-gap: 8px;
+  }
+  .neo[data-app='talent'] .tl-deck-req__pri {
+    grid-area: pri;
+    height: 100%;
+  }
+  .neo[data-app='talent'] .tl-deck-req__main {
+    grid-area: main;
+  }
+  .neo[data-app='talent'] .tl-deck-req__bar {
+    grid-area: bar;
+  }
+  .neo[data-app='talent'] .tl-deck-req__bar + .tl-deck-req__stat {
+    grid-area: stat;
+  }
+  .neo[data-app='talent'] .tl-deck-req__stat + .tl-deck-req__stat {
+    display: none;
+  }
+  .neo[data-app='talent'] .tl-deck-req__chev {
+    grid-area: chev;
+  }
+  .neo[data-app='talent'] .tl-src-hud .tl-src-target {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .neo[data-app='talent'] .tl-src-hud .tl-src-target .select {
+    width: 100%;
+    min-width: 0;
+  }
+}
+

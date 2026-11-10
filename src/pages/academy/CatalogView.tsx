@@ -1,250 +1,290 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+/**
+ * Catalog & learning paths. Filters live in the URL (`track`, `level`,
+ * `format`, `q`) so Nova on the Learning home can deep-link a question:
+ * `/academy/catalog?q=…` ranks courses by relevance — stemmed terms matched
+ * across titles, skills, tracks, taglines, lessons and instructors.
+ * The track tabs + search render in the stage toolbar (`CatalogToolbar`).
+ */
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import {
-  ArrowRight,
-  Check,
-  Clock,
-  Compass,
-  FilterX,
-  GraduationCap,
-  Layers,
-  Search,
-  ShieldCheck,
-  Zap,
-} from 'lucide-react';
-import { FORMAT_LABEL, LEVEL_META, TRACK_META, TRACK_ORDER } from '@/academy/constants';
-import { useMyLearning } from '@/academy/selectors';
-import type { AcademyTrack, CourseFormat, CourseLevel } from '@/academy/types';
+import { ArrowRight, Check, Compass, FilterX, Route as RouteIcon, Sparkles, X } from 'lucide-react';
+import { NeoBanner, NeoBanners, NeoEmpty, NeoPanel, NeoSearch, NeoTabs } from '@/components/neo';
+import { FORMAT_LABEL, TRACK_META, TRACK_ORDER } from '@/academy/constants';
+import { useMyLearning, type EnrichedCourseItem } from '@/academy/selectors';
+import type { AcademyTrack, Course, CourseFormat, CourseLevel } from '@/academy/types';
+import type { User } from '@/types';
 import { useHub } from '@/store/hub';
-import { Avatar, EmptyState } from '@/components/ui/primitives';
+import { useHotkeys } from '@/hooks/useHotkeys';
 import { cx } from '@/lib/cx';
-import { ProgressRing, TrackBadge } from './shared';
+import { CourseCard, ProgressRing, TrackBadge, usePatchParams, useParamText } from './shared';
 
 const LEVEL_OPTIONS: { id: 'all' | CourseLevel; label: string }[] = [
-  { id: 'all', label: 'All Levels' },
+  { id: 'all', label: 'All levels' },
   { id: 'foundations', label: 'Foundations' },
   { id: 'practitioner', label: 'Practitioner' },
   { id: 'advanced', label: 'Advanced' },
 ];
 
 const FORMAT_OPTIONS: { id: 'all' | CourseFormat; label: string }[] = [
-  { id: 'all', label: 'All Formats' },
+  { id: 'all', label: 'All formats' },
   { id: 'interactive', label: 'Interactive' },
-  { id: 'scenario', label: 'Scenario Lab' },
+  { id: 'scenario', label: 'Scenario lab' },
   { id: 'certification', label: 'Certification' },
   { id: 'workshop', label: 'Workshop' },
 ];
 
+type SortId = 'auto' | 'xp' | 'short' | 'az';
+
+/* ---------- URL-driven filters ---------- */
+
+export function useCatalogFilters() {
+  const [sp] = useSearchParams();
+  const patch = usePatchParams();
+  const rawTrack = sp.get('track') as AcademyTrack | null;
+  const track: 'all' | AcademyTrack = rawTrack && TRACK_ORDER.includes(rawTrack) ? rawTrack : 'all';
+  const rawLevel = sp.get('level');
+  const level = (LEVEL_OPTIONS.some((o) => o.id === rawLevel) ? rawLevel : 'all') as 'all' | CourseLevel;
+  const rawFormat = sp.get('format');
+  const format = (FORMAT_OPTIONS.some((o) => o.id === rawFormat) ? rawFormat : 'all') as 'all' | CourseFormat;
+  const q = (sp.get('q') ?? '').trim();
+  const set = (next: Partial<Record<'q' | 'track' | 'level' | 'format', string | null>>) =>
+    patch(Object.fromEntries(Object.entries(next).map(([k, v]) => [k, v === 'all' ? null : v])));
+  return {
+    q,
+    track,
+    level,
+    format,
+    set,
+    clear: () => set({ q: null, track: null, level: null, format: null }),
+    isFiltered: !!q || track !== 'all' || level !== 'all' || format !== 'all',
+  };
+}
+
+/* ---------- Nova relevance search ---------- */
+
+const STOP = new Set(
+  'a an the and or to for of in on at by with from my me i im want wanna learn learning how do does can could get better improve grow level up skill skills course courses class about into more some what is are be it this that helix need help like would should please teach show find start your our we you new really'.split(
+    ' ',
+  ),
+);
+
+function stem(w: string): string {
+  if (w.length > 5 && w.endsWith('ing')) return w.slice(0, -3);
+  if (w.length > 4 && w.endsWith('ies')) return `${w.slice(0, -3)}y`;
+  if (w.length > 4 && w.endsWith('ly')) return w.slice(0, -2);
+  if (w.length > 5 && w.endsWith('ed')) return w.slice(0, -2);
+  if (w.length > 3 && w.endsWith('s') && !w.endsWith('ss')) return w.slice(0, -1);
+  return w;
+}
+
+export function terms(text: string): string[] {
+  return text
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 2 && !STOP.has(t))
+    .map(stem);
+}
+
+const hits = (field: string[], t: string) => field.some((f) => f === t || (t.length >= 4 && f.length >= 4 && (f.startsWith(t) || t.startsWith(f))));
+
+/** Relevance score per course (0 = no match). Falls back to plain substring search for stop-word-only queries. */
+export function scoreCourses(courses: Course[], query: string, users: User[]): Map<string, number> {
+  const out = new Map<string, number>();
+  const qTerms = [...new Set(terms(query))];
+  const raw = query.trim().toLowerCase();
+  for (const c of courses) {
+    const instructor = users.find((u) => u.id === c.instructorId)?.name ?? '';
+    const fields: [string[], number][] = [
+      [terms(c.title), 3],
+      [terms(c.skills.join(' ')), 2.5],
+      [terms(`${TRACK_META[c.track].label} ${TRACK_META[c.track].short}`), 2],
+      [terms(c.tagline), 1.5],
+      [terms(c.lessons.map((l) => l.title).join(' ')), 1.2],
+      [terms(c.description), 1],
+      [terms(`${instructor} ${FORMAT_LABEL[c.format]}`), 1],
+    ];
+    if (!qTerms.length) {
+      const hay = `${c.title} ${c.tagline} ${c.description} ${c.skills.join(' ')} ${instructor}`.toLowerCase();
+      out.set(c.id, raw && hay.includes(raw) ? 1 : 0);
+      continue;
+    }
+    let score = 0;
+    let matched = 0;
+    for (const t of qTerms) {
+      let best = 0;
+      for (const [field, w] of fields) if (w > best && hits(field, t)) best = w;
+      if (best) matched++;
+      score += best;
+    }
+    if (matched === qTerms.length && qTerms.length > 1) score += 1.5;
+    out.set(c.id, score);
+  }
+  return out;
+}
+
+/* ---------- Toolbar (rendered under the stage header) ---------- */
+
+export function CatalogToolbar() {
+  const { track, set } = useCatalogFilters();
+  const { all } = useMyLearning();
+  const [text, setText] = useParamText('q');
+  const search = useRef<HTMLInputElement>(null);
+  useHotkeys({
+    s: (e) => {
+      e.preventDefault();
+      search.current?.focus();
+    },
+  });
+
+  const counts = useMemo(() => {
+    const m: Record<string, number> = { all: all.length };
+    for (const t of TRACK_ORDER) m[t] = all.filter((x) => x.course.track === t).length;
+    return m;
+  }, [all]);
+
+  return (
+    <>
+      <NeoTabs<'all' | AcademyTrack>
+        label="Academy tracks"
+        value={track}
+        onChange={(t) => set({ track: t })}
+        items={[
+          { value: 'all', label: 'All', count: counts.all },
+          ...TRACK_ORDER.map((t) => ({ value: t, label: TRACK_META[t].short, count: counts[t] ?? 0, title: TRACK_META[t].description })),
+        ]}
+      />
+      <div className="grow" />
+      <NeoSearch
+        value={text}
+        onChange={setText}
+        placeholder="Search courses, skills, people…"
+        kbd="S"
+        inputRef={search}
+        size="sm"
+        className="ac-toolbar__search"
+        label="Search the Academy catalog"
+      />
+    </>
+  );
+}
+
+/* ---------- View ---------- */
+
 export function CatalogView() {
-  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const users = useHub((s) => s.users);
   const { all, paths } = useMyLearning();
+  const { q, track, level, format, set, clear, isFiltered } = useCatalogFilters();
+  const [sort, setSort] = useState<SortId>('auto');
 
-  const paramTrack = searchParams.get('track') as AcademyTrack | null;
-  const [query, setQuery] = useState('');
-  const [track, setTrack] = useState<'all' | AcademyTrack>(
-    paramTrack && TRACK_ORDER.includes(paramTrack) ? paramTrack : 'all',
-  );
-  const [level, setLevel] = useState<'all' | CourseLevel>('all');
-  const [format, setFormat] = useState<'all' | CourseFormat>('all');
+  const scores = useMemo(() => (q ? scoreCourses(all.map((x) => x.course), q, users) : null), [all, q, users]);
 
-  useEffect(() => {
-    if (paramTrack && TRACK_ORDER.includes(paramTrack)) {
-      setTrack(paramTrack);
-    }
-  }, [paramTrack]);
+  const filteredPaths = useMemo(() => (track === 'all' ? paths : paths.filter((p) => p.path.track === track)), [paths, track]);
 
-  const selectTrack = (next: 'all' | AcademyTrack) => {
-    setTrack(next);
-    if (next === 'all') {
-      searchParams.delete('track');
-      setSearchParams(searchParams, { replace: true });
-    } else {
-      setSearchParams({ track: next }, { replace: true });
-    }
-  };
-
-  const trackCounts = useMemo(() => {
-    const map: Record<string, number> = { all: all.length };
-    for (const t of TRACK_ORDER) {
-      map[t] = all.filter((x) => x.course.track === t).length;
-    }
-    return map;
-  }, [all]);
-
-  const filteredPaths = useMemo(() => {
-    if (track === 'all') return paths;
-    return paths.filter((p) => p.path.track === track);
-  }, [paths, track]);
-
-  const filteredCourses = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return all.filter(({ course }) => {
+  const list = useMemo(() => {
+    const rows = all.filter(({ course }) => {
       if (track !== 'all' && course.track !== track) return false;
       if (level !== 'all' && course.level !== level) return false;
       if (format !== 'all' && course.format !== format) return false;
-      if (!q) return true;
-      const instructor = users.find((u) => u.id === course.instructorId);
-      const hay = [
-        course.title,
-        course.tagline,
-        course.description,
-        ...course.skills,
-        instructor?.name ?? '',
-        TRACK_META[course.track].label,
-      ]
-        .join(' ')
-        .toLowerCase();
-      return hay.includes(q);
+      if (scores && !(scores.get(course.id) ?? 0)) return false;
+      return true;
     });
-  }, [all, track, level, format, query, users]);
+    const recommended = (a: EnrichedCourseItem, b: EnrichedCourseItem) =>
+      Number(b.enrollment?.status === 'in-progress') - Number(a.enrollment?.status === 'in-progress') ||
+      Number(a.enrollment?.status === 'completed') - Number(b.enrollment?.status === 'completed') ||
+      Number(!!b.course.featured) - Number(!!a.course.featured) ||
+      b.course.xp - a.course.xp;
+    const by: Record<SortId, (a: EnrichedCourseItem, b: EnrichedCourseItem) => number> = {
+      auto: scores ? (a, b) => (scores.get(b.course.id) ?? 0) - (scores.get(a.course.id) ?? 0) || recommended(a, b) : recommended,
+      xp: (a, b) => b.course.xp - a.course.xp,
+      short: (a, b) => a.course.durationMins - b.course.durationMins,
+      az: (a, b) => a.course.title.localeCompare(b.course.title),
+    };
+    return [...rows].sort(by[sort]);
+  }, [all, track, level, format, scores, sort]);
 
-  const isFiltered = query.trim().length > 0 || track !== 'all' || level !== 'all' || format !== 'all';
-
-  const clearFilters = () => {
-    setQuery('');
-    selectTrack('all');
-    setLevel('all');
-    setFormat('all');
-  };
+  const best = scores && list.length ? (scores.get(list[0].course.id) ?? 0) : 0;
+  const strong = scores ? list.filter((x) => (scores.get(x.course.id) ?? 0) >= best * 0.6).length : 0;
 
   return (
-    <div className="stack stack--lg">
-      {/* Search & Multi-Facet Filter Bar */}
-      <div className="ac-filter-bar">
-        <div className="ac-filter-row">
-          <div className="input-wrap ac-filter-search">
-            <Search />
-            <input
-              type="search"
-              className="input"
-              placeholder="Search courses, skills, scenarios, or instructors…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search Academy catalog"
-            />
-          </div>
-
-          <select
-            className="select"
-            style={{ width: 'auto', minWidth: 152 }}
-            value={level}
-            onChange={(e) => setLevel(e.target.value as 'all' | CourseLevel)}
-            aria-label="Filter by level"
+    <div className="ac-catalog">
+      {q && (
+        <NeoBanners>
+          <NeoBanner
+            tone="indigo"
+            icon={<Sparkles />}
+            title={list.length ? `Nova found ${list.length} ${list.length === 1 ? 'course' : 'courses'}` : 'Nova found no direct match'}
+            meta={list.length > 1 && strong < list.length ? `${strong} strong ${strong === 1 ? 'match' : 'matches'}` : undefined}
+            action={
+              <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={() => set({ q: null })}>
+                <X /> Clear
+              </button>
+            }
           >
-            {LEVEL_OPTIONS.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            for “{q}”{list.length ? ' — best matches first' : ' — try fewer words or another track'}
+          </NeoBanner>
+        </NeoBanners>
+      )}
 
-          <select
-            className="select"
-            style={{ width: 'auto', minWidth: 162 }}
-            value={format}
-            onChange={(e) => setFormat(e.target.value as 'all' | CourseFormat)}
-            aria-label="Filter by format"
-          >
-            {FORMAT_OPTIONS.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-
-          {isFiltered && (
-            <button type="button" className="btn btn--ghost btn--sm" onClick={clearFilters}>
-              <FilterX /> Reset
-            </button>
-          )}
-        </div>
-
-        {/* Track Pills */}
-        <div className="chips" role="tablist" aria-label="Filter by Academy track">
-          <button
-            type="button"
-            className={cx('chip', track === 'all' && 'is-active')}
-            onClick={() => selectTrack('all')}
-          >
-            All Tracks <span className="count">{trackCounts.all}</span>
-          </button>
-          {TRACK_ORDER.map((t) => (
-            <button
-              key={t}
-              type="button"
-              className={cx('chip', track === t && 'is-active')}
-              onClick={() => selectTrack(t)}
-            >
-              {TRACK_META[t].label} <span className="count">{trackCounts[t] ?? 0}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Role Learning Paths Section */}
-      {filteredPaths.length > 0 && !query.trim() && (
-        <section className="stack">
-          <div className="section-head" style={{ marginBottom: 2 }}>
-            <h2 className="section-title">
-              <GraduationCap size={19} style={{ color: '#818cf8' }} /> Role Learning Paths
-              <span className="count">{filteredPaths.length}</span>
-            </h2>
-            <span className="text-xs muted">Multi-course sequences unlocking specialist role badges</span>
-          </div>
-
-          <div className="ac-paths-grid">
-            {filteredPaths.map(({ path, items, done, total, pct, totalMins }) => {
+      {filteredPaths.length > 0 && !q && (
+        <NeoPanel
+          id="ac-paths"
+          className="ac-paths"
+          icon={<RouteIcon />}
+          hud="Role paths"
+          title="Learning paths"
+          actions={<span className="ac-panel-note">Multi-course sequences that unlock role badges</span>}
+        >
+          <div className="ac-pgrid neo-stagger">
+            {filteredPaths.map(({ path, items, done, total, pct, totalMins }, i) => {
               const nextCourse = items.find((x) => x.progressPct < 100)?.course ?? items[0]?.course;
               return (
-                <article key={path.id} className="ac-path-card" style={{ '--th': path.hue } as CSSProperties}>
-                  <div className="ac-path-card__top">
-                    <div className="stack stack--sm" style={{ minWidth: 0 }}>
-                      <div className="row row--wrap" style={{ gap: 6 }}>
+                <article key={path.id} className="ac-path neo-spot" style={{ '--th': path.hue, '--i': i } as CSSProperties}>
+                  <div className="ac-path__top">
+                    <div className="ac-path__titles">
+                      <div className="ac-path__chips">
                         <TrackBadge track={path.track} short />
-                        <span className="badge badge--info">{path.badgeTitle}</span>
+                        <span className="neo-chip neo-chip--sm" data-tone="app">
+                          {path.badgeTitle}
+                        </span>
                       </div>
-                      <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17.5, fontWeight: 650 }}>
-                        {path.title}
-                      </h3>
-                      <p className="text-xs muted">{path.description}</p>
+                      <h3 className="ac-path__title">{path.title}</h3>
+                      <p className="ac-path__desc">{path.description}</p>
                     </div>
                     <ProgressRing pct={pct} hue={path.hue} size={54} />
                   </div>
 
-                  <div className="row row--wrap" style={{ gap: 8, fontSize: 12, color: 'var(--text-3)' }}>
-                    <span>Audience: <strong style={{ color: 'var(--text-2)' }}>{path.targetAudience}</strong></span>
+                  <div className="ac-path__meta">
+                    <span>
+                      For <b>{path.targetAudience}</b>
+                    </span>
                     <span>· {totalMins} mins total</span>
                   </div>
 
-                  <div className="ac-path-steps">
+                  <ol className="ac-steps">
                     {items.map((step, idx) => {
                       const isDone = step.progressPct === 100;
                       return (
-                        <button
-                          key={step.course.id}
-                          type="button"
-                          className={cx('ac-path-step', isDone && 'is-done')}
-                          onClick={() => navigate(`/academy/course/${step.course.id}`)}
-                        >
-                          <span className="ac-path-step__idx">{isDone ? <Check /> : idx + 1}</span>
-                          <span className="truncate grow">{step.course.title}</span>
-                          <span className="mono text-xs faint">
-                            {isDone ? 'Done' : step.progressPct > 0 ? `${step.progressPct}%` : `${step.course.durationMins}m`}
-                          </span>
-                        </button>
+                        <li key={step.course.id}>
+                          <button type="button" className={cx('ac-step', isDone && 'is-done')} onClick={() => navigate(`/academy/course/${step.course.id}`)}>
+                            <span className="ac-step__idx">{isDone ? <Check /> : idx + 1}</span>
+                            <span className="ac-step__name">{step.course.title}</span>
+                            <span className="ac-step__meta">{isDone ? 'Done' : step.progressPct > 0 ? `${step.progressPct}%` : `${step.course.durationMins}m`}</span>
+                          </button>
+                        </li>
                       );
                     })}
-                  </div>
+                  </ol>
 
-                  <div className="row row--between" style={{ marginTop: 'auto', paddingTop: 4 }}>
-                    <span className="mono text-xs muted">
+                  <div className="ac-path__foot">
+                    <span className="ac-path__count">
                       {done}/{total} courses certified
                     </span>
                     {nextCourse && (
-                      <Link to={`/academy/course/${nextCourse.id}`} className="btn btn--sm ac-btn-indigo">
-                        {pct === 100 ? 'Review Path' : pct > 0 ? 'Continue Path' : 'Begin Path'} <ArrowRight />
+                      <Link to={`/academy/course/${nextCourse.id}`} className={cx('neo-btn neo-btn--sm', pct === 100 ? 'neo-btn--ghost' : 'neo-btn--soft')}>
+                        {pct === 100 ? 'Review path' : pct > 0 ? 'Continue path' : 'Begin path'} <ArrowRight />
                       </Link>
                     )}
                   </div>
@@ -252,121 +292,61 @@ export function CatalogView() {
               );
             })}
           </div>
-        </section>
+        </NeoPanel>
       )}
 
-      {/* Full Course Grid */}
-      <section className="stack">
-        <div className="section-head" style={{ marginBottom: 2 }}>
-          <h2 className="section-title">
-            <Layers size={18} style={{ color: '#818cf8' }} /> Interactive Course Catalog
-            <span className="count">{filteredCourses.length}</span>
-          </h2>
-        </div>
-
-        {filteredCourses.length === 0 ? (
-          <EmptyState
+      <NeoPanel
+        className="ac-courses"
+        icon={<Compass />}
+        hud={q ? 'Best matches' : track === 'all' ? 'Full catalog' : TRACK_META[track].label}
+        title={`${list.length} ${list.length === 1 ? 'course' : 'courses'}`}
+        actions={
+          <div className="ac-filters">
+            <select className="neo-select neo-select--sm" value={level} onChange={(e) => set({ level: e.target.value })} aria-label="Filter by level">
+              {LEVEL_OPTIONS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <select className="neo-select neo-select--sm" value={format} onChange={(e) => set({ format: e.target.value })} aria-label="Filter by format">
+              {FORMAT_OPTIONS.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            <select className="neo-select neo-select--sm" value={sort} onChange={(e) => setSort(e.target.value as SortId)} aria-label="Sort courses">
+              <option value="auto">{q ? 'Best match' : 'Recommended'}</option>
+              <option value="xp">Most XP</option>
+              <option value="short">Shortest first</option>
+              <option value="az">A–Z</option>
+            </select>
+          </div>
+        }
+      >
+        {list.length === 0 ? (
+          <NeoEmpty
             icon={<Compass />}
-            title="No courses match those filters"
+            title={q ? 'Nothing in the catalog matches that yet' : 'No courses match those filters'}
             action={
-              <button type="button" className="btn btn--sm" onClick={clearFilters}>
-                <FilterX /> Clear filters
-              </button>
+              isFiltered ? (
+                <button type="button" className="neo-btn neo-btn--soft" onClick={clear}>
+                  <FilterX /> Clear filters
+                </button>
+              ) : undefined
             }
           >
-            Try broadening your track, difficulty level, or search keywords.
-          </EmptyState>
+            {q ? 'Try a broader word (e.g. “prompting”, “security”, “interviews”) or ask People Ops to author a course.' : 'Try another track, level or format.'}
+          </NeoEmpty>
         ) : (
-          <div className="ac-courses-grid">
-            {filteredCourses.map(({ course, enrollment, progressPct }) => {
-              const instructor = users.find((u) => u.id === course.instructorId);
-              const levelMeta = LEVEL_META[course.level];
-              const isCompleted = enrollment?.status === 'completed';
-
-              return (
-                <article key={course.id} className="ac-course-card" style={{ '--th': course.hue } as CSSProperties}>
-                  <div className="row row--between row--wrap" style={{ gap: 6 }}>
-                    <div className="row row--wrap" style={{ gap: 6 }}>
-                      <TrackBadge track={course.track} short />
-                      {course.mandatory && (
-                        <span className="badge badge--warning">
-                          <ShieldCheck /> Mandatory
-                        </span>
-                      )}
-                    </div>
-                    <span className={`badge badge--${levelMeta.badgeTone}`}>{levelMeta.label}</span>
-                  </div>
-
-                  <Link to={`/academy/course/${course.id}`} className="ac-course-card__title">
-                    {course.title}
-                  </Link>
-                  <p className="text-xs muted clamp-2">{course.tagline}</p>
-
-                  {/* Skills Chips */}
-                  <div className="row row--wrap" style={{ gap: 5 }}>
-                    {course.skills.slice(0, 4).map((sk) => (
-                      <span key={sk} className="tag">
-                        {sk}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Enrollment Progress if active or completed */}
-                  {enrollment && (
-                    <div className="stack stack--sm" style={{ marginTop: 2 }}>
-                      <div className="row row--between text-xs">
-                        <span className={isCompleted ? 'accent-ink' : 'muted'} style={{ fontWeight: 600 }}>
-                          {isCompleted ? 'Certified ✓' : `In progress · ${progressPct}%`}
-                        </span>
-                        <span className="mono faint">
-                          {enrollment.completedLessonIds.length}/{course.lessons.length} lessons
-                        </span>
-                      </div>
-                      <div className="ac-bar" style={{ '--th': isCompleted ? 152 : course.hue } as CSSProperties}>
-                        <i style={{ width: `${Math.max(5, progressPct)}%` }} />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="ac-course-card__meta">
-                    <span>
-                      <Clock /> {course.durationMins}m
-                    </span>
-                    <span>
-                      <Zap /> +{course.xp} XP
-                    </span>
-                    <span>{FORMAT_LABEL[course.format]}</span>
-                    <span>{course.lessons.length} lessons</span>
-                  </div>
-
-                  <div className="ac-course-card__foot">
-                    {instructor ? (
-                      <div className="row" style={{ gap: 8, minWidth: 0 }}>
-                        <Avatar user={instructor} size={26} />
-                        <div className="truncate">
-                          <div className="text-xs truncate" style={{ fontWeight: 600, color: 'var(--text)' }}>
-                            {instructor.name}
-                          </div>
-                          <div className="text-xs faint truncate">{instructor.title}</div>
-                        </div>
-                      </div>
-                    ) : (
-                      <span />
-                    )}
-
-                    <Link
-                      to={`/academy/course/${course.id}`}
-                      className={cx('btn btn--sm', isCompleted ? '' : 'ac-btn-indigo')}
-                    >
-                      {isCompleted ? 'Review' : enrollment ? 'Continue' : 'Open Course'} <ArrowRight />
-                    </Link>
-                  </div>
-                </article>
-              );
-            })}
+          <div className="ac-cgrid neo-stagger">
+            {list.map((item, i) => (
+              <CourseCard key={item.course.id} item={item} i={i} />
+            ))}
           </div>
         )}
-      </section>
+      </NeoPanel>
     </div>
   );
 }

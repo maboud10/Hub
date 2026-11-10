@@ -76,7 +76,7 @@ function Actions({
         <PenLine />
       </button>
     ) : (
-      <button type="button" className="btn btn--block ppl-action-main" onClick={onEditSelf}>
+      <button type="button" className="neo-btn neo-btn--soft neo-btn--block ppl-action-main" onClick={onEditSelf}>
         <PenLine /> Update my status
       </button>
     );
@@ -89,7 +89,7 @@ function Actions({
             <MessagesSquare />
           </button>
         ) : (
-          <button type="button" className="btn ppl-action-main" onClick={() => onMessage(user)}>
+          <button type="button" className="neo-btn neo-btn--soft ppl-action-main" onClick={() => onMessage(user)}>
             <MessagesSquare /> Message
           </button>
         ))}
@@ -139,7 +139,7 @@ export function PersonCard(props: PersonCardProps) {
 
   if (variant === 'list') {
     return (
-      <article className={cx('ppl-row', !user.active && 'is-inactive', isSelf && 'is-self')}>
+      <article className={cx('ppl-row neo-spot', !user.active && 'is-inactive', isSelf && 'is-self')}>
         <Avatar user={user} size={44} presence />
         <div className="ppl-row__id">
           <div className="ppl-row__name">
@@ -173,7 +173,7 @@ export function PersonCard(props: PersonCardProps) {
 
   const extraSkills = user.skills.length - 3;
   return (
-    <article className={cx('ppl-card card', !user.active && 'is-inactive', isSelf && 'is-self')}>
+    <article className={cx('ppl-card card neo-spot', !user.active && 'is-inactive', isSelf && 'is-self')}>
       <div className="ppl-card__head">
         <Avatar user={user} size={56} presence className="ppl-card__avatar" />
         <div className="ppl-card__id">

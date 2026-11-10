@@ -39,6 +39,7 @@ export function CasesBoard() {
   return (
     <HrPanel
       className="hr-ops-cases"
+      hud="Inbox & threads"
       title="Ask People Ops cases"
       icon={<MessagesSquare aria-hidden="true" />}
       sub="Reply right here or from Approvals. Confidential cases stay locked until you open them."

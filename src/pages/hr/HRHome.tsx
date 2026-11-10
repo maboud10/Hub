@@ -15,6 +15,7 @@ import { isNewHire } from '@/hr/engine';
 import { useHrCaps, type HrTask } from '@/hr/selectors';
 import { useSessionUser } from '@/store/selectors';
 import { useNow } from '@/hooks/useNow';
+import { NeoHome } from '@/components/neo';
 import { cx } from '@/lib/cx';
 import { useParamModal } from './home/useParamModal';
 import { NextSteps } from './home/NextSteps';
@@ -22,7 +23,7 @@ import { NewHireSpotlight } from './home/NewHireSpotlight';
 import { PulseModal } from './home/Pulse';
 import { BenefitsWidget, HolidaysWidget, PayWidget, TeamAwayWidget, TimeOffWidget } from './home/Glance';
 import { TeamCard } from './home/TeamCard';
-import { AskCard, AskModal, type AskOptions } from './home/AskPeopleOps';
+import { AskModal, AskNova, type AskOptions } from './home/AskPeopleOps';
 
 export function HRHome() {
   const me = useSessionUser();
@@ -52,62 +53,34 @@ export function HRHome() {
     else navigate(t.link);
   };
 
-  // New hires (and provisioned pre-boarders) get the full-width spotlight between the two rows.
+  // New hires (and provisioned pre-boarders) get the spotlight in the main column.
   const spotlight = !!me && (isNewHire(me.startDate, now) || (!!journey && daysUntilStart(journey, now) > 0));
   const askFor: AskOptions = ask.param ? { ...askOptions, caseId: ask.param, mode: askOptions.mode ?? 'cases' } : askOptions;
 
-  const steps = <NextSteps onTask={onTask} />;
-  const askCard = <AskCard onOpen={openAsk} />;
-  const team = caps.manager ? <TeamCard /> : null;
-  const glance = (
-    <div className="hr-home__glance">
-      <TimeOffWidget />
-      <PayWidget />
-      <BenefitsWidget />
-    </div>
-  );
-  const side = (
-    <>
-      <HolidaysWidget />
-      <TeamAwayWidget />
-    </>
-  );
-
   return (
     <div className={cx('hr-home', spotlight && 'hr-home--newhire')}>
-      {spotlight ? (
-        <>
-          <div className="hr-home__row">
-            <div className="hr-home__main">{steps}</div>
-            <aside className="hr-home__side" aria-label="Ask People Ops and your team">
-              {askCard}
-              <TeamAwayWidget />
-            </aside>
-          </div>
-          <NewHireSpotlight onPulse={pulse.show} />
-          <div className="hr-home__row">
-            <div className="hr-home__main">
-              {team}
-              {glance}
+      <NeoHome
+        sideLabel="Holidays and who’s away"
+        main={
+          <>
+            <AskNova onOpen={openAsk} />
+            <NextSteps onTask={onTask} />
+            {spotlight && <NewHireSpotlight onPulse={pulse.show} />}
+            {caps.manager && <TeamCard />}
+            <div className="hr-home__glance">
+              <TimeOffWidget />
+              <PayWidget />
+              <BenefitsWidget />
             </div>
-            <aside className="hr-home__side" aria-label="Public holidays">
-              <HolidaysWidget />
-            </aside>
-          </div>
-        </>
-      ) : (
-        <div className="hr-home__row">
-          <div className="hr-home__main">
-            {steps}
-            {team}
-            {glance}
-          </div>
-          <aside className="hr-home__side" aria-label="Help, holidays and your team">
-            {askCard}
-            {side}
-          </aside>
-        </div>
-      )}
+          </>
+        }
+        side={
+          <>
+            <HolidaysWidget />
+            <TeamAwayWidget />
+          </>
+        }
+      />
       <PulseModal open={pulse.open} onClose={pulse.close} />
       <AskModal open={ask.open} onClose={closeAsk} options={askFor} />
     </div>

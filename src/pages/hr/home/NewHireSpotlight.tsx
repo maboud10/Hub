@@ -87,11 +87,11 @@ export function NewHireSpotlight({ onPulse }: { onPulse: () => void }) {
   const first = me.name.split(/\s+/)[0];
 
   return (
-    <section className="hr-home-spot" aria-labelledby="hr-home-spot-title">
+    <section className="neo-panel hr-home-spot" aria-labelledby="hr-home-spot-title">
       <div className="hr-home-spot__glow" aria-hidden="true" />
       <header className="hr-home-spot__head">
         <div className="grow">
-          <div className="eyebrow">Your first 90 days</div>
+          <div className="neo-hud neo-hud--tint">Your first 90 days</div>
           <h2 id="hr-home-spot-title" className="hr-home-spot__title">
             {s >= 0 ? (
               <>

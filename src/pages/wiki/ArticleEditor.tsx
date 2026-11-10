@@ -20,7 +20,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useAcademy } from '@/academy/store';
-import { EmptyState, Segmented, Switch } from '@/components/ui/primitives';
+import { Switch } from '@/components/ui/primitives';
+import { NeoEmpty, NeoPanel, NeoTabs } from '@/components/neo';
 import { toast } from '@/store/toast';
 import { cx } from '@/lib/cx';
 import { canDirectEdit, canProposeEdit, canReadArticle, canReadSpace } from '@/wiki/access';
@@ -28,7 +29,7 @@ import { ARTICLE_TEMPLATES } from '@/wiki/constants';
 import { useWikiCaps, useWikiViewer } from '@/wiki/selectors';
 import { useWiki } from '@/wiki/store';
 import type { ArticleSection, SpaceId } from '@/wiki/types';
-import { SpaceBoundaryCard } from './wikiUi';
+import { DocSection, SpaceBoundaryCard, SpacePill, WikiHeadActions } from './wikiUi';
 
 interface EditableSection {
   id: string;
@@ -179,42 +180,38 @@ export function ArticleEditor({ mode }: { mode: 'create' | 'edit' }) {
   // Contractor / Read-only gate
   if (!caps.canWrite) {
     return (
-      <div className="card glow-border hud" style={{ maxWidth: 620, margin: '18px auto', textAlign: 'center', padding: '32px 24px' }}>
-        <div className="empty__icon" style={{ margin: '0 auto 12px', color: 'var(--warning)' }}>
-          <Lock />
-        </div>
-        <div className="eyebrow" style={{ justifyContent: 'center' }}>
-          Read-Only Clearance · Contractor Access
-        </div>
-        <h2 className="page-title" style={{ fontSize: 24 }}>
-          Contributor permission required to author or edit
-        </h2>
-        <p className="muted text-sm" style={{ maxWidth: 480, margin: '8px auto 18px', lineHeight: 1.55 }}>
+      <div className="neo-denied wk-wall">
+        <NeoEmpty
+          icon={<Lock />}
+          title="Contributor permission required to author or edit"
+          action={
+            <Link to="/wiki" className="neo-btn neo-btn--soft">
+              <ArrowLeft /> Back to Knowledge Base
+            </Link>
+          }
+        >
           Your current account has read-only access to cleared Knowledge Base spaces and <strong>Ask Nova Docs</strong>. Publishing
-          new playbooks or submitting Change Proposals requires the <code className="mono">wiki.write</code> permission.
-        </p>
-        <Link to="/wiki" className="btn btn--primary">
-          <ArrowLeft /> Back to Knowledge Base
-        </Link>
+          new playbooks or submitting Change Proposals requires the <code className="neo-mono">wiki.write</code> permission.
+        </NeoEmpty>
       </div>
     );
   }
 
   if (mode === 'edit' && !existingArticle) {
     return (
-      <div className="card">
-        <EmptyState
+      <NeoPanel>
+        <NeoEmpty
           icon={<BookOpen />}
           title="Playbook not found"
           action={
-            <Link to="/wiki" className="btn btn--primary">
+            <Link to="/wiki" className="neo-btn neo-btn--soft">
               <ArrowLeft /> Back to Knowledge Base
             </Link>
           }
         >
           Cannot edit unknown playbook “{slug}”.
-        </EmptyState>
-      </div>
+        </NeoEmpty>
+      </NeoPanel>
     );
   }
 
@@ -274,6 +271,7 @@ export function ArticleEditor({ mode }: { mode: 'create' | 'edit' }) {
     .filter(Boolean);
 
   const previewSections = fromEditableSections(sections);
+  const selectedSpace = spaces.find((s) => s.id === spaceId);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -327,60 +325,42 @@ export function ArticleEditor({ mode }: { mode: 'create' | 'edit' }) {
   };
 
   return (
-    <div className="stack stack--lg">
-      {/* Studio Header */}
-      <div className="row row--between row--wrap" style={{ gap: 12 }}>
-        <div className="stack stack--sm">
-          <Link
-            to={mode === 'edit' && existingArticle ? `/wiki/doc/${existingArticle.slug}` : '/wiki'}
-            className="text-xs muted row"
-            style={{ gap: 6, textDecoration: 'none' }}
-          >
-            <ArrowLeft style={{ width: 14, height: 14 }} />
-            {mode === 'edit' && existingArticle ? `Back to ${existingArticle.title}` : 'Back to Knowledge Base'}
-          </Link>
-          <h2 className="page-title" style={{ fontSize: 'clamp(22px, 2.8vw, 30px)' }}>
-            {mode === 'create'
-              ? 'Publish New Playbook or Runbook'
-              : isProposalSubmission
-                ? `Propose Change · ${existingArticle?.title}`
-                : `Edit Playbook · ${existingArticle?.title}`}
-          </h2>
-        </div>
-
-        <Segmented<'compose' | 'preview'>
+    <div className="wk-studio">
+      {/* Studio actions portal into NeoHead — no duplicated page header */}
+      <WikiHeadActions>
+        <Link
+          to={mode === 'edit' && existingArticle ? `/wiki/doc/${existingArticle.slug}` : '/wiki'}
+          className="neo-btn neo-btn--ghost"
+        >
+          <ArrowLeft /> <span className="neo-btn__label">{mode === 'edit' ? 'Back to page' : 'Cancel'}</span>
+        </Link>
+        <NeoTabs<'compose' | 'preview'>
           label="Editor mode"
           value={viewMode}
           onChange={setViewMode}
-          options={[
+          items={[
             { value: 'compose', label: 'Compose', icon: <PenLine /> },
-            { value: 'preview', label: 'Live Preview', icon: <Eye /> },
+            { value: 'preview', label: 'Live preview', icon: <Eye /> },
           ]}
         />
-      </div>
+      </WikiHeadActions>
 
       {/* Governance / Four-Eyes Banner on Edit */}
       {mode === 'edit' && existingArticle && (
-        <div
-          className="card card--tight row row--between row--wrap"
-          style={{
-            gap: 14,
-            borderColor: isProposalSubmission ? 'rgb(var(--wk-1-rgb) / 0.45)' : 'var(--border-2)',
-          }}
-        >
-          <div className="row" style={{ gap: 12, minWidth: 0 }}>
+        <div className={cx('wk-studio-mode', isProposalSubmission && 'is-proposal')}>
+          <div className="wk-studio-mode__main">
             <span className="wk-space-icon" style={{ '--sp-h': 174, '--sz': '38px' } as CSSProperties}>
               {isProposalSubmission ? <GitPullRequest /> : <Save />}
             </span>
-            <div className="stack stack--sm" style={{ gap: 2, minWidth: 0 }}>
-              <strong className="text-sm">
+            <div className="wk-studio-mode__text">
+              <strong>
                 {!directAllowed
                   ? 'Locked Canonical Policy — Four-Eyes Change Proposal Mode'
                   : isProposalSubmission
                     ? 'Submitting as a Change Proposal for Curator Review'
                     : 'Direct Versioned Edit Mode'}
               </strong>
-              <span className="text-xs muted">
+              <span>
                 {!directAllowed
                   ? 'Because this canonical page is locked, your edits will enter the Governance queue for curator approval.'
                   : isProposalSubmission
@@ -391,10 +371,8 @@ export function ArticleEditor({ mode }: { mode: 'create' | 'edit' }) {
           </div>
 
           {directAllowed && (
-            <label className="row" style={{ gap: 10, cursor: 'pointer' }}>
-              <span className="text-xs" style={{ fontWeight: 600 }}>
-                Submit as Change Proposal (four-eyes review)
-              </span>
+            <label className="wk-studio-mode__switch">
+              <span>Submit as Change Proposal (four-eyes review)</span>
               <Switch
                 checked={forceProposal}
                 onChange={setForceProposal}
@@ -407,11 +385,12 @@ export function ArticleEditor({ mode }: { mode: 'create' | 'edit' }) {
 
       {/* Starter Template Picker on /wiki/new */}
       {mode === 'create' && viewMode === 'compose' && (
-        <div className="card stack">
-          <div className="row row--between row--wrap">
-            <span className="stat-label">1. Choose a Starter Blueprint</span>
-            <span className="text-xs faint">Hydrates structured sections & checklists</span>
-          </div>
+        <NeoPanel
+          hud="Step 1 · Blueprint"
+          title="Choose a starter blueprint"
+          icon={<Sparkles />}
+          actions={<span className="neo-hud">Hydrates structured sections &amp; checklists</span>}
+        >
           <div className="wk-tpl-grid">
             {ARTICLE_TEMPLATES.map((tpl) => (
               <button
@@ -420,11 +399,11 @@ export function ArticleEditor({ mode }: { mode: 'create' | 'edit' }) {
                 className={cx('wk-tpl-card', selectedTpl === tpl.id && 'is-selected')}
                 onClick={() => applyTemplate(tpl.id)}
               >
-                <div className="row" style={{ gap: 7 }}>
-                  <Sparkles style={{ width: 15, height: 15, color: 'var(--wk-ink)' }} />
-                  <strong className="text-sm">{tpl.name}</strong>
+                <div className="wk-tpl-card__top">
+                  <Sparkles aria-hidden="true" />
+                  <strong>{tpl.name}</strong>
                 </div>
-                <span className="text-xs muted">{tpl.description}</span>
+                <span className="wk-tpl-card__desc">{tpl.description}</span>
               </button>
             ))}
             <button
@@ -432,507 +411,487 @@ export function ArticleEditor({ mode }: { mode: 'create' | 'edit' }) {
               className={cx('wk-tpl-card', selectedTpl === 'blank' && 'is-selected')}
               onClick={() => applyTemplate('blank')}
             >
-              <div className="row" style={{ gap: 7 }}>
-                <FilePlus2 style={{ width: 15, height: 15, color: 'var(--text-2)' }} />
-                <strong className="text-sm">Blank Playbook</strong>
+              <div className="wk-tpl-card__top">
+                <FilePlus2 aria-hidden="true" />
+                <strong>Blank Playbook</strong>
               </div>
-              <span className="text-xs muted">Start from a clean slate with custom sections.</span>
+              <span className="wk-tpl-card__desc">Start from a clean slate with custom sections.</span>
             </button>
           </div>
-        </div>
+        </NeoPanel>
       )}
 
       {viewMode === 'preview' ? (
         /* Live Preview Pane */
-        <div className="stack">
-          <div className="wk-doc-head">
-            <div className="row row--wrap" style={{ gap: 8 }}>
-              <span className="badge">Live Preview</span>
-              <span className="tag">{spaces.find((s) => s.id === spaceId)?.name ?? spaceId}</span>
-              {parsedTags.map((t) => (
-                <span key={t} className="tag">
-                  #{t}
+        <article className="wk-doc wk-studio__preview">
+          <header className="wk-doc__intro">
+            <div className="wk-doc__chips">
+              <span className="neo-chip" data-tone="app">
+                <Eye /> Live preview
+              </span>
+              {selectedSpace && <SpacePill space={selectedSpace} />}
+              {lockedCanonical && (
+                <span className="neo-chip" data-tone="amber">
+                  <Lock /> Locked canonical policy
                 </span>
-              ))}
+              )}
             </div>
-            <h1 className="wk-doc-title">{title || 'Untitled Playbook'}</h1>
-            <p className="wk-doc-subtitle">{subtitle || 'Playbook subtitle preview'}</p>
+            <h2 className="wk-studio__preview-title">{title || 'Untitled Playbook'}</h2>
+            <p className="wk-studio__preview-sub">{subtitle || 'Playbook subtitle preview'}</p>
             {tldr && (
-              <div className="wk-tldr-card">
-                <span className="wk-tldr-card__label">
-                  <Sparkles /> Executive TL;DR
+              <div className="wk-tldr">
+                <span className="neo-hud neo-hud--tint">
+                  <Sparkles aria-hidden="true" /> Executive TL;DR
                 </span>
-                <p className="wk-tldr-card__text">{tldr}</p>
+                <p>{tldr}</p>
               </div>
             )}
-          </div>
+            {parsedTags.length > 0 && (
+              <div className="wk-doc__tags">
+                {parsedTags.map((t) => (
+                  <span key={t} className="wk-tag">
+                    #{t}
+                  </span>
+                ))}
+              </div>
+            )}
+          </header>
 
-          {previewSections.map((sec, i) => (
-            <section key={sec.id} className="wk-section-card">
-              <h3 className="wk-section-heading">
-                <span className="wk-section-num">0{i + 1}</span>
-                <span>{sec.heading}</span>
-              </h3>
-              <p className="wk-section-body">{sec.body || '(Empty section body)'}</p>
-              {sec.callout && (
-                <div className={cx('wk-callout', `wk-callout--${sec.callout.tone}`)}>
-                  <Info className="wk-callout__icon" />
-                  <div>
-                    <div className="wk-callout__title">{sec.callout.title}</div>
-                    <div className="wk-callout__text">{sec.callout.text}</div>
-                  </div>
-                </div>
-              )}
-              {sec.code && (
-                <div className="wk-code">
-                  <div className="wk-code__head">{sec.code.label}</div>
-                  <pre className="wk-code__pre">
-                    <code>{sec.code.snippet}</code>
-                  </pre>
-                </div>
-              )}
-              {sec.checklist && sec.checklist.length > 0 && (
-                <div className="wk-checklist">
-                  <div className="wk-checklist__head">Interactive Checklist ({sec.checklist.length} steps)</div>
-                  {sec.checklist.map((item) => (
-                    <div key={item.id} className="wk-check-item">
-                      <span className="wk-check-box" />
-                      <span>{item.label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          ))}
-        </div>
+          <div className="wk-doc__sections">
+            {previewSections.map((sec, i) => (
+              <DocSection key={sec.id} section={sec} index={i} preview />
+            ))}
+          </div>
+        </article>
       ) : (
         /* Structured Composer Form */
-        <form onSubmit={handleSubmit} className="stack stack--lg">
-          <div className="card stack">
-            <span className="stat-label">Playbook Metadata & Placement</span>
-
-            <div className="wk-form-grid-2">
-              <label className="field">
-                <span className="field-label">Knowledge Space</span>
-                <select
-                  className="select"
-                  value={spaceId}
-                  disabled={mode === 'edit'}
-                  onChange={(e) => setSpaceId(e.target.value as SpaceId)}
-                >
-                  {readableSpaces.map((sp) => (
-                    <option key={sp.id} value={sp.id}>
-                      {sp.name} — {sp.tagline}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="field">
-                <span className="field-label">Freshness Review Cadence</span>
-                <select
-                  className="select"
-                  value={reviewCadenceDays}
-                  disabled={mode === 'edit'}
-                  onChange={(e) => setReviewCadenceDays(Number(e.target.value))}
-                >
-                  <option value={30}>Every 30 days (Fast-moving runbook)</option>
-                  <option value={60}>Every 60 days</option>
-                  <option value={90}>Every 90 days (Standard playbook)</option>
-                  <option value={180}>Every 180 days (Foundational charter)</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="wk-form-grid-2">
-              <label className="field">
-                <span className="field-label">Playbook Title *</span>
-                <input
-                  type="text"
-                  className="input"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Canary Rollback & Cell Traffic Drain Runbook"
-                  required
-                />
-              </label>
-
-              <label className="field">
-                <span className="field-label">One-Line Subtitle</span>
-                <input
-                  type="text"
-                  className="input"
-                  value={subtitle}
-                  onChange={(e) => setSubtitle(e.target.value)}
-                  placeholder="Who this guide is for and what outcome it unlocks"
-                />
-              </label>
-            </div>
-
-            <label className="field">
-              <span className="field-label">Executive TL;DR (used by Nova Docs synthesis) *</span>
-              <textarea
-                className="textarea"
-                style={{ minHeight: 74 }}
-                value={tldr}
-                onChange={(e) => setTldr(e.target.value)}
-                placeholder="Two crisp sentences summarizing the policy or workflow…"
-                required
-              />
-            </label>
-
-            <div className="wk-form-grid-2">
-              <label className="field">
-                <span className="field-label">Tags (comma-separated)</span>
-                <input
-                  type="text"
-                  className="input"
-                  value={tagsText}
-                  onChange={(e) => setTagsText(e.target.value)}
-                  placeholder="runbook, incident, security, onboarding"
-                />
-                {parsedTags.length > 0 && (
-                  <div className="row row--wrap" style={{ gap: 5, marginTop: 4 }}>
-                    {parsedTags.map((t) => (
-                      <span key={t} className="tag">
-                        #{t}
-                      </span>
+        <form onSubmit={handleSubmit} className="wk-studio__form">
+          <NeoPanel
+            hud={mode === 'create' ? 'Step 2 · Metadata' : 'Playbook metadata'}
+            title="Placement, summary & governance"
+            icon={<BookOpen />}
+          >
+            <div className="wk-stack">
+              <div className="wk-form-grid-2">
+                <label className="neo-field">
+                  <span className="neo-label">Knowledge Space</span>
+                  <select
+                    className="neo-select"
+                    value={spaceId}
+                    disabled={mode === 'edit'}
+                    onChange={(e) => setSpaceId(e.target.value as SpaceId)}
+                  >
+                    {readableSpaces.map((sp) => (
+                      <option key={sp.id} value={sp.id}>
+                        {sp.name} — {sp.tagline}
+                      </option>
                     ))}
-                  </div>
-                )}
-              </label>
+                  </select>
+                </label>
 
-              {mode === 'create' && caps.canManage && (
-                <div className="field" style={{ justifyContent: 'center' }}>
-                  <span className="field-label">Canonical Governance</span>
-                  <label className="row" style={{ gap: 10, cursor: 'pointer', marginTop: 4 }}>
-                    <Switch
-                      checked={lockedCanonical}
-                      onChange={setLockedCanonical}
-                      label="Lock as Canonical Policy"
-                    />
-                    <span className="text-sm muted">
-                      Lock canonical page (contributors submit Change Proposals)
-                    </span>
-                  </label>
-                </div>
-              )}
-            </div>
-
-            {/* Companion Helix Academy Courses Picker */}
-            {academyCourses.length > 0 && !isProposalSubmission && (
-              <div className="field">
-                <span className="field-label">
-                  <GraduationCap style={{ width: 15, height: 15, verticalAlign: '-3px', marginRight: 5 }} />
-                  Companion Helix Academy Courses (optional)
-                </span>
-                <div className="chips" role="group" aria-label="Select companion Academy courses">
-                  {academyCourses.map((c) => {
-                    const active = relatedCourseIds.includes(c.id);
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className={cx('chip', active && 'is-active')}
-                        onClick={() => toggleCourse(c.id)}
-                      >
-                        <GraduationCap />
-                        {c.title}
-                      </button>
-                    );
-                  })}
-                </div>
+                <label className="neo-field">
+                  <span className="neo-label">Freshness Review Cadence</span>
+                  <select
+                    className="neo-select"
+                    value={reviewCadenceDays}
+                    disabled={mode === 'edit'}
+                    onChange={(e) => setReviewCadenceDays(Number(e.target.value))}
+                  >
+                    <option value={30}>Every 30 days (Fast-moving runbook)</option>
+                    <option value={60}>Every 60 days</option>
+                    <option value={90}>Every 90 days (Standard playbook)</option>
+                    <option value={180}>Every 180 days (Foundational charter)</option>
+                  </select>
+                </label>
               </div>
-            )}
 
-            {/* Change Summary / Proposal Rationale on Edit */}
-            {mode === 'edit' && (
-              <label className="field">
-                <span className="field-label">
-                  {isProposalSubmission
-                    ? 'Change Proposal Rationale (shown to reviewing curators) *'
-                    : 'Revision Summary (recorded in Version History) *'}
-                </span>
-                <input
-                  type="text"
-                  className="input"
-                  value={changeSummary}
-                  onChange={(e) => setChangeSummary(e.target.value)}
-                  placeholder="e.g., Updated canary abort CLI command for mesh v4.8 and clarified escalation SLA"
-                  required
-                />
-              </label>
-            )}
-          </div>
-
-          {/* Dynamic Section Builder */}
-          <div className="stack">
-            <div className="row row--between row--wrap">
-              <h3 className="section-title" style={{ margin: 0 }}>
-                Structured Sections
-                <span className="count">{sections.length}</span>
-              </h3>
-              <button
-                type="button"
-                className="btn btn--sm"
-                onClick={() => setSections((prev) => [...prev, blankSection(prev.length + 1)])}
-              >
-                <Plus /> Add Section
-              </button>
-            </div>
-
-            {sections.map((sec, idx) => (
-              <div key={sec.id} className="wk-editor-sec">
-                <div className="row row--between row--wrap" style={{ gap: 8 }}>
-                  <span className="wk-section-num">Section 0{idx + 1}</span>
-                  <div className="row" style={{ gap: 6 }}>
-                    <button
-                      type="button"
-                      className="btn btn--ghost btn--sm"
-                      disabled={idx === 0}
-                      onClick={() => moveSection(idx, -1)}
-                      aria-label="Move section up"
-                    >
-                      <ArrowUp />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn--ghost btn--sm"
-                      disabled={idx === sections.length - 1}
-                      onClick={() => moveSection(idx, 1)}
-                      aria-label="Move section down"
-                    >
-                      <ArrowDown />
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn--danger btn--sm"
-                      onClick={() => removeSection(idx)}
-                      aria-label="Delete section"
-                    >
-                      <Trash2 />
-                    </button>
-                  </div>
-                </div>
-
-                <label className="field">
-                  <span className="field-label">Section Heading *</span>
+              <div className="wk-form-grid-2">
+                <label className="neo-field">
+                  <span className="neo-label">Playbook Title *</span>
                   <input
                     type="text"
-                    className="input"
-                    value={sec.heading}
-                    onChange={(e) => updateSec(idx, { heading: e.target.value })}
-                    placeholder="e.g., Immediate Mitigation (First 5 Minutes)"
+                    className="neo-input"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g., Canary Rollback & Cell Traffic Drain Runbook"
                     required
                   />
                 </label>
 
-                <label className="field">
-                  <span className="field-label">Section Body *</span>
-                  <textarea
-                    className="textarea"
-                    value={sec.body}
-                    onChange={(e) => updateSec(idx, { body: e.target.value })}
-                    placeholder="Write clear, actionable guidance…"
-                    required
+                <label className="neo-field">
+                  <span className="neo-label">One-Line Subtitle</span>
+                  <input
+                    type="text"
+                    className="neo-input"
+                    value={subtitle}
+                    onChange={(e) => setSubtitle(e.target.value)}
+                    placeholder="Who this guide is for and what outcome it unlocks"
                   />
                 </label>
+              </div>
 
-                {/* Optional Block Toggles */}
-                <div className="row row--wrap" style={{ gap: 8 }}>
-                  <button
-                    type="button"
-                    className={cx('chip', sec.hasCallout && 'is-active')}
-                    onClick={() => updateSec(idx, { hasCallout: !sec.hasCallout })}
-                  >
-                    <Info /> {sec.hasCallout ? 'Callout enabled' : '+ Callout box'}
-                  </button>
-                  <button
-                    type="button"
-                    className={cx('chip', sec.hasCode && 'is-active')}
-                    onClick={() => updateSec(idx, { hasCode: !sec.hasCode })}
-                  >
-                    <Code2 /> {sec.hasCode ? 'Code snippet enabled' : '+ Code snippet'}
-                  </button>
-                  <button
-                    type="button"
-                    className={cx('chip', sec.hasChecklist && 'is-active')}
-                    onClick={() => updateSec(idx, { hasChecklist: !sec.hasChecklist })}
-                  >
-                    <ListChecks /> {sec.hasChecklist ? 'Runbook checklist enabled' : '+ Interactive checklist'}
-                  </button>
-                </div>
+              <label className="neo-field">
+                <span className="neo-label">Executive TL;DR (used by Nova Docs synthesis) *</span>
+                <textarea
+                  className="neo-textarea"
+                  value={tldr}
+                  onChange={(e) => setTldr(e.target.value)}
+                  placeholder="Two crisp sentences summarizing the policy or workflow…"
+                  required
+                />
+              </label>
 
-                {/* Callout Sub-editor */}
-                {sec.hasCallout && (
-                  <div
-                    className="stack stack--sm"
-                    style={{ padding: 12, borderRadius: 'var(--r-sm)', background: 'var(--bg-2)', border: '1px solid var(--border)' }}
-                  >
-                    <div className="wk-form-grid-2">
-                      <label className="field">
-                        <span className="field-label">Callout Tone</span>
-                        <select
-                          className="select"
-                          value={sec.calloutTone}
-                          onChange={(e) =>
-                            updateSec(idx, {
-                              calloutTone: e.target.value as EditableSection['calloutTone'],
-                            })
-                          }
-                        >
-                          <option value="tip">Tip (Emerald)</option>
-                          <option value="warning">Warning (Amber)</option>
-                          <option value="policy">Canonical Policy (Teal)</option>
-                          <option value="info">Info (Blue)</option>
-                        </select>
-                      </label>
-                      <label className="field">
-                        <span className="field-label">Callout Title</span>
-                        <input
-                          type="text"
-                          className="input"
-                          value={sec.calloutTitle}
-                          onChange={(e) => updateSec(idx, { calloutTitle: e.target.value })}
-                          placeholder="e.g., Golden Rule"
-                        />
-                      </label>
+              <div className="wk-form-grid-2">
+                <label className="neo-field">
+                  <span className="neo-label">Tags (comma-separated)</span>
+                  <input
+                    type="text"
+                    className="neo-input"
+                    value={tagsText}
+                    onChange={(e) => setTagsText(e.target.value)}
+                    placeholder="runbook, incident, security, onboarding"
+                  />
+                  {parsedTags.length > 0 && (
+                    <div className="wk-doc__tags">
+                      {parsedTags.map((t) => (
+                        <span key={t} className="wk-tag">
+                          #{t}
+                        </span>
+                      ))}
                     </div>
-                    <label className="field">
-                      <span className="field-label">Callout Message</span>
-                      <input
-                        type="text"
-                        className="input"
-                        value={sec.calloutText}
-                        onChange={(e) => updateSec(idx, { calloutText: e.target.value })}
-                        placeholder="Key guardrail or reminder…"
+                  )}
+                </label>
+
+                {mode === 'create' && caps.canManage && (
+                  <div className="neo-field">
+                    <span className="neo-label">Canonical Governance</span>
+                    <label className="wk-studio__toggle-row">
+                      <Switch
+                        checked={lockedCanonical}
+                        onChange={setLockedCanonical}
+                        label="Lock as Canonical Policy"
                       />
+                      <span>Lock canonical page (contributors submit Change Proposals)</span>
                     </label>
                   </div>
                 )}
+              </div>
 
-                {/* Code Snippet Sub-editor */}
-                {sec.hasCode && (
-                  <div
-                    className="stack stack--sm"
-                    style={{ padding: 12, borderRadius: 'var(--r-sm)', background: 'var(--bg-2)', border: '1px solid var(--border)' }}
-                  >
-                    <label className="field">
-                      <span className="field-label">Snippet Header Label</span>
-                      <input
-                        type="text"
-                        className="input"
-                        value={sec.codeLabel}
-                        onChange={(e) => updateSec(idx, { codeLabel: e.target.value })}
-                        placeholder="e.g., bash · rollback canary"
-                      />
-                    </label>
-                    <label className="field">
-                      <span className="field-label">Command or Code Snippet</span>
-                      <textarea
-                        className="textarea mono"
-                        style={{ fontSize: 12.5, minHeight: 84 }}
-                        value={sec.codeSnippet}
-                        onChange={(e) => updateSec(idx, { codeSnippet: e.target.value })}
-                        placeholder="hx rollout undo --cell eu-central-1"
-                      />
-                    </label>
+              {/* Companion Helix Academy Courses Picker */}
+              {academyCourses.length > 0 && !isProposalSubmission && (
+                <div className="neo-field">
+                  <span className="neo-label">Companion Helix Academy Courses (optional)</span>
+                  <div className="wk-tags" role="group" aria-label="Select companion Academy courses">
+                    {academyCourses.map((c) => {
+                      const active = relatedCourseIds.includes(c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          className="neo-chip"
+                          data-tone={active ? 'app' : 'slate'}
+                          aria-pressed={active}
+                          onClick={() => toggleCourse(c.id)}
+                        >
+                          <GraduationCap />
+                          {c.title}
+                        </button>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Interactive Checklist Sub-editor */}
-                {sec.hasChecklist && (
-                  <div
-                    className="stack stack--sm"
-                    style={{ padding: 12, borderRadius: 'var(--r-sm)', background: 'var(--bg-2)', border: '1px solid var(--border)' }}
-                  >
-                    <div className="row row--between">
-                      <span className="field-label">Interactive Runbook Steps</span>
+              {/* Change Summary / Proposal Rationale on Edit */}
+              {mode === 'edit' && (
+                <label className="neo-field">
+                  <span className="neo-label">
+                    {isProposalSubmission
+                      ? 'Change Proposal Rationale (shown to reviewing curators) *'
+                      : 'Revision Summary (recorded in Version History) *'}
+                  </span>
+                  <input
+                    type="text"
+                    className="neo-input"
+                    value={changeSummary}
+                    onChange={(e) => setChangeSummary(e.target.value)}
+                    placeholder="e.g., Updated canary abort CLI command for mesh v4.8 and clarified escalation SLA"
+                    required
+                  />
+                </label>
+              )}
+            </div>
+          </NeoPanel>
+
+          {/* Dynamic Section Builder */}
+          <NeoPanel
+            hud={mode === 'create' ? 'Step 3 · Content' : 'Structured content'}
+            title="Playbook sections"
+            icon={<PenLine />}
+            actions={
+              <>
+                <span className="neo-count">{sections.length}</span>
+                <button
+                  type="button"
+                  className="neo-btn neo-btn--soft neo-btn--sm"
+                  onClick={() => setSections((prev) => [...prev, blankSection(prev.length + 1)])}
+                >
+                  <Plus /> Add section
+                </button>
+              </>
+            }
+          >
+            <div className="wk-stack">
+              {sections.map((sec, idx) => (
+                <div key={sec.id} className="wk-editor-sec">
+                  <div className="wk-editor-sec__head">
+                    <span className="wk-sec__num">0{idx + 1}</span>
+                    <span className="wk-editor-sec__label">Section {idx + 1}</span>
+                    <div className="wk-editor-sec__acts">
                       <button
                         type="button"
-                        className="btn btn--ghost btn--sm"
-                        onClick={() =>
-                          updateSec(idx, {
-                            checklistItems: [
-                              ...sec.checklistItems,
-                              { id: `chk-${Date.now()}-${sec.checklistItems.length + 1}`, label: '' },
-                            ],
-                          })
-                        }
+                        className="neo-btn neo-btn--ghost neo-btn--xs"
+                        disabled={idx === 0}
+                        onClick={() => moveSection(idx, -1)}
+                        aria-label="Move section up"
                       >
-                        <Plus /> Add step
+                        <ArrowUp />
+                      </button>
+                      <button
+                        type="button"
+                        className="neo-btn neo-btn--ghost neo-btn--xs"
+                        disabled={idx === sections.length - 1}
+                        onClick={() => moveSection(idx, 1)}
+                        aria-label="Move section down"
+                      >
+                        <ArrowDown />
+                      </button>
+                      <button
+                        type="button"
+                        className="neo-btn neo-btn--danger neo-btn--xs"
+                        onClick={() => removeSection(idx)}
+                        aria-label="Delete section"
+                      >
+                        <Trash2 />
                       </button>
                     </div>
-                    {sec.checklistItems.map((item, cIdx) => (
-                      <div key={item.id} className="row" style={{ gap: 8 }}>
-                        <input
-                          type="text"
-                          className="input grow"
-                          value={item.label}
-                          onChange={(e) => {
-                            const next = sec.checklistItems.map((x, j) =>
-                              j === cIdx ? { ...x, label: e.target.value } : x,
-                            );
-                            updateSec(idx, { checklistItems: next });
-                          }}
-                          placeholder={`Step ${cIdx + 1} action…`}
-                        />
-                        {sec.checklistItems.length > 1 && (
-                          <button
-                            type="button"
-                            className="icon-btn icon-btn--sm"
-                            aria-label="Remove checklist item"
-                            onClick={() =>
+                  </div>
+
+                  <label className="neo-field">
+                    <span className="neo-label">Section Heading *</span>
+                    <input
+                      type="text"
+                      className="neo-input"
+                      value={sec.heading}
+                      onChange={(e) => updateSec(idx, { heading: e.target.value })}
+                      placeholder="e.g., Immediate Mitigation (First 5 Minutes)"
+                      required
+                    />
+                  </label>
+
+                  <label className="neo-field">
+                    <span className="neo-label">Section Body *</span>
+                    <textarea
+                      className="neo-textarea"
+                      value={sec.body}
+                      onChange={(e) => updateSec(idx, { body: e.target.value })}
+                      placeholder="Write clear, actionable guidance…"
+                      required
+                    />
+                  </label>
+
+                  {/* Optional Block Toggles */}
+                  <div className="wk-tags">
+                    <button
+                      type="button"
+                      className="neo-chip"
+                      data-tone={sec.hasCallout ? 'app' : 'slate'}
+                      aria-pressed={sec.hasCallout}
+                      onClick={() => updateSec(idx, { hasCallout: !sec.hasCallout })}
+                    >
+                      <Info /> {sec.hasCallout ? 'Callout enabled' : '+ Callout box'}
+                    </button>
+                    <button
+                      type="button"
+                      className="neo-chip"
+                      data-tone={sec.hasCode ? 'app' : 'slate'}
+                      aria-pressed={sec.hasCode}
+                      onClick={() => updateSec(idx, { hasCode: !sec.hasCode })}
+                    >
+                      <Code2 /> {sec.hasCode ? 'Code snippet enabled' : '+ Code snippet'}
+                    </button>
+                    <button
+                      type="button"
+                      className="neo-chip"
+                      data-tone={sec.hasChecklist ? 'app' : 'slate'}
+                      aria-pressed={sec.hasChecklist}
+                      onClick={() => updateSec(idx, { hasChecklist: !sec.hasChecklist })}
+                    >
+                      <ListChecks /> {sec.hasChecklist ? 'Runbook checklist enabled' : '+ Interactive checklist'}
+                    </button>
+                  </div>
+
+                  {/* Callout Sub-editor */}
+                  {sec.hasCallout && (
+                    <div className="wk-editor-sub">
+                      <div className="wk-form-grid-2">
+                        <label className="neo-field">
+                          <span className="neo-label">Callout Tone</span>
+                          <select
+                            className="neo-select"
+                            value={sec.calloutTone}
+                            onChange={(e) =>
                               updateSec(idx, {
-                                checklistItems: sec.checklistItems.filter((_, j) => j !== cIdx),
+                                calloutTone: e.target.value as EditableSection['calloutTone'],
                               })
                             }
                           >
-                            <Trash2 />
-                          </button>
-                        )}
+                            <option value="tip">Tip (Emerald)</option>
+                            <option value="warning">Warning (Amber)</option>
+                            <option value="policy">Canonical Policy (Teal)</option>
+                            <option value="info">Info (Blue)</option>
+                          </select>
+                        </label>
+                        <label className="neo-field">
+                          <span className="neo-label">Callout Title</span>
+                          <input
+                            type="text"
+                            className="neo-input"
+                            value={sec.calloutTitle}
+                            onChange={(e) => updateSec(idx, { calloutTitle: e.target.value })}
+                            placeholder="e.g., Golden Rule"
+                          />
+                        </label>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+                      <label className="neo-field">
+                        <span className="neo-label">Callout Message</span>
+                        <input
+                          type="text"
+                          className="neo-input"
+                          value={sec.calloutText}
+                          onChange={(e) => updateSec(idx, { calloutText: e.target.value })}
+                          placeholder="Key guardrail or reminder…"
+                        />
+                      </label>
+                    </div>
+                  )}
 
-            <div className="row row--between row--wrap" style={{ gap: 12, paddingTop: 6 }}>
+                  {/* Code Snippet Sub-editor */}
+                  {sec.hasCode && (
+                    <div className="wk-editor-sub">
+                      <label className="neo-field">
+                        <span className="neo-label">Snippet Header Label</span>
+                        <input
+                          type="text"
+                          className="neo-input"
+                          value={sec.codeLabel}
+                          onChange={(e) => updateSec(idx, { codeLabel: e.target.value })}
+                          placeholder="e.g., bash · rollback canary"
+                        />
+                      </label>
+                      <label className="neo-field">
+                        <span className="neo-label">Command or Code Snippet</span>
+                        <textarea
+                          className="neo-textarea neo-mono"
+                          value={sec.codeSnippet}
+                          onChange={(e) => updateSec(idx, { codeSnippet: e.target.value })}
+                          placeholder="hx rollout undo --cell eu-central-1"
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Interactive Checklist Sub-editor */}
+                  {sec.hasChecklist && (
+                    <div className="wk-editor-sub">
+                      <div className="wk-editor-sub__head">
+                        <span className="neo-label">Interactive Runbook Steps</span>
+                        <button
+                          type="button"
+                          className="neo-btn neo-btn--ghost neo-btn--xs"
+                          onClick={() =>
+                            updateSec(idx, {
+                              checklistItems: [
+                                ...sec.checklistItems,
+                                { id: `chk-${Date.now()}-${sec.checklistItems.length + 1}`, label: '' },
+                              ],
+                            })
+                          }
+                        >
+                          <Plus /> Add step
+                        </button>
+                      </div>
+                      {sec.checklistItems.map((item, cIdx) => (
+                        <div key={item.id} className="wk-editor-sub__row">
+                          <input
+                            type="text"
+                            className="neo-input"
+                            value={item.label}
+                            onChange={(e) => {
+                              const next = sec.checklistItems.map((x, j) =>
+                                j === cIdx ? { ...x, label: e.target.value } : x,
+                              );
+                              updateSec(idx, { checklistItems: next });
+                            }}
+                            placeholder={`Step ${cIdx + 1} action…`}
+                          />
+                          {sec.checklistItems.length > 1 && (
+                            <button
+                              type="button"
+                              className="neo-iconbtn neo-iconbtn--sm"
+                              aria-label="Remove checklist item"
+                              onClick={() =>
+                                updateSec(idx, {
+                                  checklistItems: sec.checklistItems.filter((_, j) => j !== cIdx),
+                                })
+                              }
+                            >
+                              <Trash2 />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </NeoPanel>
+
+          <div className="wk-studio__foot">
+            <button
+              type="button"
+              className="neo-btn neo-btn--ghost"
+              onClick={() =>
+                navigate(mode === 'edit' && existingArticle ? `/wiki/doc/${existingArticle.slug}` : '/wiki')
+              }
+            >
+              Cancel
+            </button>
+
+            <div className="wk-studio__foot-acts">
               <button
                 type="button"
-                className="btn"
-                onClick={() =>
-                  navigate(mode === 'edit' && existingArticle ? `/wiki/doc/${existingArticle.slug}` : '/wiki')
-                }
+                className="neo-btn neo-btn--soft"
+                onClick={() => setViewMode('preview')}
               >
-                Cancel
+                <Eye /> Preview playbook
               </button>
-
-              <div className="row row--wrap" style={{ gap: 10 }}>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setViewMode('preview')}
-                >
-                  <Eye /> Preview Playbook
-                </button>
-                <button type="submit" className="wk-btn-cortex">
-                  {mode === 'create' ? (
-                    <>
-                      <Sparkles /> Publish Playbook
-                    </>
-                  ) : isProposalSubmission ? (
-                    <>
-                      <GitPullRequest /> Submit Change Proposal
-                    </>
-                  ) : (
-                    <>
-                      <Save /> Save Verified Revision
-                    </>
-                  )}
-                </button>
-              </div>
+              <button type="submit" className="neo-btn neo-btn--plasma">
+                {mode === 'create' ? (
+                  <>
+                    <Sparkles /> Publish playbook
+                  </>
+                ) : isProposalSubmission ? (
+                  <>
+                    <GitPullRequest /> Submit change proposal
+                  </>
+                ) : (
+                  <>
+                    <Save /> Save verified revision
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </form>

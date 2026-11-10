@@ -1,5 +1,9 @@
 /* ==========================================================================
-   App icons, tiles (card / icon / row), dock
+   App icons, tiles (card / icon / row), dock — NEO language
+   Glass plane cards with an app-coloured aura + cursor spotlight (`neo-spot`),
+   a mono HUD meta line, and a holographic pinned-apps shelf.
+   Uses NEO tokens when rendered inside `.neo` and falls back to the classic
+   hub tokens elsewhere (e.g. pages not yet migrated).
    ========================================================================== */
 
 /* ---------- App icon orb ---------- */
@@ -41,6 +45,7 @@
   pointer-events: none;
 }
 .tile:hover .app-icon::after,
+.tile-row:hover .app-icon::after,
 .dock__item:hover .app-icon::after,
 .tile-ico:hover .app-icon::after {
   opacity: 1;
@@ -70,8 +75,8 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: var(--surface-solid);
-  border: 1px solid var(--border-2);
+  background: var(--plane-solid, var(--surface-solid));
+  border: 1px solid var(--plane-border-2, var(--border-2));
   color: var(--text-2);
   box-shadow: var(--shadow-sm);
 }
@@ -83,16 +88,16 @@
 /* ---------- Grids ---------- */
 .app-grid {
   display: grid;
-  gap: var(--gap);
-  grid-template-columns: repeat(auto-fill, minmax(212px, 1fr));
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 212px), 1fr));
 }
 .app-grid--icons {
   grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
   gap: 22px 8px;
 }
 .app-grid--list {
-  grid-template-columns: 1fr;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
 }
 @media (max-width: 460px) {
   .app-grid--icons {
@@ -110,13 +115,13 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  min-height: 178px;
-  padding: var(--tile-pad);
-  border-radius: var(--r-lg);
-  background: var(--tile-bg);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
+  gap: 12px;
+  min-height: 172px;
+  padding: 16px 16px 12px;
+  border-radius: 18px;
+  background: var(--plane-2, var(--tile-bg));
+  border: 1px solid var(--plane-border, var(--border));
+  box-shadow: var(--plane-inset, var(--shadow-sm));
   transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(var(--lift));
   transition:
     transform 0.5s var(--ease-out),
@@ -125,20 +130,12 @@
   isolation: isolate;
   overflow: hidden;
 }
+/* Light-catching edge in the app's own colours */
 .tile::before {
   content: '';
   position: absolute;
   inset: 0;
-  z-index: -1;
-  border-radius: inherit;
-  background: radial-gradient(380px circle at var(--mx, 50%) var(--my, 0%), color-mix(in srgb, var(--c1) 24%, transparent), transparent 46%);
-  opacity: 0;
-  transition: opacity 0.35s;
-}
-.tile::after {
-  content: '';
-  position: absolute;
-  inset: 0;
+  z-index: 2;
   border-radius: inherit;
   padding: 1px;
   background: linear-gradient(
@@ -157,19 +154,47 @@
   transition: opacity 0.35s;
   pointer-events: none;
 }
+/* Cursor spotlight (`neo-spot`), tinted with the app colour and kept under the content */
+.tile.neo-spot::after,
+.tile-row.neo-spot::after {
+  z-index: -1;
+  background: radial-gradient(340px circle at var(--mx, -999px) var(--my, -999px), color-mix(in srgb, var(--c1) 24%, transparent), transparent 46%);
+}
+/* App aura behind the icon */
+.tile__aura {
+  position: absolute;
+  z-index: -1;
+  top: -54px;
+  left: -46px;
+  width: 190px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--c1) 34%, transparent), color-mix(in srgb, var(--c2) 10%, transparent) 60%, transparent);
+  opacity: 0.5;
+  pointer-events: none;
+  transition:
+    opacity 0.35s,
+    transform 0.6s var(--ease-out);
+}
+[data-theme='light'] .tile__aura {
+  opacity: 0.32;
+}
 .tile:hover,
 .tile:focus-within {
-  --lift: -4px;
+  --lift: -3px;
   border-color: transparent;
   box-shadow:
-    var(--shadow-md),
-    0 24px 50px -28px var(--c2);
+    var(--plane-inset, var(--shadow-md)),
+    0 24px 48px -28px var(--c2);
 }
 .tile:hover::before,
-.tile:focus-within::before,
-.tile:hover::after,
-.tile:focus-within::after {
+.tile:focus-within::before {
   opacity: 1;
+}
+.tile:hover .tile__aura,
+.tile:focus-within .tile__aura {
+  opacity: 0.85;
+  transform: scale(1.1);
 }
 .tile__hit {
   position: absolute;
@@ -178,7 +203,7 @@
   border-radius: inherit;
 }
 .tile__hit:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid rgb(var(--app-rgb, var(--accent-rgb)) / 0.85);
   outline-offset: -2px;
 }
 .tile__top {
@@ -187,49 +212,100 @@
   justify-content: space-between;
   gap: 10px;
 }
+.tile .app-icon {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.4),
+    inset 0 -8px 16px rgb(0 0 0 / 0.16),
+    0 0 0 1px rgb(255 255 255 / 0.08),
+    0 12px 26px -10px var(--c2),
+    0 0 22px -6px color-mix(in srgb, var(--c1) 55%, transparent);
+  transition: transform 0.45s var(--ease-out);
+}
+.tile .app-icon.is-locked {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+.tile:hover .app-icon {
+  transform: translateY(-2px) scale(1.04);
+}
 .tile__badges {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+.tile__flag {
+  text-transform: lowercase;
 }
 .tile__body {
   min-width: 0;
 }
 .tile__name {
   font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 16.5px;
+  font-weight: 650;
+  font-size: 16px;
   letter-spacing: -0.01em;
   line-height: 1.25;
 }
 .tile__tagline {
   margin-top: 3px;
-  font-size: 13px;
-  color: var(--text-2);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-3);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .tile__foot {
+  position: relative;
   margin-top: auto;
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 32px;
+  min-height: 34px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--plane-border-2, var(--border));
   font-size: 12px;
   color: var(--text-3);
+}
+/* HUD meta line: CATEGORY · ● STATUS */
+.tile__meta,
+.tile__status,
+.tile-row__cat {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.tile__meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-3);
+}
+/* status tag sits on the right; hover swaps it for the pin / details actions */
+.tile__foot > :not(.tile__meta):not(.tile__actions) {
+  flex: none;
+  margin-left: auto;
+  transition: opacity 0.2s;
+}
+.tile--granted:hover .tile__foot > :not(.tile__meta):not(.tile__actions),
+.tile--granted:focus-within .tile__foot > :not(.tile__meta):not(.tile__actions) {
+  opacity: 0;
 }
 .tile__status {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  white-space: nowrap;
+  gap: 6px;
+  min-width: 0;
+  color: var(--text-3);
 }
 .tile__actions {
-  position: relative;
+  position: absolute;
   z-index: 2;
-  margin-left: auto;
+  right: -6px;
+  bottom: -3px;
   display: flex;
   gap: 2px;
   opacity: 0;
@@ -245,65 +321,83 @@
 }
 @media (hover: none) {
   .tile__actions {
+    position: static;
+    margin-left: auto;
     opacity: 1;
     transform: none;
   }
+  .tile--granted .tile__foot > .tile__status {
+    display: none;
+  }
+}
+.tile__actions .icon-btn,
+.tile-row__aside .icon-btn {
+  border-radius: 9px;
+  color: var(--text-3);
+}
+.tile__actions .icon-btn:hover,
+.tile-row__aside .icon-btn:hover {
+  background: var(--hover-2, var(--surface-3));
+  color: var(--text);
 }
 .tile__pin.is-pinned {
-  color: var(--accent-ink);
+  color: var(--app-ink, var(--accent-ink));
 }
 .tile__pin-flag {
   position: absolute;
   top: 0;
-  right: 18px;
-  width: 16px;
-  height: 22px;
-  background: var(--grad-accent);
+  right: 16px;
+  width: 14px;
+  height: 20px;
+  background: var(--app-grad, var(--grad-accent));
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
-  box-shadow: 0 0 12px rgb(var(--accent-rgb) / 0.7);
-  opacity: 0.9;
+  box-shadow: 0 0 12px rgb(var(--app-rgb, var(--accent-rgb)) / 0.7);
+  opacity: 0.95;
 }
 .tile.is-pinned .tile__badges {
-  margin-right: 24px;
+  margin-right: 22px;
 }
 
 /* Locked / pending */
 .tile--locked,
 .tile--pending {
-  background: var(--surface);
+  background:
+    repeating-linear-gradient(-45deg, transparent 0 11px, var(--hover, var(--grid-line)) 11px 12px),
+    var(--plane, var(--surface));
   border-style: dashed;
-  border-color: var(--border-2);
+  border-color: var(--plane-border-2, var(--border-2));
   box-shadow: none;
 }
-.tile--locked::before,
-.tile--pending::before {
-  opacity: 1;
-  background:
-    radial-gradient(380px circle at var(--mx, 50%) var(--my, 0%), rgb(var(--accent-rgb) / 0.08), transparent 46%),
-    repeating-linear-gradient(-45deg, transparent 0 10px, var(--grid-line) 10px 11px);
+.tile--locked .tile__aura,
+.tile--pending .tile__aura {
+  opacity: 0.18;
+  filter: grayscale(0.6);
 }
 .tile--locked .tile__name,
 .tile--pending .tile__name {
   color: var(--text-2);
 }
-.tile--locked:hover::after,
-.tile--pending:hover::after {
+.tile--locked:hover::before,
+.tile--pending:hover::before {
   opacity: 0.45;
 }
 .tile__lockline {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-2);
   white-space: nowrap;
+  transition: color var(--dur-fast);
 }
 .tile__lockline svg {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
 }
-.tile--locked:hover .tile__lockline {
-  color: var(--accent-ink);
+.tile--locked:hover .tile__lockline,
+.tile-row--locked:hover .tile__lockline {
+  color: var(--app-ink, var(--accent-ink));
 }
 .tile--disabled {
   opacity: 0.55;
@@ -325,8 +419,31 @@
   border-radius: 20px;
   transition: transform 0.2s var(--ease-spring);
 }
+/* soft app-coloured floor glow under each icon */
+.tile-ico__btn::after {
+  content: '';
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: -7px;
+  height: 12px;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--c2) 70%, transparent), transparent);
+  filter: blur(3px);
+  opacity: 0.75;
+  pointer-events: none;
+}
+.tile-ico--locked .tile-ico__btn::after,
+.tile-ico--pending .tile-ico__btn::after {
+  opacity: 0.2;
+}
 .tile-ico__btn:active {
   transform: scale(0.9);
+}
+.tile-ico__btn:focus-visible {
+  outline: 2px solid rgb(var(--app-rgb, var(--accent-rgb)) / 0.85);
+  outline-offset: 3px;
 }
 .tile-ico__btn .counter {
   position: absolute;
@@ -349,9 +466,21 @@
 }
 .tile-ico__pending {
   position: absolute;
-  top: -4px;
-  left: -4px;
+  top: -5px;
+  left: -5px;
   z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--warning);
+  color: #1c1300;
+  box-shadow: 0 0 0 2px var(--bg-2, var(--bg));
+}
+.tile-ico__pending svg {
+  width: 11px;
+  height: 11px;
 }
 
 /* ---------- Row tile (list view) ---------- */
@@ -363,24 +492,37 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
-  padding: 12px 14px;
-  border-radius: var(--r-md);
-  background: var(--tile-bg);
-  border: 1px solid var(--border);
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--plane-2, var(--tile-bg));
+  border: 1px solid var(--plane-border, var(--border));
+  box-shadow: var(--plane-inset, none);
+  isolation: isolate;
+  overflow: hidden;
   transition:
     border-color var(--dur),
     transform var(--dur) var(--ease-out),
     box-shadow var(--dur);
 }
+.tile-row .app-icon {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.38),
+    0 8px 20px -10px var(--c2);
+}
 .tile-row:hover,
 .tile-row:focus-within {
-  border-color: color-mix(in srgb, var(--c1) 45%, var(--border));
-  box-shadow: 0 10px 30px -18px var(--c2);
+  border-color: color-mix(in srgb, var(--c1) 45%, var(--plane-border, var(--border)));
+  box-shadow:
+    var(--plane-inset, 0 0 0 transparent),
+    0 12px 30px -20px var(--c2);
 }
 .tile-row--locked,
 .tile-row--pending {
-  background: var(--surface);
+  background: var(--plane, var(--surface));
   border-style: dashed;
+}
+.tile-row__main {
+  min-width: 0;
 }
 .tile-row__name {
   font-weight: 600;
@@ -389,15 +531,22 @@
   gap: 8px;
   min-width: 0;
 }
+.tile-row__tagline {
+  margin-top: 1px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .tile-row__aside {
   position: relative;
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 .tile-row__cat {
-  font-size: 12px;
   color: var(--text-3);
 }
 @media (max-width: 720px) {
@@ -407,35 +556,56 @@
   }
 }
 
-/* ---------- Dock ---------- */
+/* ---------- Dock (holographic shelf) ---------- */
 .dock {
   position: relative;
   display: flex;
   align-items: flex-end;
   gap: 14px;
-  padding: 26px 20px 14px;
-  border-radius: 28px;
-  background: var(--glass);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid var(--border-2);
-  box-shadow:
-    var(--shadow-md),
-    inset 0 1px 0 rgb(255 255 255 / 0.06);
+  padding: 28px 18px 16px;
+  border-radius: 16px;
+  background:
+    radial-gradient(120% 100% at 50% 130%, rgb(var(--app-rgb, var(--accent-rgb)) / 0.16), transparent 62%),
+    var(--hover, var(--glass));
+  border: 1px solid var(--plane-border, var(--border-2));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04);
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
+  isolation: isolate;
 }
 .dock::-webkit-scrollbar {
   display: none;
 }
+/* perspective grid floor */
+.dock::before {
+  content: '';
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  bottom: 0;
+  height: 70%;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgb(var(--app-rgb, var(--accent-rgb)) / 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--app-rgb, var(--accent-rgb)) / 0.12) 1px, transparent 1px);
+  background-size: 26px 26px;
+  transform: perspective(260px) rotateX(58deg);
+  transform-origin: 50% 100%;
+  -webkit-mask-image: linear-gradient(to top, #000 10%, transparent 85%);
+  mask-image: linear-gradient(to top, #000 10%, transparent 85%);
+  pointer-events: none;
+}
+/* glowing shelf edge */
 .dock::after {
   content: '';
   position: absolute;
-  left: 12%;
-  right: 12%;
+  left: 10%;
+  right: 10%;
   bottom: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgb(var(--accent-rgb) / 0.7), rgb(var(--accent-2-rgb) / 0.7), transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--app-rgb, var(--accent-rgb)) / 0.85), rgb(var(--app-rgb-2, var(--accent-2-rgb)) / 0.85), transparent);
+  box-shadow: 0 0 14px rgb(var(--app-rgb, var(--accent-rgb)) / 0.65);
 }
 .dock__item {
   position: relative;
@@ -443,24 +613,56 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   touch-action: manipulation;
   outline: none;
 }
+/* per-app glow pooling on the shelf under each icon */
+.dock__item::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  width: 52px;
+  height: 14px;
+  translate: -50% 0;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--c2, transparent) 75%, transparent), transparent);
+  filter: blur(4px);
+  opacity: 0.55;
+  transition: opacity 0.25s;
+  pointer-events: none;
+}
+.dock__item:hover::after {
+  opacity: 1;
+}
 .dock__item.is-dragging {
   z-index: 5;
-  opacity: 0.85;
+  opacity: 0.92;
+}
+.dock__item.is-dragging .app-icon {
+  box-shadow:
+    0 18px 30px -10px var(--c2),
+    0 0 0 2px rgb(var(--app-rgb, var(--accent-rgb)) / 0.6);
 }
 .dock__btn {
   position: relative;
   display: block;
-  border-radius: 18px;
+  border-radius: 17px;
   transform-origin: 50% 100%;
   transform: scale(var(--s, 1));
   transition: transform 0.16s var(--ease-out);
 }
+.dock__btn .app-icon {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.4),
+    inset 0 -8px 16px rgb(0 0 0 / 0.16),
+    0 0 0 1px rgb(255 255 255 / 0.08),
+    0 12px 24px -12px var(--c2);
+}
 .dock__btn:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid rgb(var(--app-rgb, var(--accent-rgb)) / 0.85);
   outline-offset: 4px;
 }
 .dock__btn .counter {
@@ -479,52 +681,100 @@
 }
 .dock__key {
   position: absolute;
-  top: -20px;
+  top: -21px;
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 5px;
+  border: 1px solid var(--plane-border-2, var(--border-2));
+  background: var(--plane-solid, var(--surface-solid));
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 9.5px;
+  font-weight: 600;
   color: var(--text-3);
   opacity: 0;
   transition: opacity 0.2s;
 }
-.dock:hover .dock__key {
+.dock:hover .dock__key,
+.dock:focus-within .dock__key {
   opacity: 1;
+}
+.dock.is-dragging .dock__key {
+  opacity: 0;
 }
 .dock__add {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  border: 1.5px dashed var(--border-3);
+  width: 54px;
+  height: 54px;
+  border-radius: 17px;
+  border: 1.5px dashed var(--plane-border-2, var(--border-3));
   color: var(--text-3);
   transition: all var(--dur);
 }
 .dock__add:hover {
-  color: var(--accent-ink);
-  border-color: rgb(var(--accent-rgb) / 0.7);
-  background: rgb(var(--accent-rgb) / 0.08);
+  color: var(--app-ink, var(--accent-ink));
+  border-color: rgb(var(--app-rgb, var(--accent-rgb)) / 0.7);
+  background: rgb(var(--app-rgb, var(--accent-rgb)) / 0.08);
+  box-shadow: 0 0 22px -6px rgb(var(--app-rgb, var(--accent-rgb)) / 0.6);
 }
 .dock__sep {
   flex: none;
   width: 1px;
-  height: 52px;
+  height: 50px;
   align-self: center;
   margin-bottom: 18px;
-  background: var(--border-2);
+  background: linear-gradient(transparent, var(--plane-border-2, var(--border-2)), transparent);
+}
+.dock--empty {
+  padding: 16px;
 }
 .dock__empty {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 14px;
+  width: 100%;
   color: var(--text-2);
-  font-size: 14px;
-  padding: 6px 4px 14px;
+  font-size: 13.5px;
+}
+.dock__empty-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 13px;
+  color: var(--app-ink, var(--accent-ink));
+  background: linear-gradient(150deg, rgb(var(--app-rgb, var(--accent-rgb)) / 0.24), rgb(var(--app-rgb-2, var(--accent-2-rgb)) / 0.12));
+  box-shadow: inset 0 0 0 1px rgb(var(--app-rgb, var(--accent-rgb)) / 0.32);
+}
+.dock__empty-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.dock__empty-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.dock__empty-text b {
+  color: var(--text);
+  font-weight: 650;
+}
+.dock__empty-text span {
+  font-size: 12.5px;
+  color: var(--text-3);
 }
 @media (max-width: 720px) {
   .dock {
     gap: 12px;
-    padding: 20px 14px 12px;
-    border-radius: 22px;
+    padding: 22px 12px 12px;
+    border-radius: 14px;
   }
   .dock__key {
     display: none;

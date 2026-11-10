@@ -5,7 +5,7 @@ import { SEED_USERS } from './users';
 import { SEED_ANNOUNCEMENTS, SEED_AUDIT, SEED_KUDOS, SEED_NOTIFICATIONS, SEED_REQUESTS } from './content';
 
 /** v6: Projects (/projects) + Drive (/drive) modules, `projects.manage` / `drive.manage` and the `work` notification kind. */
-export const DATA_VERSION = 6;
+export const DATA_VERSION = 7;
 
 export function defaultPrefs(pinned: string[] = ['mail', 'chat', 'calendar', 'projects']): UserPrefs {
   return {

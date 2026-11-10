@@ -574,310 +574,620 @@
   }
 }
 
-/* ---------- Return Portal (Back-to-Origin & Journey Trail) ---------- */
+/* ---------- Return Portal — back button & "Your journey" ---------- */
 .return-portal {
+  --rp-a: var(--rp-c1, #6366f1);
+  --rp-b: var(--rp-c2, #22d3ee);
   position: relative;
   display: inline-flex;
-  align-items: stretch;
-  height: 44px;
-  border-radius: 14px;
-  background:
-    linear-gradient(125deg, color-mix(in srgb, var(--rp-c1, #6366f1) 16%, transparent), color-mix(in srgb, var(--app-c1, #22d3ee) 10%, transparent)),
-    var(--surface);
-  border: 1px solid color-mix(in srgb, var(--rp-c1, #6366f1) 42%, var(--border-2));
-  box-shadow:
-    0 8px 22px -12px color-mix(in srgb, var(--rp-c1, #6366f1) 60%, transparent),
-    inset 0 1px 0 rgb(255 255 255 / 0.08);
-  overflow: hidden;
+  align-items: center;
+  gap: 2px;
+  height: 42px;
+  padding: 3px;
   flex-shrink: 0;
-  max-width: 310px;
+  max-width: 300px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  /* Opaque base (dark --surface is translucent and would let the ring gradient bleed
+     through), tinted toward the side you are heading: back = left. */
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--rp-a) 12%, var(--surface-solid)), var(--surface-solid) 72%) padding-box,
+    linear-gradient(120deg, color-mix(in srgb, var(--rp-a) 72%, transparent), color-mix(in srgb, var(--rp-cur, var(--rp-b)) 50%, transparent)) border-box;
+  box-shadow:
+    0 10px 26px -16px color-mix(in srgb, var(--rp-a) 80%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
   transition:
     transform var(--dur) var(--ease-out),
-    border-color var(--dur) var(--ease-out),
     box-shadow var(--dur) var(--ease-out);
 }
-.return-portal:hover {
-  border-color: color-mix(in srgb, var(--rp-c1, #6366f1) 70%, var(--border-2));
+.return-portal:hover,
+.return-portal.is-open {
   box-shadow:
-    0 10px 26px -10px color-mix(in srgb, var(--rp-c1, #6366f1) 80%, transparent),
-    inset 0 1px 0 rgb(255 255 255 / 0.14);
+    0 12px 30px -14px color-mix(in srgb, var(--rp-a) 95%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--rp-a) 14%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.1);
 }
 .return-portal.is-warping {
-  transform: scale(0.95) translateX(-6px);
-  opacity: 0.78;
+  transform: scale(0.97);
 }
-.return-portal__main {
+
+/* The back control: ‹ orb  Back to / Launchpad */
+.return-portal__back {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: 100%;
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  padding: 0 10px 0 8px;
-  min-width: 0;
+  gap: 8px;
+  padding: 0 14px 0 7px;
+  border-radius: 999px;
   color: var(--text);
   text-align: left;
+  -webkit-touch-callout: none;
+  user-select: none;
   transition: background var(--dur);
 }
-.return-portal__main:hover {
-  background: rgb(255 255 255 / 0.04);
+.return-portal__back:hover {
+  background: color-mix(in srgb, var(--rp-a) 13%, transparent);
 }
-.return-portal__ring {
-  width: 26px;
-  height: 26px;
-  border-radius: 9px;
-  display: grid;
-  place-items: center;
+.return-portal__back:active {
+  transform: scale(0.98);
+}
+.return-portal__back:focus-visible,
+.return-portal__deck-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--rp-a) 80%, #fff);
+  outline-offset: 2px;
+}
+/* Rewind chevrons: one ‹ at rest, ‹‹ on hover */
+.return-portal__chev {
+  position: relative;
+  width: 16px;
+  height: 16px;
   flex: none;
-  background: color-mix(in srgb, var(--rp-c1, #6366f1) 20%, var(--surface-2));
-  border: 1px solid color-mix(in srgb, var(--rp-c1, #6366f1) 45%, transparent);
+  color: var(--text-2);
+  transition: color var(--dur);
+}
+.return-portal__chev svg {
+  position: absolute;
+  inset: 0;
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.5;
+  transition:
+    transform var(--dur) var(--ease-spring),
+    opacity var(--dur);
+}
+.return-portal__chev svg:last-child {
+  opacity: 0;
+  transform: translateX(5px);
+}
+.return-portal__back:hover .return-portal__chev,
+.return-portal__back:focus-visible .return-portal__chev {
   color: var(--text);
-  transition: transform var(--dur) var(--ease-out), background var(--dur);
 }
-.return-portal__main:hover .return-portal__ring {
-  transform: translateX(-2px);
-  background: linear-gradient(135deg, var(--rp-c1, #6366f1), var(--rp-c2, #22d3ee));
-  color: #fff;
+.return-portal__back:hover .return-portal__chev svg:first-child,
+.return-portal__back:focus-visible .return-portal__chev svg:first-child {
+  transform: translateX(-4px);
 }
-.return-portal__arrow {
-  width: 15px;
-  height: 15px;
+.return-portal__back:hover .return-portal__chev svg:last-child,
+.return-portal__back:focus-visible .return-portal__chev svg:last-child {
+  opacity: 0.5;
+  transform: translateX(1px);
+}
+.return-portal__chev--fwd svg:last-child {
+  transform: translateX(-5px);
+}
+.return-portal__back:hover .return-portal__chev--fwd svg:first-child,
+.return-portal__back:focus-visible .return-portal__chev--fwd svg:first-child {
+  transform: translateX(4px);
+}
+.return-portal__back:hover .return-portal__chev--fwd svg:last-child,
+.return-portal__back:focus-visible .return-portal__chev--fwd svg:last-child {
+  transform: translateX(-1px);
+}
+.return-portal.is-warping .return-portal__chev svg:first-child {
+  animation: rp-rewind 420ms var(--ease-out);
 }
 .return-portal__orb {
   width: var(--size, 24px);
   height: var(--size, 24px);
-  border-radius: calc(var(--size, 24px) * 0.32);
+  border-radius: calc(var(--size, 24px) * 0.34);
   display: grid;
   place-items: center;
   flex: none;
   background: linear-gradient(135deg, var(--c1, #6366f1), var(--c2, #22d3ee));
   color: #fff;
-  box-shadow: 0 4px 12px -3px color-mix(in srgb, var(--c1, #6366f1) 70%, transparent);
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--c1, #6366f1) 75%, transparent);
 }
 .return-portal__orb svg {
   width: calc(var(--size, 24px) * 0.56);
   height: calc(var(--size, 24px) * 0.56);
 }
-.return-portal__copy {
+.return-portal__label {
   display: flex;
   flex-direction: column;
   min-width: 0;
   line-height: 1.15;
 }
-.return-portal__eyebrow {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.return-portal__hint {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--rp-a) 55%, var(--text));
+  white-space: nowrap;
+}
+.return-portal__dest {
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Light streak that sweeps toward where you're going */
+.return-portal__streak {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+.return-portal__streak::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--rp-b) 30%, transparent) 50%, transparent 70%);
+  transform: translateX(110%);
+}
+.return-portal__back:hover .return-portal__streak::before {
+  animation: rp-streak-back 950ms var(--ease-out);
+}
+.return-portal--resume .return-portal__streak::before {
+  transform: translateX(-110%);
+}
+.return-portal--resume .return-portal__back:hover .return-portal__streak::before {
+  animation-name: rp-streak-fwd;
+}
+
+/* Memory deck: stacked orbs of your recent places → opens "Your journey" */
+.return-portal__deck-btn {
+  position: relative;
+  flex: none;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 11px 0 9px;
+  border-radius: 999px;
+  color: var(--text-3);
+  transition:
+    background var(--dur),
+    color var(--dur);
+}
+.return-portal__deck-btn::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: var(--border-2);
+}
+.return-portal__deck-btn:hover,
+.return-portal__deck-btn.is-open {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.return-portal__deck {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 7px;
+}
+.return-portal__deck .return-portal__orb {
+  position: relative;
+  z-index: calc(3 - var(--i, 0));
+  margin-left: -8px;
+  box-shadow: 0 0 0 2px var(--surface-solid);
+  transform: rotate(calc(-8deg + var(--i, 0) * 8deg));
+  transition:
+    margin var(--dur) var(--ease-spring),
+    transform var(--dur) var(--ease-spring);
+}
+.return-portal__deck-btn:hover .return-portal__deck .return-portal__orb,
+.return-portal__deck-btn.is-open .return-portal__deck .return-portal__orb {
+  margin-left: -3px;
+  transform: none;
+}
+.return-portal__deck-icon {
+  width: 16px;
+  height: 16px;
+}
+.return-portal__more {
+  font-size: 10.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Resume capsule on core Hub pages (mirrors the back button) */
+.return-portal--resume {
+  max-width: 240px;
+  /* Mirrored: the tint sits on the right, the direction you are heading. */
+  background:
+    linear-gradient(90deg, var(--surface-solid) 28%, color-mix(in srgb, var(--rp-a) 12%, var(--surface-solid))) padding-box,
+    linear-gradient(120deg, color-mix(in srgb, var(--rp-a) 45%, transparent), color-mix(in srgb, var(--rp-b) 30%, transparent)) border-box;
+}
+.return-portal--resume .return-portal__back {
+  padding: 0 12px 0 4px;
+}
+
+/* "Your journey" — subway-line timeline */
+.rp-journey {
+  --rp-a: var(--rp-c1, #6366f1);
+  --rp-b: var(--rp-c2, #22d3ee);
+  position: fixed;
+  z-index: 85;
+  width: min(360px, calc(100vw - 20px));
+  padding: 12px;
+  border-radius: 20px;
+  color: var(--text);
+  background: var(--surface-solid);
+  border: 1px solid var(--border-2);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 1px color-mix(in srgb, var(--rp-a) 16%, transparent);
+  transform-origin: top left;
+  animation: rp-drop 200ms var(--ease-out);
+}
+.rp-journey__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.rp-journey__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 650;
+}
+.rp-journey__title svg {
+  width: 15px;
+  height: 15px;
+  color: var(--rp-a);
+}
+.rp-journey__hint {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.rp-journey__hint .kbd {
+  height: 20px;
+  font-size: 10.5px;
+  padding: 0 6px;
+}
+.rp-journey__close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-right: -4px;
+  border-radius: 10px;
+  color: var(--text-3);
+}
+.rp-journey__close:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.rp-journey__close svg {
+  width: 17px;
+  height: 17px;
+}
+.rp-journey__line {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 10px 0 2px;
+  max-height: min(52vh, 380px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.rp-stop {
+  position: relative;
+}
+/* the line between stations */
+.rp-stop:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 24px;
+  top: 38px;
+  bottom: -8px;
+  width: 2px;
+  translate: -1px 0;
+  border-radius: 2px;
+  background: var(--border-2);
+}
+.rp-stop.is-here::before {
+  background: linear-gradient(var(--rp-cur, var(--rp-a)), var(--rp-a));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--rp-a) 70%, transparent);
+}
+.rp-stop.is-origin::before {
+  background: repeating-linear-gradient(to bottom, var(--border-3) 0 4px, transparent 4px 8px);
+}
+.rp-stop__row {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 7px 9px;
+  border-radius: 14px;
+  color: var(--text);
+  text-align: left;
+  transition: background var(--dur);
+}
+button.rp-stop__row:hover,
+button.rp-stop__row:focus-visible {
+  outline: none;
+  background: var(--surface-2);
+}
+button.rp-stop__row:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--rp-a) 70%, transparent);
+}
+.rp-stop__node {
+  position: relative;
+  width: 30px;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+.rp-stop__pulse {
+  position: absolute;
+  inset: -4px;
+  border-radius: 13px;
+  border: 1.5px solid var(--rp-cur, var(--rp-a));
+  animation: rp-ping 2.2s var(--ease-out) infinite;
+}
+.rp-stop__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.rp-stop__text b {
+  font-size: 13.5px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rp-stop__sub {
+  font-size: 11.5px;
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.return-portal__from {
-  color: var(--accent-ink);
-}
-.return-portal__dest {
-  font-size: 13px;
-  font-weight: 650;
-  color: var(--text);
-}
-.return-portal__sub {
-  font-weight: 500;
-  color: var(--text-2);
-}
-.return-portal__kbd {
-  height: 20px;
-  font-size: 10.5px;
-  padding: 0 5px;
-  margin-left: 2px;
-}
-.return-portal__trail-btn {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  border-left: 1px solid var(--border);
-  color: var(--text-3);
-  transition: background var(--dur), color var(--dur);
-}
-.return-portal__trail-btn:hover,
-.return-portal__trail-btn.is-open {
-  background: var(--surface-2);
-  color: var(--text);
-}
-.return-portal__trail-btn svg {
-  width: 14px;
-  height: 14px;
-  transition: transform var(--dur);
-}
-.return-portal__trail-btn.is-open svg {
-  transform: rotate(180deg);
-}
-
-/* Resume last app pill on core pages */
-.return-portal--resume {
-  max-width: 220px;
-  border-style: dashed;
-}
-.return-portal__resume-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 11px 0 9px;
-  min-width: 0;
-  color: var(--text);
-}
-.return-portal__resume-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  text-align: left;
-  line-height: 1.15;
-}
-.return-portal__resume-arrow {
-  width: 14px;
-  height: 14px;
-  color: var(--text-3);
-  flex: none;
-  transition: transform var(--dur);
-}
-.return-portal__resume-btn:hover .return-portal__resume-arrow {
-  transform: translate(2px, -2px);
-  color: var(--accent-ink);
-}
-
-/* Journey Trail Popover */
-.return-portal__pop {
-  position: fixed;
-  z-index: 85;
-  padding: 12px;
-  border-radius: 18px;
-  background: var(--surface-solid);
-  border: 1px solid var(--border-2);
-  box-shadow: var(--shadow-lg);
-  animation: pop-in var(--dur) var(--ease-out);
-}
-.return-portal__pop-head {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--accent-ink);
-  padding: 2px 4px 10px;
-  border-bottom: 1px solid var(--border);
-}
-.return-portal__pop-section {
-  margin-top: 10px;
-}
-.return-portal__pop-label {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  margin-bottom: 6px;
-  padding: 0 4px;
-}
-.return-portal__origin-card {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 13px;
-  background: linear-gradient(120deg, rgb(var(--accent-rgb) / 0.14), rgb(var(--accent-rgb) / 0.03));
-  border: 1px solid rgb(var(--accent-rgb) / 0.35);
-  text-align: left;
-  transition: transform var(--dur), border-color var(--dur);
-}
-.return-portal__origin-card:hover {
-  border-color: rgb(var(--accent-rgb) / 0.65);
-  transform: translateY(-1px);
-}
-.return-portal__origin-title {
-  font-weight: 650;
-  font-size: 13.5px;
-  color: var(--text);
-}
-.return-portal__warp-pill {
+.rp-stop__eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 9px;
+  font-size: 10.5px;
+  font-weight: 650;
+  color: var(--text-3);
+}
+.rp-stop__eyebrow svg {
+  width: 11px;
+  height: 11px;
+}
+.rp-stop.is-here .rp-stop__eyebrow {
+  color: color-mix(in srgb, var(--rp-cur, var(--rp-a)) 65%, var(--text));
+}
+.rp-stop.is-origin .rp-stop__row {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--rp-a) 16%, transparent), color-mix(in srgb, var(--rp-b) 5%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rp-a) 38%, transparent);
+}
+.rp-stop.is-origin .rp-stop__row:hover,
+.rp-stop.is-origin .rp-stop__row:focus-visible {
+  background: linear-gradient(120deg, color-mix(in srgb, var(--rp-a) 24%, transparent), color-mix(in srgb, var(--rp-b) 9%, transparent));
+}
+.rp-stop.is-origin .rp-stop__eyebrow {
+  color: color-mix(in srgb, var(--rp-a) 60%, var(--text));
+}
+.rp-stop__go {
+  flex: none;
+  padding: 4px 10px;
   border-radius: 999px;
   font-size: 11.5px;
-  font-weight: 600;
-  background: var(--grad-accent);
+  font-weight: 650;
   color: #fff;
+  background: linear-gradient(135deg, var(--rp-a), var(--rp-b));
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--rp-a) 90%, transparent);
+}
+.rp-stop__time {
   flex: none;
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
 }
-.return-portal__list {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  max-height: 210px;
-  overflow-y: auto;
+.rp-journey__empty {
+  padding: 2px 10px 6px 50px;
+  font-size: 12px;
+  color: var(--text-3);
 }
-.return-portal__step {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 8px;
-  border-radius: 10px;
-  text-align: left;
-  transition: background var(--dur);
-}
-.return-portal__step:hover {
-  background: var(--surface-2);
-}
-.return-portal__step-title {
-  font-size: 13px;
-  font-weight: 550;
-  color: var(--text);
-}
-.return-portal__pop-foot {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
+.rp-journey__foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.rp-journey.is-sheet {
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-height: 82dvh;
+  padding: 14px 14px calc(14px + var(--safe-bottom));
+  border-radius: 22px 22px 0 0;
+  transform-origin: bottom center;
+  animation: rp-sheet 260ms var(--ease-out);
+}
+.rp-journey.is-sheet .rp-journey__line {
+  max-height: 56dvh;
+}
+.rp-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 84;
+  background: var(--scrim);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: fade-in var(--dur) var(--ease-out);
+}
+
+/* Rewind sweep across the screen while navigating */
+.rp-warp {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  overflow: hidden;
+  pointer-events: none;
+}
+.rp-warp::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  width: 55vw;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--rp-c1, #6366f1) 20%, transparent) 40%, color-mix(in srgb, var(--rp-c2, #22d3ee) 16%, transparent) 62%, transparent);
+  filter: blur(14px);
+  animation: rp-sweep-back 520ms var(--ease-out) forwards;
+}
+.rp-warp[data-dir='fwd']::before {
+  left: auto;
+  right: 100%;
+  animation-name: rp-sweep-fwd;
+}
+
+@keyframes rp-rewind {
+  0% {
+    transform: translateX(0);
+  }
+  40% {
+    transform: translateX(-7px);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+@keyframes rp-streak-back {
+  from {
+    transform: translateX(110%);
+  }
+  to {
+    transform: translateX(-110%);
+  }
+}
+@keyframes rp-streak-fwd {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(110%);
+  }
+}
+@keyframes rp-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+@keyframes rp-sheet {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+}
+@keyframes rp-ping {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.85);
+  }
+  80%,
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+@keyframes rp-sweep-back {
+  to {
+    transform: translateX(calc(-100vw - 55vw));
+  }
+}
+@keyframes rp-sweep-fwd {
+  to {
+    transform: translateX(calc(100vw + 55vw));
+  }
 }
 
 @media (max-width: 960px) {
-  .return-portal__kbd,
-  .return-portal__from,
-  .return-portal__sub {
-    display: none;
-  }
   .return-portal {
-    max-width: 210px;
+    max-width: 240px;
   }
 }
-
 @media (max-width: 720px) {
   .return-portal--resume {
     display: none;
   }
   .return-portal {
-    height: 36px;
-    border-radius: 11px;
-    max-width: 175px;
+    height: 38px;
+    padding: 2px;
   }
-  .return-portal__orb {
+  .return-portal__back {
+    gap: 6px;
+    padding: 0 8px 0 6px;
+  }
+  .return-portal__label {
     display: none;
   }
-  .return-portal__eyebrow {
-    font-size: 8.5px;
+  .return-portal__deck-btn {
+    padding: 0 9px 0 7px;
   }
-  .return-portal__dest {
-    font-size: 12px;
+  .return-portal__deck .return-portal__orb:nth-child(3),
+  .return-portal__more {
+    display: none;
   }
 }
-
+@media (prefers-reduced-motion: reduce) {
+  .return-portal,
+  .return-portal *,
+  .rp-journey,
+  .rp-scrim {
+    animation: none !important;
+    transition: none !important;
+  }
+  .rp-warp,
+  .rp-stop__pulse {
+    display: none;
+  }
+}
+[data-motion='reduced'] .return-portal *,
+[data-motion='reduced'] .rp-journey,
+[data-motion='reduced'] .rp-stop__pulse {
+  animation: none !important;
+}

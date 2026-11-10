@@ -5,13 +5,13 @@
  * the letter generator; `&doc=<id>` opens a document. Always "mine": People Ops
  * never sees other people's documents here.
  */
-import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { FolderLock, Receipt, ScrollText, Signature, Stamp, type LucideIcon } from 'lucide-react';
+import { NeoTabs } from '@/components/neo';
 import { POLICIES } from '@/hr/constants';
 import { useHr } from '@/hr/store';
 import { useSessionUser } from '@/store/selectors';
-import { cx } from '@/lib/cx';
 import { Vault } from './documents/Vault';
 import { SignModal, SignTab } from './documents/SignTab';
 import { LettersTab } from './documents/LettersTab';
@@ -34,7 +34,6 @@ export function DocumentsPage() {
   const mine = useMyDocuments();
   const acks = useHr((s) => s.acks);
   const letters = useHr((s) => s.letters);
-  const tabRefs = useRef<Partial<Record<DocTab, HTMLButtonElement | null>>>({});
 
   const tabParam = params.get('tab');
   const newParam = params.get('new');
@@ -88,50 +87,27 @@ export function DocumentsPage() {
   }, []);
   const closeSign = useCallback(() => setSignOpen(false), []);
 
-  const onTabKey = (e: KeyboardEvent<HTMLButtonElement>) => {
-    const i = DOC_TABS.indexOf(tab);
-    const next = e.key === 'ArrowRight' ? DOC_TABS[(i + 1) % DOC_TABS.length] : e.key === 'ArrowLeft' ? DOC_TABS[(i - 1 + DOC_TABS.length) % DOC_TABS.length] : e.key === 'Home' ? DOC_TABS[0] : e.key === 'End' ? DOC_TABS[DOC_TABS.length - 1] : null;
-    if (!next) return;
-    e.preventDefault();
-    setTab(next);
-    tabRefs.current[next]?.focus();
-  };
+  const tabItems = useMemo(
+    () =>
+      DOC_TABS.map((t) => {
+        const m = TAB_META[t];
+        const Icon = m.icon;
+        return {
+          value: t,
+          label: m.label,
+          icon: <Icon aria-hidden="true" />,
+          count: counts[t] > 0 ? counts[t] : null,
+        };
+      }),
+    [counts],
+  );
 
   return (
     <div className="hr-doc">
-      <div className="hr-doc-tabs" role="tablist" aria-label="Documents">
-        {DOC_TABS.map((t) => {
-          const m = TAB_META[t];
-          const Icon = m.icon;
-          const active = tab === t;
-          return (
-            <button
-              key={t}
-              ref={(el) => {
-                tabRefs.current[t] = el;
-              }}
-              type="button"
-              role="tab"
-              id={`hr-doc-tab-${t}`}
-              aria-selected={active}
-              aria-controls="hr-doc-panel"
-              tabIndex={active ? 0 : -1}
-              className={cx('hr-doc-tab', active && 'is-active')}
-              onClick={() => setTab(t)}
-              onKeyDown={onTabKey}
-            >
-              <Icon aria-hidden="true" />
-              <span>{m.label}</span>
-              {counts[t] > 0 && (
-                <span className={cx('hr-doc-tab__count', t === 'letters' && 'is-soft')} aria-label={`${counts[t]} ${t === 'letters' ? 'in review' : 'to do'}`}>
-                  {counts[t]}
-                </span>
-              )}
-            </button>
-          );
-        })}
+      <div className="hr-doc-tabs-bar">
+        <NeoTabs value={tab} onChange={setTab} items={tabItems} label="Documents" className="hr-doc-tabs" />
       </div>
-      <div id="hr-doc-panel" role="tabpanel" aria-labelledby={`hr-doc-tab-${tab}`} className="hr-doc-panel">
+      <div id="hr-doc-panel" role="tabpanel" className="hr-doc-panel">
         {tab === 'vault' && <Vault onOpen={openDoc} onSign={openSign} onLetters={() => setTab('letters')} />}
         {tab === 'sign' && <SignTab onSign={openSign} onOpen={openDoc} />}
         {tab === 'letters' && <LettersTab preset={preset} onOpenDoc={openDoc} onClearPreset={clearPreset} />}

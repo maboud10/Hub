@@ -1,15 +1,20 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { ArrowRight, Clock, Flame, LayoutGrid, LayoutList, Pin, Sparkles, Hand } from 'lucide-react';
+import { ArrowRight, Clock, Flame, Hand, Hourglass, Inbox, LayoutGrid, LayoutList, Rocket, TriangleAlert, Wrench } from 'lucide-react';
 import type { AppCategory, WidgetId } from '@/types';
 import { useHub } from '@/store/hub';
-import { useAppAccess, usePrefs } from '@/store/selectors';
+import { useUI } from '@/store/ui';
+import { useAppAccess, usePrefs, useReviewableRequests, useSessionUser } from '@/store/selectors';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { useNow } from '@/hooks/useNow';
 import { APP_CATEGORIES } from '@/data/apps';
+import { firstName, formatDate, greeting, pluralize, relativeTime } from '@/lib/format';
+import { NeoBanner, NeoBanners, NeoEmpty, NeoHome, NeoPage, NeoPanel } from '@/components/neo';
 import { AppGrid, type TileVariant } from '@/components/apps/AppTile';
 import { PinnedDock } from '@/components/apps/PinnedDock';
-import { EmptyState, Segmented } from '@/components/ui/primitives';
-import { HeroGreeting } from '@/components/widgets/HeroGreeting';
+import { Segmented } from '@/components/ui/primitives';
+import { NovaLaunch } from '@/components/widgets/HeroGreeting';
+import { CustomizeButton } from '@/components/widgets/CustomizeMenu';
 import {
   AgendaWidget,
   CelebrationsWidget,
@@ -19,6 +24,7 @@ import {
   PulseWidget,
   StatusWidget,
 } from '@/components/widgets/Widgets';
+import { cx } from '@/lib/cx';
 
 type HomeFilter = 'all' | 'recent' | 'frequent' | AppCategory;
 
@@ -33,16 +39,26 @@ const WIDGETS: Record<WidgetId, () => ReactNode> = {
 };
 const WIDGET_ORDER: WidgetId[] = ['agenda', 'focus', 'news', 'pulse', 'kudos', 'status', 'celebrations'];
 
+const DAY = 86_400_000;
+
+/**
+ * Launchpad — the hub's front door, in the NEO anatomy of the Support Deck:
+ * header (greeting + Customize / All apps) → attention banners → main column
+ * (Nova launch console, pinned dock, your apps, discover) + widget side column.
+ */
 export function HomePage() {
   const prefs = usePrefs();
+  const user = useSessionUser();
   const updatePrefs = useHub((s) => s.updatePrefs);
   const apps = useAppAccess();
   const isMobile = useIsMobile();
+  const now = useNow(60_000);
   const [filter, setFilter] = useState<HomeFilter>('all');
 
   const granted = useMemo(() => apps.filter((a) => a.access === 'granted'), [apps]);
   const discover = useMemo(() => apps.filter((a) => a.access === 'locked' || a.access === 'pending'), [apps]);
   const categories = APP_CATEGORIES.filter((c) => granted.some((g) => g.app.category === c));
+  const pinnedCount = prefs.pinned.filter((id) => granted.some((g) => g.app.id === id)).length;
 
   const shown = useMemo(() => {
     if (filter === 'recent')
@@ -58,97 +74,189 @@ export function HomePage() {
   const variant: TileVariant = isMobile ? 'icon' : prefs.tileView === 'list' ? 'row' : 'card';
   const widgets = WIDGET_ORDER.filter((id) => prefs.widgets[id] !== false);
 
+  const filters: { id: HomeFilter; label: string; icon?: ReactNode; count?: number }[] = [
+    { id: 'all', label: 'All', count: granted.length },
+    { id: 'recent', label: 'Recent', icon: <Clock /> },
+    { id: 'frequent', label: 'Most used', icon: <Flame /> },
+    ...categories.map((c) => ({ id: c as HomeFilter, label: c, count: granted.filter((g) => g.app.category === c).length })),
+  ];
+
   return (
-    <div className="page home">
-      <HeroGreeting />
+    <NeoPage
+      className="launchpad"
+      bodyClassName="lp-body"
+      icon={<Rocket />}
+      eyebrow={<>Launchpad · {formatDate(now, { weekday: 'long', day: 'numeric', month: 'long' })}</>}
+      title={`${greeting(new Date(now))}, ${user ? firstName(user.name) : 'there'}`}
+      sub="Your apps, your day and Nova — all in one place."
+      label="Launchpad"
+      actions={
+        <>
+          <CustomizeButton />
+          <Link to="/apps" className="neo-btn neo-btn--plasma" data-qa="home-all-apps">
+            <LayoutGrid /> <span className="neo-btn__label">All apps</span>
+          </Link>
+        </>
+      }
+    >
+      <AttentionBanners />
+      <NeoHome
+        className="lp-home"
+        sideLabel="Widgets"
+        main={
+          <>
+            <NovaLaunch />
 
-      <section className="section">
-        <div className="section-head">
-          <h2 className="section-title">
-            <Pin size={18} className="accent-ink" /> Pinned <span className="count">{prefs.pinned.length}</span>
-          </h2>
-          <span className="text-xs faint home__hint">{isMobile ? 'Long-press & drag to reorder' : 'Drag to reorder · press 1–9 to launch'}</span>
-        </div>
-        <PinnedDock />
-      </section>
+            <NeoPanel
+              className="lp-pinned"
+              hud="Your dock"
+              title={
+                <>
+                  Pinned <span className="neo-count">{pinnedCount}</span>
+                </>
+              }
+              actions={
+                <span className="lp-hint">
+                  {isMobile ? (
+                    'Long-press & drag to reorder'
+                  ) : (
+                    <>
+                      Drag to reorder · <kbd className="lp-kbd">1</kbd>–<kbd className="lp-kbd">9</kbd> to launch
+                    </>
+                  )}
+                </span>
+              }
+            >
+              <PinnedDock />
+            </NeoPanel>
 
-      <div className="home__grid">
-        <div className="home__main">
-          <section className="section">
-            <div className="section-head">
-              <h2 className="section-title">
-                Your apps <span className="count">{granted.length}</span>
-              </h2>
-              {!isMobile && (
-                <Segmented
-                  label="Tile layout"
-                  value={prefs.tileView}
-                  onChange={(v) => updatePrefs({ tileView: v })}
-                  options={[
-                    { value: 'grid', label: '', icon: <LayoutGrid />, title: 'Grid' },
-                    { value: 'list', label: '', icon: <LayoutList />, title: 'List' },
-                  ]}
-                />
+            <NeoPanel
+              className="lp-apps"
+              hud="Workspace"
+              title={
+                <>
+                  Your apps <span className="neo-count">{granted.length}</span>
+                </>
+              }
+              actions={
+                !isMobile && (
+                  <Segmented
+                    label="Tile layout"
+                    value={prefs.tileView}
+                    onChange={(v) => updatePrefs({ tileView: v })}
+                    options={[
+                      { value: 'grid', label: '', icon: <LayoutGrid />, title: 'Grid' },
+                      { value: 'list', label: '', icon: <LayoutList />, title: 'List' },
+                    ]}
+                  />
+                )
+              }
+            >
+              <div className="lp-filters" role="tablist" aria-label="Filter apps">
+                {filters.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={filter === f.id}
+                    className={cx('lp-filter', filter === f.id && 'is-active')}
+                    onClick={() => setFilter(f.id)}
+                  >
+                    {f.icon}
+                    {f.label}
+                    {f.count !== undefined && <span className="lp-filter__count">{f.count}</span>}
+                  </button>
+                ))}
+              </div>
+              {shown.length ? (
+                <AppGrid key={filter + variant} items={shown} variant={variant} />
+              ) : (
+                <NeoEmpty compact icon={<Clock />} title="Nothing here yet">
+                  Launch a few apps and they’ll show up here.
+                </NeoEmpty>
               )}
-            </div>
-            <div className="chips" style={{ marginBottom: 18 }} role="tablist" aria-label="Filter apps">
-              <button role="tab" aria-selected={filter === 'all'} className={'chip' + (filter === 'all' ? ' is-active' : '')} onClick={() => setFilter('all')}>
-                All <span className="count">{granted.length}</span>
-              </button>
-              <button role="tab" aria-selected={filter === 'recent'} className={'chip' + (filter === 'recent' ? ' is-active' : '')} onClick={() => setFilter('recent')}>
-                <Clock /> Recent
-              </button>
-              <button role="tab" aria-selected={filter === 'frequent'} className={'chip' + (filter === 'frequent' ? ' is-active' : '')} onClick={() => setFilter('frequent')}>
-                <Flame /> Most used
-              </button>
-              {categories.map((c) => (
-                <button key={c} role="tab" aria-selected={filter === c} className={'chip' + (filter === c ? ' is-active' : '')} onClick={() => setFilter(c)}>
-                  {c} <span className="count">{granted.filter((g) => g.app.category === c).length}</span>
-                </button>
-              ))}
-            </div>
-            {shown.length ? (
-              <AppGrid key={filter + variant} items={shown} variant={variant} />
-            ) : (
-              <EmptyState icon={<Clock />} title="Nothing here yet">
-                Launch a few apps and they’ll show up here.
-              </EmptyState>
-            )}
-            {isMobile && (
-              <p className="home__tip">
-                <Hand size={14} /> Tip: long-press any app for details, pinning and quick actions.
-              </p>
-            )}
-          </section>
+              {isMobile && (
+                <p className="lp-tip">
+                  <Hand /> Tip: long-press any app for details, pinning and quick actions.
+                </p>
+              )}
+            </NeoPanel>
 
-          {discover.length > 0 && (
-            <section className="section">
-              <div className="section-head">
-                <h2 className="section-title">
-                  <Sparkles size={18} className="accent-ink" /> Discover <span className="count">{discover.length}</span>
-                </h2>
-                <Link to="/apps?access=locked" className="btn btn--sm btn--ghost">
-                  See all <ArrowRight />
-                </Link>
-              </div>
-              <p className="text-sm muted" style={{ margin: '-6px 0 16px' }}>
-                Apps outside your role — request time-boxed access in a couple of taps.
-              </p>
-              <AppGrid items={discover.slice(0, isMobile ? 8 : 4)} variant={variant} />
-            </section>
-          )}
-        </div>
-
-        {widgets.length > 0 && (
-          <aside className="home__rail" aria-label="Widgets">
-            {widgets.map((id) => (
-              <div key={id} className="home__widget">
-                {WIDGETS[id]()}
-              </div>
-            ))}
-          </aside>
-        )}
-      </div>
-    </div>
+            {discover.length > 0 && (
+              <NeoPanel
+                className="lp-discover"
+                hud="Request access"
+                title={
+                  <>
+                    Discover <span className="neo-count">{discover.length}</span>
+                  </>
+                }
+                actions={
+                  <Link to="/apps?access=locked" className="neo-btn neo-btn--ghost neo-btn--xs">
+                    All <ArrowRight />
+                  </Link>
+                }
+              >
+                <p className="lp-lede">Apps outside your role — request time-boxed access in a couple of taps.</p>
+                <AppGrid items={discover.slice(0, isMobile ? 8 : 4)} variant={variant} />
+              </NeoPanel>
+            )}
+          </>
+        }
+        side={widgets.length > 0 ? widgets.map((id) => <Fragment key={id}>{WIDGETS[id]()}</Fragment>) : undefined}
+      />
+    </NeoPage>
   );
+}
+
+/** Only when something needs the person: reviews waiting, access about to lapse, an app they use misbehaving. */
+function AttentionBanners() {
+  const reviewable = useReviewableRequests();
+  const apps = useAppAccess();
+  const prefs = usePrefs();
+  const openAppSheet = useUI((s) => s.openAppSheet);
+  const now = useNow(60_000);
+
+  const expiring = apps
+    .filter((a) => a.access === 'granted' && a.expiresAt && a.expiresAt - now < 7 * DAY)
+    .sort((a, b) => (a.expiresAt ?? 0) - (b.expiresAt ?? 0))[0];
+  const used = (id: string) => prefs.pinned.includes(id) || prefs.recents.some((r) => r.appId === id);
+  const troubled = apps.filter((a) => a.access === 'granted' && a.app.status !== 'operational').sort((a, b) => Number(used(b.app.id)) - Number(used(a.app.id)))[0];
+
+  const banners: ReactNode[] = [];
+  if (reviewable.length)
+    banners.push(
+      <NeoBanner key="review" tone="warning" icon={<Inbox />} title={`${pluralize(reviewable.length, 'access request')} awaiting your review`} meta="Control Center" to="/admin/requests">
+        Approve or deny time-boxed access — requesters are notified instantly.
+      </NeoBanner>,
+    );
+  if (expiring)
+    banners.push(
+      <NeoBanner
+        key="expiring"
+        tone="amber"
+        icon={<Hourglass />}
+        title={`Your ${expiring.app.name} access expires ${relativeTime(expiring.expiresAt!, now)}`}
+        meta="Temporary grant"
+        onClick={() => openAppSheet(expiring.app.id)}
+      >
+        Request an extension before it lapses.
+      </NeoBanner>,
+    );
+  if (troubled)
+    banners.push(
+      <NeoBanner
+        key="status"
+        tone={troubled.app.status === 'degraded' ? 'warning' : 'blue'}
+        icon={troubled.app.status === 'degraded' ? <TriangleAlert /> : <Wrench />}
+        title={`${troubled.app.name} ${troubled.app.status === 'degraded' ? 'is degraded' : 'is under maintenance'}`}
+        meta={used(troubled.app.id) ? 'An app you use' : 'Service status'}
+        onClick={() => openAppSheet(troubled.app.id)}
+      >
+        {troubled.app.status === 'degraded' ? 'Some features may be slow while the team works on a fix.' : 'Planned work — it’ll be back shortly.'}
+      </NeoBanner>,
+    );
+
+  if (!banners.length) return null;
+  return <NeoBanners>{banners.slice(0, 2)}</NeoBanners>;
 }

@@ -1,23 +1,17 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import {
-  AlertTriangle,
-  ArrowRight,
-  Bookmark,
-  CheckCircle2,
-  Compass,
-  ListChecks,
-} from 'lucide-react';
-import { EmptyState, Segmented } from '@/components/ui/primitives';
-import { cx } from '@/lib/cx';
+import { ArrowRight, Bookmark, Compass, History, ListChecks } from 'lucide-react';
+import { Bar, NeoEmpty, NeoHome, NeoPanel } from '@/components/neo';
 import { computeFreshness } from '@/wiki/constants';
 import { useMyWikiState, useVisibleArticles } from '@/wiki/selectors';
-import type { FreshFilter } from './SpaceView';
-import { ArticleCard } from './wikiUi';
+import { useWiki } from '@/wiki/store';
+import type { WikiArticle } from '@/wiki/types';
+import { ArticleCard, FreshDot, FreshTabs, TagFilter, type FreshFilter } from './wikiUi';
 
 export function BookmarksView() {
   const visibleArticles = useVisibleArticles();
   const myState = useMyWikiState();
+  const spaces = useWiki((s) => s.spaces);
 
   const [freshFilter, setFreshFilter] = useState<FreshFilter>('all');
   const [selectedTag, setSelectedTag] = useState<string>('all');
@@ -39,6 +33,14 @@ export function BookmarksView() {
       .filter((x) => x.total > 0 && x.done > 0);
   }, [visibleArticles, myState.runbookChecks]);
 
+  const recentlyViewed = useMemo(() => {
+    const bySlug = new Map(visibleArticles.map((a) => [a.slug, a]));
+    return myState.recentSlugs
+      .map((slug) => bySlug.get(slug))
+      .filter((a): a is WikiArticle => !!a)
+      .slice(0, 5);
+  }, [myState.recentSlugs, visibleArticles]);
+
   const tags = useMemo(() => {
     const counts = new Map<string, number>();
     for (const a of bookmarkedArticles) {
@@ -59,144 +61,142 @@ export function BookmarksView() {
 
   const verifiedCount = bookmarkedArticles.filter((a) => computeFreshness(a).state === 'verified').length;
   const attentionCount = bookmarkedArticles.length - verifiedCount;
+  const spaceName = (a: WikiArticle) => spaces.find((s) => s.id === a.spaceId)?.name ?? 'Knowledge Base';
 
   return (
-    <div className="stack stack--lg">
-      <div className="wk-filter-bar" style={{ marginBottom: 0 }}>
-        <div className="stack stack--sm">
-          <h2 className="section-title" style={{ margin: 0 }}>
-            <Bookmark style={{ width: 18, height: 18, color: 'var(--wk-ink)' }} />
-            My Saved Bookmarks
-            <span className="count">{bookmarkedArticles.length}</span>
-          </h2>
-          <p className="text-sm muted" style={{ margin: 0 }}>
-            Quick-access playbooks, incident runbooks, and canonical policies saved to your personal NEXUS shelf.
-          </p>
-        </div>
+    <NeoHome
+      sideLabel="Reading activity"
+      main={
+        <>
+          {bookmarkedArticles.length > 0 && (
+            <>
+              <div className="wk-filters">
+                <FreshTabs
+                  label="Filter bookmarks by freshness"
+                  value={freshFilter}
+                  onChange={setFreshFilter}
+                  counts={{ all: bookmarkedArticles.length, verified: verifiedCount, attention: attentionCount }}
+                />
+                <span className="neo-hud">{bookmarkedArticles.length} saved</span>
+              </div>
+              <TagFilter tags={tags} value={selectedTag} onChange={setSelectedTag} label="Filter bookmarks by tag" total={bookmarkedArticles.length} />
+            </>
+          )}
 
-        {bookmarkedArticles.length > 0 && (
-          <Segmented<FreshFilter>
-            label="Filter bookmarks by freshness"
-            value={freshFilter}
-            onChange={setFreshFilter}
-            options={[
-              { value: 'all', label: `All (${bookmarkedArticles.length})` },
-              {
-                value: 'verified',
-                label: `Verified (${verifiedCount})`,
-                icon: <CheckCircle2 style={{ color: 'var(--success)' }} />,
-              },
-              {
-                value: 'attention',
-                label: `Needs review (${attentionCount})`,
-                icon: <AlertTriangle style={{ color: 'var(--warning)' }} />,
-              },
-            ]}
-          />
-        )}
-      </div>
+          {bookmarkedArticles.length === 0 ? (
+            <NeoPanel>
+              <NeoEmpty
+                icon={<Bookmark />}
+                title="Your bookmark shelf is empty"
+                action={
+                  <Link to="/wiki" className="neo-btn neo-btn--soft">
+                    <Compass /> Explore Knowledge Spaces
+                  </Link>
+                }
+              >
+                Tap the bookmark icon on any playbook or incident runbook to pin it here for 1-click access.
+              </NeoEmpty>
+            </NeoPanel>
+          ) : filtered.length === 0 ? (
+            <NeoPanel>
+              <NeoEmpty
+                icon={<Bookmark />}
+                title="No saved playbooks match these filters"
+                action={
+                  <button
+                    type="button"
+                    className="neo-btn neo-btn--soft neo-btn--sm"
+                    onClick={() => {
+                      setFreshFilter('all');
+                      setSelectedTag('all');
+                    }}
+                  >
+                    Reset filters
+                  </button>
+                }
+              />
+            </NeoPanel>
+          ) : (
+            <div className="wk-cards neo-stagger">
+              {filtered.map((article, i) => (
+                <div key={article.id} className="wk-cards__cell" style={{ ['--i' as string]: i }}>
+                  <ArticleCard article={article} />
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      }
+      side={
+        <>
+          {/* Active Runbook Checklists Section */}
+          <NeoPanel hud="In progress" title="Runbook checklists" icon={<ListChecks />}>
+            {activeRunbooks.length > 0 ? (
+              <div className="neo-list">
+                {activeRunbooks.map(({ article, done, total }) => {
+                  const pct = Math.round((done / total) * 100);
+                  return (
+                    <Link key={article.id} to={`/wiki/doc/${article.slug}`} className="neo-li wk-runrow">
+                      <span className="wk-runrow__text">
+                        <span className="wk-runrow__top">
+                          <span className="wk-mini__title">{article.title}</span>
+                          <span className="wk-runrow__pct">
+                            {done}/{total}
+                          </span>
+                        </span>
+                        <Bar value={pct / 100} label={`${pct}% of steps ticked`} />
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="wk-allclear">
+                <ListChecks aria-hidden="true" />
+                <div>
+                  <b>No runbooks in progress</b>
+                  <span>Tick steps inside any interactive runbook and your progress shows up here.</span>
+                </div>
+              </div>
+            )}
+          </NeoPanel>
 
-      {tags.length > 0 && (
-        <div className="chips" role="group" aria-label="Filter bookmarks by tag">
-          <button
-            type="button"
-            className={cx('chip', selectedTag === 'all' && 'is-active')}
-            onClick={() => setSelectedTag('all')}
-          >
-            All tags <span className="count">{bookmarkedArticles.length}</span>
-          </button>
-          {tags.map(([tag, count]) => (
-            <button
-              key={tag}
-              type="button"
-              className={cx('chip', selectedTag === tag && 'is-active')}
-              onClick={() => setSelectedTag(selectedTag === tag ? 'all' : tag)}
-            >
-              #{tag} <span className="count">{count}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {bookmarkedArticles.length === 0 ? (
-        <div className="card">
-          <EmptyState
-            icon={<Bookmark />}
-            title="Your bookmark shelf is empty"
-            action={
-              <Link to="/wiki" className="btn btn--primary">
-                <Compass /> Explore Knowledge Spaces
+          <NeoPanel
+            hud="History"
+            title="Recently viewed"
+            icon={<History />}
+            actions={
+              <Link to="/wiki" className="neo-btn neo-btn--ghost neo-btn--xs">
+                Explore <ArrowRight />
               </Link>
             }
           >
-            Tap the bookmark icon on any playbook or incident runbook to pin it here for 1-click access.
-          </EmptyState>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="card">
-          <EmptyState
-            icon={<Bookmark />}
-            title="No saved playbooks match these filters"
-            action={
-              <button
-                type="button"
-                className="btn btn--sm"
-                onClick={() => {
-                  setFreshFilter('all');
-                  setSelectedTag('all');
-                }}
-              >
-                Reset filters
-              </button>
-            }
-          />
-        </div>
-      ) : (
-        <div className="wk-articles-grid">
-          {filtered.map((article) => (
-            <ArticleCard key={article.id} article={article} />
-          ))}
-        </div>
-      )}
-
-      {/* Active Runbook Checklists Section */}
-      {activeRunbooks.length > 0 && (
-        <section className="section" style={{ marginTop: 8 }}>
-          <div className="section-head">
-            <h3 className="section-title">
-              <ListChecks style={{ width: 18, height: 18, color: 'var(--wk-ink)' }} />
-              My Runbook Checklists in Progress
-              <span className="count">{activeRunbooks.length}</span>
-            </h3>
-          </div>
-          <div className="card stack" style={{ padding: 14 }}>
-            {activeRunbooks.map(({ article, done, total }) => {
-              const pct = Math.round((done / total) * 100);
-              return (
-                <Link
-                  key={article.id}
-                  to={`/wiki/doc/${article.slug}`}
-                  className="list-row"
-                  style={{ textDecoration: 'none', color: 'inherit' }}
-                >
-                  <div className="grow stack stack--sm" style={{ minWidth: 0 }}>
-                    <div className="row row--between" style={{ gap: 10 }}>
-                      <strong className="truncate">{article.title}</strong>
-                      <span className="text-xs mono" style={{ color: 'var(--wk-ink)' }}>
-                        {done}/{total} steps ({pct}%)
+            {recentlyViewed.length > 0 ? (
+              <div className="neo-list">
+                {recentlyViewed.map((article) => (
+                  <Link key={article.id} to={`/wiki/doc/${article.slug}`} className="neo-li wk-mini">
+                    <FreshDot article={article} />
+                    <span className="wk-mini__text">
+                      <span className="wk-mini__title">{article.title}</span>
+                      <span className="wk-mini__meta">
+                        {spaceName(article)} · {article.readMins} min
                       </span>
-                    </div>
-                    <div className="progress">
-                      <span style={{ width: `${pct}%`, background: 'var(--wk-grad)' }} />
-                    </div>
-                  </div>
-                  <ArrowRight style={{ width: 16, height: 16, color: 'var(--text-3)', flex: 'none' }} />
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
-    </div>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <div className="wk-allclear">
+                <History aria-hidden="true" />
+                <div>
+                  <b>Nothing viewed yet</b>
+                  <span>Pages you open will collect here for quick return trips.</span>
+                </div>
+              </div>
+            )}
+          </NeoPanel>
+        </>
+      }
+    />
   );
 }

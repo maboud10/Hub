@@ -1,0 +1,245 @@
+/* ==========================================================================
+   Project sigils — holographic badges for src/projects/sigils.tsx.
+   Imported by the component itself: sigils render inside Helix Projects and in
+   other apps (command palette, Pulse, Drive, Performance), so nothing here is
+   scoped to an app. Every value derives from the per-project custom
+   properties the component sets inline (--sg-hi/-mid/-deep/-deep-l/-glow).
+   ========================================================================== */
+
+.sigil {
+  --sg-size: 28px;
+  --sg-hi: #c4b5fd;
+  --sg-mid: #7c3aed;
+  --sg-deep: #2e1065;
+  --sg-deep-l: #5b21b6;
+  --sg-glow: #a78bfa;
+  --sg-plate-deep: var(--sg-deep);
+  --sg-ink: #ffffff;
+  --sg-accent: color-mix(in oklab, var(--sg-hi) 34%, #ffffff);
+  --sg-r: 30%;
+  position: relative;
+  isolation: isolate;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--sg-size);
+  height: var(--sg-size);
+  min-width: var(--sg-size);
+  border-radius: var(--sg-r);
+  vertical-align: middle;
+  line-height: 0;
+  box-shadow: 0 calc(var(--sg-size) * 0.1) calc(var(--sg-size) * 0.36) calc(var(--sg-size) * -0.12) color-mix(in srgb, var(--sg-glow) 72%, transparent);
+  transition: box-shadow 260ms ease;
+}
+.sigil[data-tier='xs'] {
+  --sg-r: 28%;
+  box-shadow: 0 1px 3px -1px color-mix(in srgb, var(--sg-glow) 70%, transparent);
+}
+
+/* the plate: gradient body, specular light, inner glow, rim */
+.sigil__plate {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background:
+    radial-gradient(120% 80% at 20% -8%, rgb(255 255 255 / 0.46), transparent 54%),
+    radial-gradient(70% 70% at 50% 54%, color-mix(in srgb, var(--sg-hi) 30%, transparent), transparent 72%),
+    linear-gradient(150deg, var(--sg-hi) -6%, var(--sg-mid) 46%, var(--sg-plate-deep) 104%);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.16),
+    inset 0 1px 0 rgb(255 255 255 / 0.42),
+    inset 0 -1px 0 rgb(0 0 0 / 0.24),
+    inset 0 0 calc(var(--sg-size) * 0.28) color-mix(in srgb, var(--sg-glow) 50%, transparent);
+}
+/* holographic drift — a faint iridescent film over the colour */
+.sigil__plate::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(from 200deg at 74% 22%, #ff8bd8, #8be9ff, #b6ffa1, #ffe189, #c99bff, #ff8bd8);
+  mix-blend-mode: soft-light;
+  opacity: 0.34;
+}
+/* hover sheen — one diagonal sweep when the badge or its host is hovered */
+.sigil__plate::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(115deg, transparent 42%, rgb(255 255 255 / 0.55) 50%, transparent 58%);
+  transform: translateX(-70%);
+  opacity: 0;
+  pointer-events: none;
+}
+.sigil:hover .sigil__plate::after,
+:is(a, button, summary, label, tr, li, article, [role='button'], [role='option'], [role='menuitem'], .sigil-host):hover .sigil .sigil__plate::after {
+  animation: sg-sheen 900ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.sigil:hover,
+:is(a, button, [role='button'], [role='option'], .sigil-host):hover .sigil:not([data-tier='xs']) {
+  box-shadow: 0 calc(var(--sg-size) * 0.12) calc(var(--sg-size) * 0.46) calc(var(--sg-size) * -0.1) color-mix(in srgb, var(--sg-glow) 88%, transparent);
+}
+
+/* orbit — a tilted ring behind the ink with one glowing node */
+.sigil svg.sigil__orbit {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: visible;
+  transform: none;
+  filter: none;
+}
+.sigil__ring {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.3);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.sigil[data-tier='sm'] .sigil__ring {
+  stroke: rgb(255 255 255 / 0.2);
+}
+.sigil__ring--far {
+  stroke: rgb(255 255 255 / 0.13);
+  stroke-dasharray: 1.5 3.5;
+}
+.sigil__node {
+  fill: #ffffff;
+}
+.sigil__rim {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.34);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.sigil__spin {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+}
+.sigil[data-tier='lg'] .sigil__spin {
+  animation: sg-orbit 60s linear infinite;
+}
+
+/* ink — the glyph in light ink with a soft glow */
+.sigil svg.sigil__ink {
+  position: relative;
+  z-index: 1;
+  display: block;
+  flex: none;
+  overflow: visible;
+  color: var(--sg-ink);
+  transform: none;
+  filter: drop-shadow(0 0 1px rgb(255 255 255 / 0.45)) drop-shadow(0 1px 1.2px color-mix(in srgb, var(--sg-plate-deep) 80%, transparent));
+}
+.sigil[data-tier='xs'] svg.sigil__ink {
+  filter: drop-shadow(0 0.5px 0.5px color-mix(in srgb, var(--sg-plate-deep) 85%, transparent));
+}
+.sigil[data-tier='lg'] svg.sigil__ink {
+  filter: drop-shadow(0 0 3px rgb(255 255 255 / 0.42)) drop-shadow(0 2px 3px color-mix(in srgb, var(--sg-plate-deep) 75%, transparent));
+}
+
+/* artwork paint (badge) */
+.sg-art {
+  fill: none;
+  stroke: var(--sg-ink);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.sg-art .sg-a {
+  stroke: var(--sg-accent);
+}
+.sg-art .sg-n {
+  fill: var(--sg-accent);
+  stroke: none;
+}
+.sg-art .sg-d {
+  fill: var(--sg-ink);
+  stroke: none;
+}
+.sg-art .sg-f {
+  opacity: 0.55;
+}
+.sigil[data-tier='xs'] .sg-x {
+  display: none;
+}
+
+/* artwork paint (bare glyph: currentColor + optional --ico-accent) */
+.sg-glyph {
+  flex: none;
+}
+.sg-glyph .sg-a {
+  stroke: var(--ico-accent, currentColor);
+}
+.sg-glyph .sg-n {
+  fill: var(--ico-accent, currentColor);
+  stroke: none;
+}
+.sg-glyph .sg-d {
+  fill: currentColor;
+  stroke: none;
+}
+.sg-glyph .sg-f {
+  opacity: 0.55;
+}
+
+/* hex variant (portfolios) — the rim is drawn by the orbit layer */
+.sigil[data-shape='hex'] {
+  border-radius: 0;
+  box-shadow: none;
+  filter: drop-shadow(0 calc(var(--sg-size) * 0.07) calc(var(--sg-size) * 0.14) color-mix(in srgb, var(--sg-glow) 60%, transparent));
+}
+.sigil[data-shape='hex'] .sigil__plate {
+  border-radius: 0;
+  box-shadow: none;
+  clip-path: polygon(50% 0, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%);
+}
+
+/* light theme: softer deep stop, glow becomes a lifted shadow */
+[data-theme='light'] .sigil {
+  --sg-plate-deep: var(--sg-deep-l);
+  box-shadow:
+    0 1px 1.5px rgb(15 23 42 / 0.14),
+    0 calc(var(--sg-size) * 0.12) calc(var(--sg-size) * 0.3) calc(var(--sg-size) * -0.14) color-mix(in srgb, var(--sg-glow) 70%, transparent);
+}
+[data-theme='light'] .sigil[data-shape='hex'] {
+  box-shadow: none;
+}
+[data-theme='light'] .sigil__plate {
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.22),
+    inset 0 1px 0 rgb(255 255 255 / 0.5),
+    inset 0 -1px 0 rgb(0 0 0 / 0.14),
+    inset 0 0 calc(var(--sg-size) * 0.26) color-mix(in srgb, var(--sg-glow) 40%, transparent);
+}
+
+@keyframes sg-sheen {
+  0% {
+    transform: translateX(-70%);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(70%);
+    opacity: 0;
+  }
+}
+@keyframes sg-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sigil .sigil__spin,
+  .sigil .sigil__plate::after {
+    animation: none !important;
+  }
+  .sigil {
+    transition: none;
+  }
+}
+[data-motion='reduced'] .sigil .sigil__spin,
+[data-motion='reduced'] .sigil .sigil__plate::after {
+  animation: none !important;
+}

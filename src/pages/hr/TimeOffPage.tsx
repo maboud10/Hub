@@ -1,16 +1,14 @@
 /**
  * HR Portal · Time off — balances that explain themselves, a guided
- * "Request time off" flow (deep link `?new=1[&type=sick]`), my requests,
- * public holidays with smart-break ideas, who's away on the team and the
- * policy in plain words. People-first: fast paths for the common cases
- * ("I'm sick today" is two taps), privacy by default, and every number
- * explained before you send anything.
+ * "Request time off" flow (deep link `?new=1[&type=sick][&from=YYYY-MM-DD&to=YYYY-MM-DD]`),
+ * my requests, public holidays with smart-break ideas, who's away on the team
+ * and the policy in plain words. People-first: fast paths for the common cases
+ * ("I'm sick today" is two taps, from the header), privacy by default, and
+ * every number explained before you send anything.
  */
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Globe, Plane, Thermometer } from 'lucide-react';
 import type { LeaveTypeId } from '@/hr/types';
-import { holidaySet, nextWorkingDay, todayISO } from '@/hr/calendar';
 import { useSessionUser } from '@/store/selectors';
 import { BalanceCards } from './timeoff/BalanceCards';
 import { HolidaysPanel } from './timeoff/Holidays';
@@ -20,12 +18,17 @@ import { RequestFlowModal, type FlowPreset } from './timeoff/RequestFlow';
 import { WhosAway } from './timeoff/WhosAway';
 import { isLeaveType } from './timeoff/utils';
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
 export function TimeOffPage() {
   const me = useSessionUser();
   const [params, setParams] = useSearchParams();
   const open = params.get('new') === '1';
   const typeParam = params.get('type');
   const initialType = isLeaveType(typeParam) ? typeParam : undefined;
+  const fromParam = params.get('from');
+  const toParam = params.get('to');
+  const urlPreset: FlowPreset | null = fromParam && ISO_DAY.test(fromParam) ? { start: fromParam, end: toParam && ISO_DAY.test(toParam) && toParam >= fromParam ? toParam : fromParam } : null;
   const [preset, setPreset] = useState<FlowPreset | null>(null);
   // A fresh flow (fresh state) every time it opens, whether from a button or a deep link.
   const [flowKey, setFlowKey] = useState(0);
@@ -43,6 +46,8 @@ export function TimeOffPage() {
         next.set('new', '1');
         if (type) next.set('type', type);
         else next.delete('type');
+        next.delete('from');
+        next.delete('to');
         return next;
       },
       { replace: false },
@@ -55,6 +60,8 @@ export function TimeOffPage() {
         const next = new URLSearchParams(prev);
         next.delete('new');
         next.delete('type');
+        next.delete('from');
+        next.delete('to');
         return next;
       },
       { replace: true },
@@ -62,29 +69,9 @@ export function TimeOffPage() {
   };
 
   if (!me) return null;
-  const sickDay = nextWorkingDay(todayISO(), holidaySet(me.location));
 
   return (
     <div className="hr-to">
-      <section className="hr-to-bar" aria-label="Quick actions">
-        <div className="hr-to-bar__text">
-          <span className="eyebrow">Time off</span>
-          <h2 className="hr-to-bar__title">Rest is part of the work.</h2>
-        </div>
-        <div className="hr-to-bar__actions">
-          <button type="button" className="btn btn--primary" onClick={() => startRequest()}>
-            <Plane /> Request time off
-          </button>
-          <button type="button" className="btn" onClick={() => startRequest('sick', { start: sickDay, end: sickDay })}>
-            <Thermometer /> {sickDay === todayISO() ? 'I’m sick today' : 'Sick next working day'}
-          </button>
-          <button type="button" className="btn" onClick={() => startRequest('wfa')} aria-label="Work from anywhere">
-            <Globe /> <span className="hr-to-lg-only">Work from anywhere</span>
-            <span className="hr-to-sm-only">Anywhere</span>
-          </button>
-        </div>
-      </section>
-
       <BalanceCards onRequest={(t) => startRequest(t)} />
 
       <div className="hr-to-row">
@@ -96,7 +83,7 @@ export function TimeOffPage() {
 
       <PolicyTips onRequest={(t) => startRequest(t)} />
 
-      <RequestFlowModal key={flowKey} open={open} onClose={close} initialType={initialType} preset={initialType ? preset : null} />
+      <RequestFlowModal key={flowKey} open={open} onClose={close} initialType={initialType} preset={initialType ? (preset ?? urlPreset) : null} />
     </div>
   );
 }

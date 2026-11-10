@@ -12,6 +12,7 @@ import { daysBetween, formatDay, todayISO } from '@/hr/calendar';
 import { useSessionUser } from '@/store/selectors';
 import { Modal } from '@/components/ui/Modal';
 import { EmptyState } from '@/components/ui/primitives';
+import { HrPanel } from '../components/shared';
 import { money, useMyComp } from '../benefits/model';
 import { PayslipSheet } from './sheets';
 import { monthLabel, printSheet } from './model';
@@ -99,7 +100,7 @@ export function PayslipsTab() {
 
   return (
     <div className="hr-doc-pay">
-      <section className="card hr-doc-payhero" aria-label="Pay summary">
+      <section className="neo-panel card hr-doc-payhero" aria-label="Pay summary">
         <div className="hr-doc-payhero__next">
           <span className="stat-label">Next payday</span>
           <b>{formatDay(next, { weekday: 'short', day: 'numeric', month: 'long' })}</b>
@@ -137,52 +138,52 @@ export function PayslipsTab() {
         </div>
       )}
 
-      {slips.length === 0 ? (
-        <div className="card card--flat">
+      <HrPanel hud="Monthly statements" title="Payslips" sub="Open any payslip to view earnings, deductions and reimbursed claims, or save a PDF.">
+        {slips.length === 0 ? (
           <EmptyState icon={<Receipt />} title="No payslips yet">
             Your first payslip arrives on {formatDay(next, { weekday: 'long', day: 'numeric', month: 'long' })}. We’ll let you know.
           </EmptyState>
-        </div>
-      ) : (
-        <ul className="hr-doc-slips" aria-label="Payslips">
-          {slips.map((s) => {
-            const [y, m] = s.period.split('-').map(Number);
-            const mon = new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short' });
-            return (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  className="hr-doc-slip"
-                  onClick={() => {
-                    setOpenId(s.id);
-                    setOpen(true);
-                  }}
-                >
-                  <span className="hr-doc-slip__cal" aria-hidden="true">
-                    <b>{mon}</b>
-                    <small>{y}</small>
-                  </span>
-                  <span className="hr-doc-slip__main">
-                    <b>{monthLabel(s.period)}</b>
-                    <span>
-                      Paid {formatDay(s.payDate, { day: 'numeric', month: 'short' })} · gross {money(s.gross, s.currency)}
+        ) : (
+          <ul className="hr-doc-slips" aria-label="Payslips">
+            {slips.map((s) => {
+              const [y, m] = s.period.split('-').map(Number);
+              const mon = new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'short' });
+              return (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className="hr-doc-slip"
+                    onClick={() => {
+                      setOpenId(s.id);
+                      setOpen(true);
+                    }}
+                  >
+                    <span className="hr-doc-slip__cal" aria-hidden="true">
+                      <b>{mon}</b>
+                      <small>{y}</small>
                     </span>
-                  </span>
-                  <span className="hr-doc-slip__tags">
-                    {s.partial && <span className="badge badge--info">Pro-rated</span>}
-                    {hasClaims(s) && <span className="badge badge--success">+ claims</span>}
-                  </span>
-                  <span className="hr-doc-slip__net">
-                    <small>Net</small>
-                    {money(s.net, s.currency)}
-                  </span>
-                  <ChevronRight className="hr-doc-slip__chev" aria-hidden="true" />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                    <span className="hr-doc-slip__main">
+                      <b>{monthLabel(s.period)}</b>
+                      <span>
+                        Paid {formatDay(s.payDate, { day: 'numeric', month: 'short' })} · gross {money(s.gross, s.currency)}
+                      </span>
+                    </span>
+                    <span className="hr-doc-slip__tags">
+                      {s.partial && <span className="badge badge--info">Pro-rated</span>}
+                      {hasClaims(s) && <span className="badge badge--success">+ claims</span>}
+                    </span>
+                    <span className="hr-doc-slip__net">
+                      <small>Net</small>
+                      {money(s.net, s.currency)}
+                    </span>
+                    <ChevronRight className="hr-doc-slip__chev" aria-hidden="true" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </HrPanel>
 
       <Modal
         open={open && !!current}

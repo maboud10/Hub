@@ -42,6 +42,8 @@ import { useNow } from '@/hooks/useNow';
 import { usersWithPermission } from '@/lib/rbac';
 import { cx } from '@/lib/cx';
 import { Segmented, Switch } from '@/components/ui/primitives';
+import { Chip } from '@/components/neo';
+import { HeadActions, scrollStageTo } from './components/head';
 import { EngineBadge, PeopleStack, PersonChip, Stepper, type StepDef } from './components/shared';
 import { JDHealth, JDInput, JDScanning, SearchDNA, SkillEditor, useJDAnalysis } from './components/jd';
 import { UserSelect } from './components/pickers';
@@ -51,6 +53,7 @@ import { InterviewPlanEditor, PlanSummary } from './reqs/InterviewPlan';
 import { CompGuardrail } from './reqs/CompGuardrail';
 import { CompRange, LocationInput, NumberStepper, WorkModelPicker } from './reqs/pieces';
 import { DEPARTMENTS, PLAN_TEMPLATES, PRIORITY_ORDER, annualSalary, bandForSeniority, isPeopleOps, normaliseLocation, planFamily, templatePlan } from './reqs/helpers';
+import { briefToJD } from './sourcing/store';
 
 const STEPS: StepDef[] = [
   { id: 'jd', label: 'Role & JD', icon: FileText, hint: 'Upload or paste the job description; AI decodes it.' },
@@ -102,7 +105,8 @@ type RouteJD = { text: string; fileName?: string; profile?: JobProfile | null };
 export function RequisitionWizard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const routeJd = (location.state as { jd?: RouteJD } | null)?.jd;
+  const routeState = location.state as { jd?: RouteJD; brief?: string } | null;
+  const routeJd: RouteJD | undefined = routeState?.jd ?? (routeState?.brief ? { text: briefToJD(routeState.brief) } : undefined);
   const jd = useJDAnalysis(routeJd ? { text: routeJd.text, fileName: routeJd.fileName, profile: routeJd.profile ?? null } : undefined);
   const caps = useTalentCaps();
   const viewer = useTalentViewer();
@@ -243,7 +247,7 @@ export function RequisitionWizard() {
   const goTo = (i: number) => {
     setStep(i);
     setShowErrors(false);
-    window.requestAnimationFrame(() => topRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+    window.requestAnimationFrame(() => scrollStageTo(topRef.current));
   };
 
   const next = async () => {
@@ -300,16 +304,12 @@ export function RequisitionWizard() {
 
   return (
     <div className="tl-wiz" ref={topRef}>
-      <div className="tl-wiz__head">
-        <div className="grow">
-          <div className="eyebrow">New requisition</div>
-          <h2 className="tl-wiz__title">{details.title.trim() || 'Raise a requisition'}</h2>
-          <p className="page-sub">JD → details → team & loop → compensation → review. Nothing is saved until the last step.</p>
-        </div>
-        <button type="button" className="btn btn--ghost" onClick={() => navigate('/talent/requisitions')}>
-          <X /> Cancel
+      <HeadActions>
+        {details.title.trim() && <Chip tone="app">{details.title.trim()}</Chip>}
+        <button type="button" className="neo-btn neo-btn--soft" onClick={() => navigate('/talent/requisitions')}>
+          <X /> <span className="neo-btn__label">Cancel</span>
         </button>
-      </div>
+      </HeadActions>
 
       <Stepper steps={STEPS} current={step} maxReached={maxReached} onStep={goTo} />
 

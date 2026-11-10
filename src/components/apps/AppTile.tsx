@@ -1,5 +1,5 @@
-import { useRef, type CSSProperties, type PointerEvent } from 'react';
-import { Ellipsis, Hourglass, LockKeyhole, Pin, PinOff, Clock } from 'lucide-react';
+import { useRef, type CSSProperties, type MouseEvent, type PointerEvent } from 'react';
+import { ArrowUpRight, Clock, Ellipsis, Hourglass, Info, LockKeyhole, Pin, PinOff } from 'lucide-react';
 import type { AppStatus, AppWithAccess } from '@/types';
 import { useHub } from '@/store/hub';
 import { useUI } from '@/store/ui';
@@ -8,6 +8,8 @@ import { usePrefs } from '@/store/selectors';
 import { useLongPress } from '@/hooks/useLongPress';
 import { useLaunchApp } from './useLaunchApp';
 import { AppIcon } from '@/components/ui/primitives';
+import { Chip, Orb, useContextMenu, type MenuEntry, type Tone } from '@/components/neo';
+import { getIcon } from '@/icons';
 import { relativeTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
 
@@ -18,6 +20,8 @@ export const STATUS_LABEL: Record<AppStatus, string> = {
   degraded: 'Degraded',
   maintenance: 'Maintenance',
 };
+
+const STATUS_TONE: Record<AppStatus, Tone> = { operational: 'success', degraded: 'warning', maintenance: 'blue' };
 
 const DAY = 86_400_000;
 
@@ -36,6 +40,8 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
   const openAppSheet = useUI((s) => s.openAppSheet);
   const launch = useLaunchApp();
   const ref = useRef<HTMLDivElement>(null);
+  const lastPointer = useRef<string>('mouse');
+  const ctx = useContextMenu();
   const pinned = prefs.pinned.includes(app.id);
   const granted = access === 'granted';
   const { handlers, wasLongPress } = useLongPress(() => openAppSheet(app.id));
@@ -44,6 +50,35 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
     if (wasLongPress()) return;
     if (access === 'disabled') return openAppSheet(app.id);
     launch(app.id);
+  };
+
+  const pin = () => toast.result(togglePin(app.id));
+
+  /** Desktop right-click menu (touch long-press keeps opening the details sheet). */
+  const menu = (): MenuEntry[] => {
+    const details: MenuEntry = { label: 'Details', icon: <Info />, onSelect: () => openAppSheet(app.id) };
+    if (access === 'locked') return [{ label: 'Request access…', icon: <LockKeyhole />, onSelect: () => openAppSheet(app.id) }, details];
+    if (access === 'pending') return [{ label: 'View pending request', icon: <Clock />, onSelect: () => openAppSheet(app.id) }, details];
+    if (access === 'disabled') return [details];
+    return [
+      { label: `Open ${app.name}`, icon: <ArrowUpRight />, hint: '↵', onSelect: () => launch(app.id) },
+      ...(app.quickActions ?? []).slice(0, 3).map((qa): MenuEntry => {
+        const Icon = getIcon(qa.icon);
+        return { label: qa.label, icon: <Icon />, onSelect: () => launch(app.id, qa.label) };
+      }),
+      { kind: 'sep' },
+      { label: pinned ? 'Unpin from dock' : 'Pin to dock', icon: pinned ? <PinOff /> : <Pin />, onSelect: pin },
+      details,
+    ];
+  };
+
+  const onContextMenu = (e: MouseEvent) => {
+    if (lastPointer.current !== 'mouse') return handlers.onContextMenu(e);
+    e.preventDefault();
+    const r = ref.current?.getBoundingClientRect();
+    // Keyboard-invoked menus (Shift+F10 / menu key) report 0,0 — anchor to the tile instead.
+    if (!e.clientX && !e.clientY && r) ctx.open({ clientX: r.left + 24, clientY: r.top + 36 }, menu());
+    else ctx.open(e, menu());
   };
 
   // Cursor-follow spotlight + subtle 3D tilt (mouse only, skipped for reduced motion)
@@ -64,9 +99,13 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
     ref.current?.style.setProperty('--rx', '0deg');
     ref.current?.style.setProperty('--ry', '0deg');
   };
-  /** Long-press + spotlight/tilt handlers merged so neither overrides the other. */
+  /** Long-press + spotlight/tilt + context-menu handlers merged so neither overrides the other. */
   const pointer = {
     ...handlers,
+    onPointerDown: (e: PointerEvent) => {
+      lastPointer.current = e.pointerType;
+      handlers.onPointerDown(e);
+    },
     onPointerMove: (e: PointerEvent) => {
       handlers.onPointerMove(e);
       onMove(e);
@@ -75,10 +114,10 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
       handlers.onPointerLeave();
       onLeave();
     },
+    onContextMenu,
   };
 
   const style = { '--c1': app.gradient[0], '--c2': app.gradient[1], '--i': index } as CSSProperties;
-  const pin = () => toast.result(togglePin(app.id));
   const expiringSoon = expiresAt && expiresAt - Date.now() < 7 * DAY;
 
   // ───────── Icon (phone) ─────────
@@ -89,7 +128,7 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
           <AppIcon app={app} size={60} locked={!granted} />
           {granted && !!app.notifications && <span className="counter">{app.notifications}</span>}
           {access === 'pending' && (
-            <span className="tile-ico__pending badge badge--warning" style={{ height: 18, padding: '0 5px' }}>
+            <span className="tile-ico__pending" aria-hidden="true">
               <Clock />
             </span>
           )}
@@ -99,26 +138,34 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
     );
   }
 
+  const badge = app.badge && (
+    <Chip tone={app.badge === 'new' ? 'app' : 'violet'} size="sm" solid={app.badge === 'new'} className="tile__flag">
+      {app.badge}
+    </Chip>
+  );
+
   const statusNode =
     access === 'locked' ? (
       <span className="tile__lockline">
         <LockKeyhole /> Request access
       </span>
     ) : access === 'pending' ? (
-      <span className="badge badge--warning">
-        <span className="dot dot--pulse dot--away" /> Pending review
-      </span>
+      <Chip tone="warning" size="sm" icon={<Orb tone="warning" pulse size={6} />}>
+        Pending review
+      </Chip>
     ) : access === 'disabled' ? (
-      <span className="badge badge--muted">Disabled</span>
+      <Chip tone="slate" size="sm">
+        Disabled
+      </Chip>
     ) : expiresAt ? (
-      <span className={cx('badge', expiringSoon ? 'badge--warning' : 'badge--info')} title="Temporary access">
-        <Hourglass /> Expires {relativeTime(expiresAt)}
-      </span>
+      <Chip tone={expiringSoon ? 'warning' : 'blue'} size="sm" icon={<Hourglass />} title="Temporary access">
+        Expires {relativeTime(expiresAt)}
+      </Chip>
     ) : (
-      <span className="tile__status">
-        <span className={cx('dot', `dot--${app.status}`, app.status !== 'operational' && 'dot--pulse')} />
+      <span className="tile__status" title={STATUS_LABEL[app.status]}>
+        <Orb tone={STATUS_TONE[app.status]} pulse={app.status !== 'operational'} size={6} />
         <span className="tile-row__status-label">
-          {app.status === 'operational' && app.route ? 'Workspace App' : STATUS_LABEL[app.status]}
+          {app.status !== 'operational' ? STATUS_LABEL[app.status] : variant === 'row' ? (app.route ? 'Workspace app' : 'Single sign-on') : app.route ? 'Workspace' : 'SSO'}
         </span>
       </span>
     );
@@ -127,6 +174,7 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
     <>
       {granted && (
         <button
+          type="button"
           className={cx('icon-btn icon-btn--sm tile__pin', pinned && 'is-pinned')}
           onClick={pin}
           aria-label={pinned ? `Unpin ${app.name}` : `Pin ${app.name}`}
@@ -136,7 +184,7 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
           {pinned ? <PinOff /> : <Pin />}
         </button>
       )}
-      <button className="icon-btn icon-btn--sm" onClick={() => openAppSheet(app.id)} aria-label={`${app.name} details`} data-tip="Details">
+      <button type="button" className="icon-btn icon-btn--sm" onClick={() => openAppSheet(app.id)} aria-label={`${app.name} details`} data-tip="Details">
         <Ellipsis />
       </button>
     </>
@@ -145,16 +193,17 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
   // ───────── Row (list) ─────────
   if (variant === 'row') {
     return (
-      <div ref={ref} className={cx('tile-row', `tile-row--${access}`)} style={style} role="listitem" {...pointer}>
+      <>
+      <div ref={ref} className={cx('tile-row neo-spot', `tile-row--${access}`)} style={style} role="listitem" {...pointer}>
         <button className="tile__hit" onClick={onActivate} aria-label={accessLabel(item)} />
-        <AppIcon app={app} size={42} locked={!granted} />
-        <div className="grow">
+        <AppIcon app={app} size={40} locked={!granted} />
+        <div className="tile-row__main">
           <div className="tile-row__name">
             <span className="truncate">{app.name}</span>
-            {app.badge && <span className={cx('badge', app.badge === 'new' ? 'badge--solid' : 'badge--info')}>{app.badge}</span>}
+            {badge}
             {granted && !!app.notifications && <span className="counter">{app.notifications}</span>}
           </div>
-          <div className="text-sm muted truncate">{app.tagline}</div>
+          <div className="tile-row__tagline">{app.tagline}</div>
         </div>
         <div className="tile-row__aside">
           <span className="tile-row__cat">{app.category}</span>
@@ -162,24 +211,22 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
           {actions}
         </div>
       </div>
+      {ctx.element}
+      </>
     );
   }
 
   // ───────── Card ─────────
   return (
-    <div
-      ref={ref}
-      className={cx('tile', `tile--${access}`, pinned && 'is-pinned')}
-      style={style}
-      role="listitem"
-      {...pointer}
-    >
+    <>
+    <div ref={ref} className={cx('tile neo-spot', `tile--${access}`, pinned && 'is-pinned')} style={style} role="listitem" {...pointer}>
       <button className="tile__hit" onClick={onActivate} aria-label={accessLabel(item)} />
+      <span className="tile__aura" aria-hidden="true" />
       {pinned && <span className="tile__pin-flag" aria-hidden="true" />}
       <div className="tile__top">
-        <AppIcon app={app} size={52} locked={!granted} />
+        <AppIcon app={app} size={46} locked={!granted} />
         <div className="tile__badges">
-          {app.badge && <span className={cx('badge', app.badge === 'new' ? 'badge--solid' : 'badge--info')}>{app.badge}</span>}
+          {badge}
           {granted && !!app.notifications && <span className="counter">{app.notifications}</span>}
         </div>
       </div>
@@ -188,10 +235,13 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
         <div className="tile__tagline">{app.tagline}</div>
       </div>
       <div className="tile__foot">
+        <span className="tile__meta">{app.category}</span>
         {statusNode}
-        <div className="tile__actions">{actions}</div>
+        {granted && <div className="tile__actions">{actions}</div>}
       </div>
     </div>
+    {ctx.element}
+    </>
   );
 }
 

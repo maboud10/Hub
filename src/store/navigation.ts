@@ -32,7 +32,7 @@ const APP_AREA_META: Record<
   string,
   { appId: string; label: string; icon: string; gradient: [string, string] }
 > = {
-  chat: { appId: 'chat', label: 'Pulse Chat', icon: 'MessagesSquare', gradient: ['#22d3ee', '#0ea5e9'] },
+  chat: { appId: 'chat', label: 'Pulse Chat', icon: 'MessagesSquare', gradient: ['#22d3ee', '#d946ef'] },
   projects: { appId: 'projects', label: 'Projects', icon: 'SquareKanban', gradient: ['#a78bfa', '#7c3aed'] },
   drive: { appId: 'drive', label: 'Drive', icon: 'FolderOpen', gradient: ['#fbbf24', '#f97316'] },
   wiki: { appId: 'wiki', label: 'Knowledge Base', icon: 'BookOpen', gradient: ['#2dd4bf', '#0d9488'] },
@@ -42,7 +42,10 @@ const APP_AREA_META: Record<
   expenses: { appId: 'expenses', label: 'Expenses & Travel', icon: 'Receipt', gradient: ['#2dd4bf', '#0891b2'] },
   travel: { appId: 'travel', label: 'Travel Desk', icon: 'Plane', gradient: ['#7dd3fc', '#0284c7'] },
   payroll: { appId: 'payroll', label: 'Payroll Console', icon: 'Wallet', gradient: ['#4ade80', '#16a34a'] },
-  helpdesk: { appId: 'helpdesk', label: 'IT Helpdesk', icon: 'LifeBuoy', gradient: ['#22d3ee', '#0e7490'] },
+  helpdesk: { appId: 'helpdesk', label: 'IT Helpdesk', icon: 'LifeBuoy', gradient: ['#34d399', '#0ea5e9'] },
+  performance: { appId: 'performance', label: 'Performance & OKRs', icon: 'Target', gradient: ['#f472b6', '#a855f7'] },
+  // The Control Center is a hub area, but it runs as an immersive NEO workspace like the apps.
+  admin: { appId: 'admin', label: 'Control Center', icon: 'ShieldCheck', gradient: ['#38bdf8', '#818cf8'] },
 };
 
 const CORE_AREA_META: Record<
@@ -53,14 +56,13 @@ const CORE_AREA_META: Record<
   apps: { label: 'Apps Catalog', sublabel: 'All applications', icon: 'Compass', gradient: ['#38bdf8', '#818cf8'] },
   people: { label: 'People Directory', sublabel: 'Org & profiles', icon: 'Users', gradient: ['#f472b6', '#a855f7'] },
   news: { label: 'Newsroom', sublabel: 'Company updates', icon: 'Globe', gradient: ['#fb923c', '#f43f5e'] },
-  admin: { label: 'Control Center', sublabel: 'Governance & RBAC', icon: 'ShieldCheck', gradient: ['#a78bfa', '#6366f1'] },
   settings: { label: 'Settings', sublabel: 'Preferences', icon: 'KeyRound', gradient: ['#94a3b8', '#64748b'] },
 };
 
 function humanizeSubpath(seg: string | undefined): string | undefined {
   if (!seg) return undefined;
   const clean = seg
-    .replace(/^(prj-|drv-|fo-|df-|ch-|dm-|col-|crs-|path-)/, '')
+    .replace(/^(prj-|drv-|fo-|df-|ch-|dm-|col-|crs-|path-|obj-|kr-|rv-|cyc-|oo-|tk-|hx-)/i, '')
     .replace(/[-_]/g, ' ')
     .trim();
   if (!clean) return undefined;
@@ -129,7 +131,7 @@ export const useNavTrail = create<NavTrailState>()((set, get) => ({
         nextOrigin = describeLocation('/', '');
       }
     } else {
-      // Back on a core Hub page (Home, Apps, People, News, Admin, Settings):
+      // Back on a core Hub page (Home, Apps, People, News, Settings):
       // Keep the last app in trail so they can also hop forward, and clear appOrigin
       nextOrigin = null;
     }

@@ -42,14 +42,10 @@ export function PeopleOpsPage() {
 
   return (
     <div className="hr-ops">
-      <header className="hr-ops__head">
-        <div className="grow">
-          <div className="eyebrow">People Ops console · {formatDay(todayISO(now), { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-          <h2 className="hr-ops__title">Run the people side of Helix</h2>
-          <p className="hr-ops__sub">
-            <ClipboardCheck aria-hidden="true" className="inline-icon" /> Separation of duties applies everywhere: your own requests always go to another partner.
-          </p>
-        </div>
+      <div className="neo-panel hr-ops__bar">
+        <span className="hr-ops__bar-note">
+          <ClipboardCheck aria-hidden="true" className="inline-icon" /> {formatDay(todayISO(now), { weekday: 'short', day: 'numeric', month: 'short' })} · Separation of duties active: your own requests go to another partner
+        </span>
         <nav className="hr-ops__jump" aria-label="Jump to section">
           {JUMPS.map((j) => {
             const Icon = j.icon;
@@ -60,7 +56,7 @@ export function PeopleOpsPage() {
             );
           })}
         </nav>
-      </header>
+      </div>
 
       <KpiStrip stats={stats} onJump={jump} />
 

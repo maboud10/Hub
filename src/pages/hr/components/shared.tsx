@@ -3,7 +3,8 @@
  * Documents, Approvals and People Ops.
  */
 import type { CSSProperties, ReactNode } from 'react';
-import { EyeOff } from 'lucide-react';
+import { Link } from 'react-router';
+import { ArrowRight, EyeOff } from 'lucide-react';
 import type { LeaveTypeId } from '@/hr/types';
 import { LEAVE_TYPE_BY_ID } from '@/hr/constants';
 import type { LeaveBalance } from '@/hr/engine';
@@ -96,21 +97,62 @@ export function Money({ amount, currency, compact }: { amount: number; currency:
   return <span className="hr-money">{formatMoney(amount, currency, { compact })}</span>;
 }
 
-/** Section card with a consistent header. */
-export function HrPanel({ title, icon, actions, children, className, sub }: { title: ReactNode; icon?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; sub?: ReactNode }) {
+/**
+ * Section card in the NEO panel anatomy (same markup as `NeoPanel`): a mono
+ * HUD eyebrow (`hud`, 2–3 words), a sentence-case `title`, an optional
+ * one-line `sub` and right-aligned `actions` (e.g. `<AllLink />`).
+ */
+export function HrPanel({
+  hud,
+  title,
+  sub,
+  actions,
+  children,
+  className,
+  id,
+  flush,
+  labelledBy,
+}: {
+  hud?: ReactNode;
+  title?: ReactNode;
+  sub?: ReactNode;
+  actions?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+  id?: string;
+  /** No inner padding (edge-to-edge lists and tables). */
+  flush?: boolean;
+  /** Id for the title, so the section can be labelled by it. */
+  labelledBy?: string;
+  /** @deprecated Panels follow the Support Deck anatomy (no icon tile); the prop is ignored. */
+  icon?: ReactNode;
+}) {
   return (
-    <section className={cx('card hr-panel', className)}>
-      <header className="hr-panel__head">
-        <div className="grow">
-          <h2 className="section-title">
-            {icon}
-            {title}
-          </h2>
-          {sub && <p className="text-sm muted hr-panel__sub">{sub}</p>}
-        </div>
-        {actions && <div className="hr-panel__actions">{actions}</div>}
-      </header>
+    <section className={cx('neo-panel hr-panel', flush && 'neo-panel--flush', className)} id={id} aria-labelledby={title && labelledBy ? labelledBy : undefined}>
+      {(hud || title || sub || actions) && (
+        <header className="neo-panel__head hr-panel__head">
+          <div className="neo-panel__titles">
+            {hud && <div className="neo-hud">{hud}</div>}
+            {title && (
+              <h2 className="neo-panel__title" id={labelledBy}>
+                {title}
+              </h2>
+            )}
+            {sub && <p className="hr-panel__sub">{sub}</p>}
+          </div>
+          {actions && <div className="neo-panel__actions hr-panel__actions">{actions}</div>}
+        </header>
+      )}
       {children}
     </section>
+  );
+}
+
+/** The panel-header "All →" link (ghost, extra small). */
+export function AllLink({ to, children = 'All', label }: { to: string; children?: ReactNode; label?: string }) {
+  return (
+    <Link to={to} className="neo-btn neo-btn--ghost neo-btn--xs" aria-label={label}>
+      {children} <ArrowRight aria-hidden="true" />
+    </Link>
   );
 }

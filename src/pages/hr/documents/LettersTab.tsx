@@ -146,17 +146,18 @@ export function LettersTab({ preset, onOpenDoc, onClearPreset }: { preset: Lette
 
   return (
     <div className="hr-doc-letters">
-      <section className="hr-doc-lpick" aria-labelledby="hr-doc-lpick-title">
-        <div className="hr-doc-lpick__head">
-          <h2 id="hr-doc-lpick-title" className="section-title">
-            <FileText aria-hidden="true" /> What do you need?
-          </h2>
+      <HrPanel
+        className="hr-doc-lpick"
+        hud="Official letterhead"
+        title="What do you need?"
+        actions={
           <ol className="hr-doc-lsteps" aria-label="How it works">
             <li className={cx(!kind && 'is-active', kind && 'is-done')}>Choose a letter</li>
             <li className={cx(kind && 'is-active')}>Add the details</li>
             <li>Download or wait for review</li>
           </ol>
-        </div>
+        }
+      >
         <div className="hr-doc-ltypes" role="group" aria-label="Letter templates">
           {LETTER_TYPES.map((t) => {
             const Icon = t.icon;
@@ -175,7 +176,7 @@ export function LettersTab({ preset, onOpenDoc, onClearPreset }: { preset: Lette
             );
           })}
         </div>
-      </section>
+      </HrPanel>
 
       {kind && meta && draft ? (
         <div className="hr-doc-lgen" ref={genRef}>
@@ -296,7 +297,7 @@ export function LettersTab({ preset, onOpenDoc, onClearPreset }: { preset: Lette
         </div>
       )}
 
-      <HrPanel title="Your letters" icon={<Inbox aria-hidden="true" />} sub="Issued letters keep their reference and verification code, so anyone can check they’re genuine.">
+      <HrPanel hud="Issued & requested" title="Your letters" icon={<Inbox aria-hidden="true" />} sub="Issued letters keep their reference and verification code, so anyone can check they’re genuine.">
         {mine.length === 0 ? (
           <EmptyState icon={<Inbox />} title="No letters yet">
             Salary certificates, bank and employment letters are generated instantly.

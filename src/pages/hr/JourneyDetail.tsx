@@ -11,7 +11,6 @@ import { Link, useParams } from 'react-router';
 import {
   ArrowLeft,
   BookOpen,
-  BriefcaseBusiness,
   CalendarHeart,
   Check,
   CircleCheckBig,
@@ -21,7 +20,6 @@ import {
   ListChecks,
   Lock,
   Mail,
-  MapPin,
   Pencil,
   Plus,
   Quote,
@@ -129,17 +127,15 @@ export function JourneyDetail() {
 
   return (
     <div className="hr-jd">
-      {/* Hero */}
-      <section className="hr-jd-hero" aria-labelledby="hr-jd-name">
+      {/* Status summary strip (person's name & title are in NeoHead) */}
+      <section className="neo-panel hr-jd-hero" aria-label="Journey summary">
         <div className="hr-jd-hero__glow" aria-hidden="true" />
-        <Link to={back} className="hr-jd-back">
-          <ArrowLeft aria-hidden="true" /> {back === '/hr' ? 'My HR' : 'Onboarding'}
-        </Link>
         <div className="hr-jd-hero__main">
           <div className="hr-jd-hero__avatar">
-            <ProgressRing percent={prog.percent} size={116} stroke={6} label={<JourneyAvatar journey={j} size={88} />} />
+            <ProgressRing percent={prog.percent} size={96} stroke={6} label={<JourneyAvatar journey={j} size={72} />} />
           </div>
           <div className="hr-jd-hero__info">
+            <div className="neo-hud neo-hud--tint">Offer to day 90 · journey status</div>
             <div className="hr-jd-hero__tags">
               <StatusBadge status={status} />
               <Countdown journey={j} now={now} size="lg" />
@@ -150,14 +146,6 @@ export function JourneyDetail() {
               )}
               {hasRole && <span className="hr-onb-pill hr-onb-pill--accent">{roleLabel(roles)}</span>}
             </div>
-            <h2 id="hr-jd-name" className="hr-jd-hero__name">
-              {j.name}
-            </h2>
-            <p className="hr-jd-hero__sub">
-              <BriefcaseBusiness aria-hidden="true" /> {j.title} · {j.department}
-              <span className="hr-jd-hero__sep" aria-hidden="true" />
-              <MapPin aria-hidden="true" /> {j.location}
-            </p>
             <div className="hr-jd-hero__facts">
               <span>
                 <CalendarHeart aria-hidden="true" /> Day one {new Date(parseISODate(j.startDate)).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
@@ -179,7 +167,7 @@ export function JourneyDetail() {
       </section>
 
       {/* Timeline */}
-      <section className="hr-jd-tl-wrap" aria-label="Journey timeline">
+      <section className="neo-panel hr-jd-tl-wrap" aria-label="Journey timeline">
         <ol className="hr-jd-tl">
           {prog.phases.map((p, i) => {
             const m = PHASE_META[p.phase];
@@ -207,14 +195,17 @@ export function JourneyDetail() {
 
       <div className="hr-jd__grid">
         {/* Checklist */}
-        <section className="hr-jd-panel hr-jd-checklist" aria-labelledby="hr-jd-checklist-title">
+        <section className="neo-panel hr-jd-panel hr-jd-checklist" aria-labelledby="hr-jd-checklist-title">
           <header className="hr-jd-panel__head hr-jd-checklist__head">
-            <h2 id="hr-jd-checklist-title" className="hr-jd-panel__title">
-              <ListChecks aria-hidden="true" /> Checklist
-              <span className="hr-jd-panel__meta">
-                {prog.done}/{prog.total} done
-              </span>
-            </h2>
+            <div>
+              <div className="neo-hud">Step by step</div>
+              <h2 id="hr-jd-checklist-title" className="hr-jd-panel__title">
+                <ListChecks aria-hidden="true" /> Checklist
+                <span className="hr-jd-panel__meta">
+                  {prog.done}/{prog.total} done
+                </span>
+              </h2>
+            </div>
             {canAdd && !adding && (
               <button type="button" className="btn btn--sm" onClick={() => setAdding(true)}>
                 <Plus /> Add task
@@ -291,7 +282,8 @@ export function JourneyDetail() {
           <AccountPanel journey={j} canProvision={caps.onboarding} />
           <WelcomePanel journey={j} canEdit={caps.onboarding || roles.manager} />
           <StartDatePanel journey={j} now={now} canEdit={caps.onboarding} />
-          <section className="hr-jd-panel hr-jd-sidecard" aria-labelledby="hr-jd-handoff">
+          <section className="neo-panel hr-jd-panel hr-jd-sidecard" aria-labelledby="hr-jd-handoff">
+            <div className="neo-hud">Source</div>
             <h2 id="hr-jd-handoff" className="hr-jd-sidecard__title">
               <Send aria-hidden="true" /> Hand-off from Talent Hub
             </h2>
@@ -465,7 +457,8 @@ function PeoplePanel({ journey: j, canAssign }: { journey: OnboardingJourney; ca
     }
   };
   return (
-    <section className="hr-jd-panel hr-jd-sidecard" aria-labelledby="hr-jd-people">
+    <section className="neo-panel hr-jd-panel hr-jd-sidecard" aria-labelledby="hr-jd-people">
+      <div className="neo-hud">Support circle</div>
       <h2 id="hr-jd-people" className="hr-jd-sidecard__title">
         <UserRound aria-hidden="true" /> People
       </h2>
@@ -520,7 +513,8 @@ function AccountPanel({ journey: j, canProvision }: { journey: OnboardingJourney
     toast.result(res);
   };
   return (
-    <section className={cx('hr-jd-panel hr-jd-sidecard hr-jd-acct', j.hubUserId ? 'is-ready' : 'is-pending')} aria-labelledby="hr-jd-acct-title">
+    <section className={cx('neo-panel hr-jd-panel hr-jd-sidecard hr-jd-acct', j.hubUserId ? 'is-ready' : 'is-pending')} aria-labelledby="hr-jd-acct-title">
+      <div className="neo-hud">Identity &amp; SSO</div>
       <h2 id="hr-jd-acct-title" className="hr-jd-sidecard__title">
         <KeyRound aria-hidden="true" /> NEXUS account
       </h2>
@@ -574,7 +568,8 @@ function WelcomePanel({ journey: j, canEdit }: { journey: OnboardingJourney; can
     if (toast.result(update(j.id, { welcomeNote: text.trim() || undefined }))) setEditing(false);
   };
   return (
-    <section className="hr-jd-panel hr-jd-sidecard" aria-labelledby="hr-jd-welcome">
+    <section className="neo-panel hr-jd-panel hr-jd-sidecard" aria-labelledby="hr-jd-welcome">
+      <div className="neo-hud">Day one message</div>
       <h2 id="hr-jd-welcome" className="hr-jd-sidecard__title">
         <Quote aria-hidden="true" /> Welcome note
         {canEdit && !editing && (
@@ -624,7 +619,8 @@ function StartDatePanel({ journey: j, now, canEdit }: { journey: OnboardingJourn
     if (toast.result(update(j.id, { startDate: date }))) setEditing(false);
   };
   return (
-    <section className="hr-jd-panel hr-jd-sidecard" aria-labelledby="hr-jd-start-title">
+    <section className="neo-panel hr-jd-panel hr-jd-sidecard" aria-labelledby="hr-jd-start-title">
+      <div className="neo-hud">Schedule</div>
       <h2 id="hr-jd-start-title" className="hr-jd-sidecard__title">
         <CalendarHeart aria-hidden="true" /> Start date
         {canEdit && !editing && (

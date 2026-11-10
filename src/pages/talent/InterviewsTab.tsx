@@ -38,6 +38,7 @@ import { toast } from '@/store/toast';
 import { Modal } from '@/components/ui/Modal';
 import { EmptyState, Segmented } from '@/components/ui/primitives';
 import { cx } from '@/lib/cx';
+import { HeadActions } from './components/head';
 import { CandidateAvatar, PeopleStack, SampleTag } from './components/shared';
 import { KindTile, LocationLine } from './interviews/bits';
 import { InterviewItem, type InterviewConfirm } from './interviews/InterviewItem';
@@ -192,6 +193,16 @@ export function InterviewsTab() {
 
   return (
     <div className="tl-iv">
+      <HeadActions>
+        <button type="button" className="neo-btn neo-btn--soft" onClick={() => navigate('/talent/pipeline')}>
+          <SquareKanban /> <span className="neo-btn__label">Pipeline</span>
+        </button>
+        {feedbackDue.length > 0 && (
+          <button type="button" className="neo-btn neo-btn--plasma" onClick={() => useTalentUI.getState().openModal({ kind: 'scorecard', interviewId: feedbackDue[0].id })}>
+            <ClipboardPen /> <span className="neo-btn__label">Write scorecard</span>
+          </button>
+        )}
+      </HeadActions>
       {/* 1 · Feedback that's waiting on me */}
       {feedbackDue.length > 0 ? (
         <section className="tl-iv-due" aria-labelledby="tl-iv-due-title">

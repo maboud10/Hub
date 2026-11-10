@@ -17,7 +17,7 @@ import { useSessionUser } from '@/store/selectors';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { Sheet } from '@/components/ui/Sheet';
 import { cx } from '@/lib/cx';
-import { BalanceRing } from '../components/shared';
+import { BalanceRing, HrPanel } from '../components/shared';
 import { allowanceStory, KEY_TYPES, MORE_TYPES, num } from './utils';
 
 interface MathRow {
@@ -222,21 +222,22 @@ export function BalanceCards({ onRequest }: { onRequest: (type: LeaveTypeId) => 
   if (!balances.length) return null;
   const types = more ? [...KEY_TYPES, ...MORE_TYPES] : KEY_TYPES;
   return (
-    <section className="hr-to-bals" aria-labelledby="hr-to-bals-title">
-      <header className="hr-to-section-head">
-        <h2 id="hr-to-bals-title" className="section-title">
-          Your balances <span className="count">{year}</span>
-        </h2>
-        <button type="button" className="btn btn--ghost btn--sm" aria-expanded={more} onClick={() => setMore((m) => !m)}>
+    <HrPanel
+      className="hr-to-bals"
+      hud={`Leave & allowances · ${year}`}
+      title="Your balances"
+      actions={
+        <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" aria-expanded={more} onClick={() => setMore((m) => !m)}>
           {more ? 'Fewer types' : `More types (${MORE_TYPES.length})`}
           <ChevronDown className={cx('hr-to-chev', more && 'is-up')} aria-hidden="true" />
         </button>
-      </header>
+      }
+    >
       <div className="hr-to-bals__grid">
         {types.map((t, i) => (
           <BalanceCard key={t} balance={balanceOf(balances, t)} year={year} index={i} onRequest={onRequest} />
         ))}
       </div>
-    </section>
+    </HrPanel>
   );
 }

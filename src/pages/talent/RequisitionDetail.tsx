@@ -63,6 +63,8 @@ import { useIsMobile } from '@/hooks/useMediaQuery';
 import { relativeTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import { EmptyState } from '@/components/ui/primitives';
+import { NeoKpi, NeoKpis, NeoPanel } from '@/components/neo';
+import { HeadActions } from './components/head';
 import {
   CandidateAvatar,
   EngineBadge,
@@ -79,7 +81,7 @@ import {
 import { Funnel } from './components/Funnel';
 import { JDHealth, JDInput, JDScanning, JDXray, SearchDNA, SkillEditor, useJDAnalysis } from './components/jd';
 import { daysInStage, fmtDay, fmtRelativeDay, slaState } from './components/format';
-import { CompRange, KpiTile, ReqApprovalFacts, ReqPipelineBar, SeatMeter } from './reqs/pieces';
+import { CompRange, ReqApprovalFacts, ReqPipelineBar, SeatMeter } from './reqs/pieces';
 import { InterviewPlanEditor, InterviewPlanView, PlanSummary } from './reqs/InterviewPlan';
 import { ReqEditModal } from './reqs/ReqEditModal';
 import { useNoteDialog } from './reqs/NoteDialog';
@@ -309,22 +311,29 @@ function ReqDetailBody({ req, apps: allApps }: { req: Requisition; apps: Applica
 
   return (
     <div className="tl-req-detail">
+      <HeadActions>
+        <Link to="/talent/requisitions" className="neo-btn neo-btn--soft">
+          <ArrowLeft aria-hidden="true" /> <span className="neo-btn__label">All requisitions</span>
+        </Link>
+        {req.status !== 'draft' && req.status !== 'pending-approval' && (
+          <button type="button" className="neo-btn neo-btn--soft" onClick={() => navigate(`/talent/pipeline?req=${req.id}`)}>
+            <SquareKanban /> <span className="neo-btn__label">Pipeline</span>
+          </button>
+        )}
+        {caps.source && req.status === 'open' && (
+          <button type="button" className="neo-btn neo-btn--plasma" onClick={() => navigate(`/talent/sourcing?req=${req.id}`)}>
+            <Radar /> <span className="neo-btn__label">Source</span>
+          </button>
+        )}
+      </HeadActions>
+
       <header className="tl-req-hero">
         <span className="tl-req-hero__grid" aria-hidden="true" />
         <span className="tl-req-hero__glow" aria-hidden="true" />
-        <div className="tl-req-hero__top">
-          <Link to="/talent/requisitions" className="tl-req-back">
-            <ArrowLeft aria-hidden="true" /> Requisitions
-          </Link>
-          <span className="mono faint text-xs">{req.id}</span>
-        </div>
         <div className="tl-req-hero__main">
           <div className="tl-req-hero__id">
-            <div className="eyebrow">
-              {req.department} · {SENIORITY_LABEL[req.seniority]}
-            </div>
-            <h1 className="tl-req-hero__title">{req.title}</h1>
             <div className="tl-req-hero__badges">
+              <span className="neo-mono faint text-xs">{req.id}</span>
               <ReqStatusBadge status={req.status} />
               <PriorityBadge priority={req.priority} />
               {req.jd.profile && (
@@ -629,19 +638,15 @@ function OverviewSection({
 
   return (
     <div className="tl-req-overview">
-      <div className="tl-req-kpis tl-req-kpis--5">
-        <KpiTile icon={Users} label="In pipeline" value={active.length} hint={`${apps.length} all-time · ${hired} hired`} tone="amber" />
-        <KpiTile icon={CalendarClock} label="Interviews booked" value={upcoming.length} hint={upcoming[0] ? `Next ${fmtRelativeDay(upcoming[0].scheduledAt, now)}` : 'Nothing on the calendar'} tone="info" />
-        <KpiTile icon={Signature} label="Offers" value={offersOut} hint={`${accepted} accepted`} tone="rose" />
-        <KpiTile icon={Clock} label="Days open" value={open ?? '—'} hint={open === null ? 'Not open yet' : req.status === 'open' ? 'And counting' : 'Total'} tone="warning" />
-        <KpiTile icon={Target} label="Avg match" value={avg !== null ? `${avg}%` : '—'} hint="Active candidates" tone="success" />
-      </div>
+      <NeoKpis label="Role metrics">
+        <NeoKpi icon={<Users />} label="In pipeline" value={active.length} sub={`${apps.length} all-time · ${hired} hired`} />
+        <NeoKpi icon={<CalendarClock />} label="Interviews booked" value={upcoming.length} sub={upcoming[0] ? `Next ${fmtRelativeDay(upcoming[0].scheduledAt, now)}` : 'Nothing on the calendar'} />
+        <NeoKpi icon={<Signature />} label="Offers" value={offersOut} sub={`${accepted} accepted`} />
+        <NeoKpi icon={<Clock />} label="Days open" value={open ?? '—'} sub={open === null ? 'Not open yet' : req.status === 'open' ? 'And counting' : 'Total'} />
+        <NeoKpi icon={<Target />} label="Avg match" value={avg !== null ? `${avg}%` : '—'} sub="Active candidates" tone={avg !== null && avg >= 72 ? 'success' : undefined} />
+      </NeoKpis>
       <div className="tl-req-overview__grid">
-        <section className="card tl-req-panel" aria-labelledby="tl-req-funnel-h">
-          <div className="tl-req-panel__head">
-            <h3 id="tl-req-funnel-h">Hiring funnel</h3>
-            <span className="faint text-xs">Select a stage to see who’s there</span>
-          </div>
+        <NeoPanel hud="Conversion" title="Hiring funnel" actions={<span className="faint text-xs">Select a stage to see who’s there</span>}>
           {apps.length ? (
             <Funnel steps={funnel} onSelect={onStage} />
           ) : (
@@ -649,12 +654,9 @@ function OverviewSection({
               {req.status === 'open' ? 'Source from the JD or import profiles to start the pipeline.' : 'Candidates can be added once the requisition is open.'}
             </EmptyState>
           )}
-        </section>
+        </NeoPanel>
         <div className="tl-req-overview__side">
-          <section className="card tl-req-panel" aria-labelledby="tl-req-team-h">
-            <div className="tl-req-panel__head">
-              <h3 id="tl-req-team-h">Hiring team</h3>
-            </div>
+          <NeoPanel hud="Owners" title="Hiring team">
             <ul className="tl-req-team">
               <li>
                 <span className="tl-req-team__role">Hiring manager</span>
@@ -669,12 +671,8 @@ function OverviewSection({
                 {panel.length ? <PeopleStack userIds={panel} max={6} size={26} /> : <span className="faint text-sm">Not assigned</span>}
               </li>
             </ul>
-          </section>
-          <section className="card tl-req-panel" aria-labelledby="tl-req-up-h">
-            <div className="tl-req-panel__head">
-              <h3 id="tl-req-up-h">Coming up</h3>
-              <span className="faint text-xs">{upcoming.length} booked</span>
-            </div>
+          </NeoPanel>
+          <NeoPanel hud="Schedule" title="Coming up" actions={<span className="faint text-xs">{upcoming.length} booked</span>}>
             {upcoming.length ? (
               <ul className="tl-req-mini">
                 {upcoming.slice(0, 4).map((iv) => {
@@ -696,15 +694,17 @@ function OverviewSection({
             ) : (
               <p className="faint text-sm">No interviews on the calendar.</p>
             )}
-          </section>
+          </NeoPanel>
           {offers.length > 0 && (
-            <section className="card tl-req-panel" aria-labelledby="tl-req-of-h">
-              <div className="tl-req-panel__head">
-                <h3 id="tl-req-of-h">Offers</h3>
-                <Link to="/talent/offers" className="text-xs accent-ink">
+            <NeoPanel
+              hud="Packages"
+              title="Offers"
+              actions={
+                <Link to="/talent/offers" className="neo-btn neo-btn--ghost neo-btn--xs">
                   Offers board
                 </Link>
-              </div>
+              }
+            >
               <ul className="tl-req-mini">
                 {offers.slice(0, 4).map((o) => {
                   const c = candById.get(o.candidateId);
@@ -724,7 +724,7 @@ function OverviewSection({
                   );
                 })}
               </ul>
-            </section>
+            </NeoPanel>
           )}
         </div>
       </div>

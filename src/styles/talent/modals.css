@@ -1,0 +1,39 @@
+/* ==========================================================================
+   Talent Hub — pipeline action modals (move, reject, decision, consent,
+   log reply, add to pipeline) & candidate profile sheet: NEO overrides.
+   Scoped under the NEO app body marker so they win over base rules.
+   ========================================================================== */
+
+body[data-neo-app='talent'] .sheet.tl-sheet .tl-sheet-head {
+  border-bottom-color: var(--plane-border);
+}
+body[data-neo-app='talent'] .sheet.tl-sheet .tl-sheet-tabs {
+  display: flex;
+  width: 100%;
+  margin: 12px 0 12px;
+  padding: 4px;
+  border-radius: 13px;
+  border: 1px solid var(--plane-border);
+  background: var(--surface);
+}
+body[data-neo-app='talent'] .sheet.tl-sheet .tl-sheet-tabs .tab {
+  flex: 1;
+  justify-content: center;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font-size: 12.5px;
+}
+body[data-neo-app='talent'] :is(.modal, .sheet) :is(.tl-mm-who, .tl-mm-panel, .tl-mm-override, .tl-mm-letter, .tl-mm-msg, .tl-mm-why, .tl-sheet-match, .tl-sheet-compose) {
+  background: var(--plane-2);
+  border-color: var(--plane-border-2);
+}
+body[data-neo-app='talent'] .modal.tl-mm .tl-mm-choice {
+  border-color: var(--plane-border-2);
+  background: var(--surface);
+}
+body[data-neo-app='talent'] .modal.tl-mm .tl-mm-choice.is-selected {
+  border-color: rgb(var(--app-rgb) / 0.65);
+  box-shadow: 0 0 0 3px rgb(var(--app-rgb) / 0.14);
+}
+

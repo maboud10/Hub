@@ -1,13 +1,19 @@
-import type { CSSProperties } from 'react';
-import { Link } from 'react-router';
+import { createContext, useCallback, useContext, type CSSProperties, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { Link, useSearchParams } from 'react-router';
 import {
   AlertTriangle,
   ArrowLeft,
   Bookmark,
+  Check,
   CheckCircle2,
   Clock,
   Compass,
+  Copy,
+  Hash,
+  Info,
   Layers,
+  Lightbulb,
   ListChecks,
   Lock,
   LockKeyhole,
@@ -21,13 +27,58 @@ import {
 } from 'lucide-react';
 import { getIcon } from '@/icons';
 import { Avatar, ClearanceBadge, RoleChip } from '@/components/ui/primitives';
+import { NeoEmpty, NeoTabs, Ring, type Tone } from '@/components/neo';
 import { useClearance, usePrimaryRole, useRoles, useUserById } from '@/store/selectors';
 import { toast } from '@/store/toast';
 import { cx } from '@/lib/cx';
-import { computeFreshness, type FreshnessInfo } from '@/wiki/constants';
+import { computeFreshness, type FreshnessInfo, type FreshnessState } from '@/wiki/constants';
 import { useMyWikiState } from '@/wiki/selectors';
 import { useWiki } from '@/wiki/store';
-import type { WikiArticle, WikiSpace } from '@/wiki/types';
+import type { ArticleSection, WikiArticle, WikiSpace } from '@/wiki/types';
+
+/* ==========================================================================
+   Shared Knowledge Base UI (NEO language, tinted by the app plasma).
+   ========================================================================== */
+
+export type FreshFilter = 'all' | 'verified' | 'attention';
+
+/* ---------- Nova Docs (Cortex) modal via `?ask=1&q=…` ---------- */
+
+/** Opens / closes the Nova Docs modal through query params so it deep-links and survives reloads. */
+export function useCortex() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const open = useCallback(
+    (q?: string) => {
+      const next = new URLSearchParams(searchParams);
+      next.set('ask', '1');
+      const text = q?.trim();
+      if (text) next.set('q', text);
+      else next.delete('q');
+      setSearchParams(next, { replace: false });
+    },
+    [searchParams, setSearchParams],
+  );
+  const close = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('ask');
+    next.delete('q');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+  return { isOpen: searchParams.get('ask') === '1', query: searchParams.get('q') ?? '', open, close };
+}
+
+/* ---------- Header action slot ---------- */
+
+const HeadSlotContext = createContext<HTMLElement | null>(null);
+export const WikiHeadSlotProvider = HeadSlotContext.Provider;
+
+/** Renders view-specific buttons into the NeoHead action bar owned by the Knowledge Base shell. */
+export function WikiHeadActions({ children }: { children: ReactNode }) {
+  const el = useContext(HeadSlotContext);
+  return el ? createPortal(children, el) : null;
+}
+
+/* ---------- Spaces ---------- */
 
 const SPACE_ICONS: Record<string, LucideIcon> = {
   Compass,
@@ -73,23 +124,41 @@ export function SpacePill({ space }: { space: Pick<WikiSpace, 'name' | 'icon' | 
   );
 }
 
+/* ---------- Freshness ---------- */
+
+export const FRESH_TONE: Record<FreshnessState, Tone> = {
+  verified: 'success',
+  'due-soon': 'warning',
+  stale: 'danger',
+};
+
 export function FreshnessPill({
   article,
   info,
+  compact,
 }: {
   article?: Pick<WikiArticle, 'lastVerifiedAt' | 'reviewCadenceDays' | 'flaggedStale'>;
   info?: FreshnessInfo;
+  compact?: boolean;
 }) {
   const f = info ?? (article ? computeFreshness(article) : null);
   if (!f) return null;
   const Icon = f.state === 'verified' ? CheckCircle2 : f.state === 'due-soon' ? Clock : AlertTriangle;
   return (
-    <span className={cx('wk-fresh', `wk-fresh--${f.state}`)}>
+    <span className={cx('neo-chip wk-fresh', compact && 'neo-chip--sm')} data-tone={FRESH_TONE[f.state]}>
       <Icon aria-hidden="true" />
       {f.label}
     </span>
   );
 }
+
+/** Freshness as a glowing dot (dense lists). */
+export function FreshDot({ article }: { article: Pick<WikiArticle, 'lastVerifiedAt' | 'reviewCadenceDays' | 'flaggedStale'> }) {
+  const f = computeFreshness(article);
+  return <span className="neo-orb wk-fresh-dot" data-tone={FRESH_TONE[f.state]} title={f.label} aria-label={f.label} role="img" />;
+}
+
+/* ---------- Progress ---------- */
 
 export function ProgressRing({
   done,
@@ -102,55 +171,43 @@ export function ProgressRing({
   size?: number;
   sublabel?: string;
 }) {
-  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
-  const stroke = 5;
-  const r = (size - stroke * 2) / 2;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (pct / 100) * circ;
-
   return (
-    <span className="wk-ring" style={{ '--size': `${size}px` } as CSSProperties} aria-label={`${done} of ${total} ${sublabel}`}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-        <defs>
-          <linearGradient id="wk-ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#2dd4bf" />
-            <stop offset="100%" stopColor="#0d9488" />
-          </linearGradient>
-        </defs>
-        <circle className="wk-ring__track" cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke} />
-        <circle
-          className="wk-ring__value"
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          strokeWidth={stroke}
-          strokeDasharray={circ}
-          strokeDashoffset={offset}
-        />
-      </svg>
-      <span className="wk-ring__label">
-        <span>
+    <Ring
+      value={total > 0 ? done / total : 0}
+      size={size}
+      stroke={Math.max(4, Math.round(size / 13))}
+      label={`${done} of ${total} ${sublabel}`}
+      className="wk-ring"
+    >
+      <span className="wk-ring__inner">
+        <b>
           {done}/{total}
-        </span>
-        <small>{sublabel}</small>
+        </b>
+        {size >= 56 && <small>{sublabel}</small>}
       </span>
-    </span>
+    </Ring>
   );
 }
+
+/* ---------- People & roles ---------- */
 
 export function RoleAudienceChips({ roleIds }: { roleIds: string[] }) {
   const roles = useRoles();
   if (!roleIds.length) {
-    return <span className="badge badge--success">All NEXUS members</span>;
+    return (
+      <span className="neo-chip" data-tone="success">
+        All NEXUS members
+      </span>
+    );
   }
   return (
-    <div className="row row--wrap" style={{ gap: 6 }}>
+    <div className="wk-roles">
       {roleIds.map((rid) => {
         const r = roles.find((x) => x.id === rid);
         return r ? (
           <RoleChip key={rid} name={r.name} color={r.color} />
         ) : (
-          <span key={rid} className="tag">
+          <span key={rid} className="wk-tag">
             {rid}
           </span>
         );
@@ -170,24 +227,92 @@ export function UserBadge({
 }) {
   const user = useUserById(userId);
   if (!user) {
-    return <span className="text-xs muted">Helix Steward</span>;
+    return <span className="wk-user__sub">Helix Steward</span>;
   }
   return (
-    <span className="row" style={{ gap: 8, minWidth: 0 }}>
+    <span className="wk-user">
       <Avatar user={user} size={size} />
-      <span style={{ minWidth: 0, lineHeight: 1.25 }}>
-        <span className="text-xs" style={{ fontWeight: 600, display: 'block', color: 'var(--text)' }}>
-          {user.name}
-        </span>
-        {subtitle && (
-          <span className="text-xs faint truncate" style={{ display: 'block' }}>
-            {subtitle}
-          </span>
-        )}
+      <span className="wk-user__text">
+        <span className="wk-user__name">{user.name}</span>
+        {subtitle && <span className="wk-user__sub">{subtitle}</span>}
       </span>
     </span>
   );
 }
+
+/* ---------- Filters ---------- */
+
+export function FreshTabs({
+  value,
+  onChange,
+  counts,
+  label,
+}: {
+  value: FreshFilter;
+  onChange: (v: FreshFilter) => void;
+  counts?: { all: number; verified: number; attention: number };
+  label: string;
+}) {
+  return (
+    <NeoTabs<FreshFilter>
+      value={value}
+      onChange={onChange}
+      label={label}
+      items={[
+        { value: 'all', label: 'All', count: counts?.all },
+        { value: 'verified', label: 'Verified', icon: <CheckCircle2 />, count: counts?.verified },
+        { value: 'attention', label: 'Needs review', icon: <AlertTriangle />, count: counts?.attention },
+      ]}
+    />
+  );
+}
+
+export function TagFilter({
+  tags,
+  value,
+  onChange,
+  label,
+  allLabel = 'All tags',
+  total,
+}: {
+  tags: [string, number][];
+  value: string;
+  onChange: (tag: string) => void;
+  label: string;
+  allLabel?: string;
+  total?: number;
+}) {
+  if (!tags.length) return null;
+  return (
+    <div className="wk-tags" role="group" aria-label={label}>
+      <button
+        type="button"
+        className="neo-chip"
+        data-tone={value === 'all' ? 'app' : 'slate'}
+        aria-pressed={value === 'all'}
+        onClick={() => onChange('all')}
+      >
+        {allLabel}
+        {total !== undefined && <span className="wk-tags__n">{total}</span>}
+      </button>
+      {tags.map(([tag, count]) => (
+        <button
+          key={tag}
+          type="button"
+          className="neo-chip"
+          data-tone={value === tag ? 'app' : 'slate'}
+          aria-pressed={value === tag}
+          onClick={() => onChange(value === tag ? 'all' : tag)}
+        >
+          #{tag}
+          <span className="wk-tags__n">{count}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Article card ---------- */
 
 export function ArticleCard({
   article,
@@ -207,27 +332,28 @@ export function ArticleCard({
   const doneChecks = (myState.runbookChecks[article.id] ?? []).length;
 
   return (
-    <article className="wk-article-card">
-      <div className="wk-article-card__top">
-        <div className="row row--wrap" style={{ gap: 6 }}>
+    <article className="wk-card neo-spot">
+      <div className="wk-card__top">
+        <div className="wk-card__chips">
           {showSpace && space && <SpacePill space={space} />}
           {article.locked && (
-            <span className="badge badge--muted" data-tip="Canonical policy · Change Proposal workflow">
+            <span className="neo-chip neo-chip--sm" data-tone="amber" data-tip="Canonical policy · Change Proposal workflow">
               <Lock /> Canonical
             </span>
           )}
           {article.pinned && (
-            <span className="badge" data-tip="Pinned highlight">
+            <span className="neo-chip neo-chip--sm" data-tone="app" data-tip="Pinned highlight">
               <Pin /> Pinned
             </span>
           )}
         </div>
-        <div className="row" style={{ gap: 6 }}>
-          <FreshnessPill article={article} />
+        <div className="wk-card__acts">
+          <FreshnessPill article={article} compact />
           <button
             type="button"
-            className={cx('wk-bookmark-btn', isSaved && 'is-saved')}
+            className={cx('neo-iconbtn wk-bm', isSaved && 'is-on')}
             aria-label={isSaved ? 'Remove bookmark' : 'Bookmark playbook'}
+            aria-pressed={isSaved}
             data-tip={isSaved ? 'Bookmarked' : 'Save bookmark'}
             onClick={() => toast.result(toggleBookmark(article.slug))}
           >
@@ -236,24 +362,24 @@ export function ArticleCard({
         </div>
       </div>
 
-      <Link to={`/wiki/doc/${article.slug}`} className="wk-article-card__link">
-        <h3 className="wk-article-card__title">{article.title}</h3>
-        <p className="wk-article-card__sub">{article.tldr || article.subtitle}</p>
+      <Link to={`/wiki/doc/${article.slug}`} className="wk-card__link">
+        <h3 className="wk-card__title">{article.title}</h3>
+        <p className="wk-card__sub">{article.tldr || article.subtitle}</p>
       </Link>
 
       {article.tags.length > 0 && (
-        <div className="wk-article-card__tags">
+        <div className="wk-card__tags">
           {article.tags.slice(0, 4).map((t) => (
-            <span key={t} className="tag">
+            <span key={t} className="wk-tag">
               #{t}
             </span>
           ))}
         </div>
       )}
 
-      <div className="wk-article-card__foot">
+      <div className="wk-card__foot">
         <UserBadge userId={article.ownerId} size={22} />
-        <div className="wk-meta-inline">
+        <div className="wk-meta">
           <span>
             <Clock aria-hidden="true" /> {article.readMins}m
           </span>
@@ -268,7 +394,7 @@ export function ArticleCard({
             </span>
           )}
           {isRead && (
-            <span style={{ color: 'var(--success)', fontWeight: 600 }}>
+            <span className="wk-meta__read">
               <CheckCircle2 aria-hidden="true" /> Read
             </span>
           )}
@@ -277,6 +403,144 @@ export function ArticleCard({
     </article>
   );
 }
+
+/* ---------- Document section (reader + studio preview) ---------- */
+
+const CALLOUT_TONE: Record<NonNullable<ArticleSection['callout']>['tone'], Tone> = {
+  tip: 'success',
+  warning: 'warning',
+  policy: 'app',
+  info: 'blue',
+};
+
+const CALLOUT_ICON: Record<NonNullable<ArticleSection['callout']>['tone'], LucideIcon> = {
+  tip: Lightbulb,
+  warning: AlertTriangle,
+  policy: ShieldCheck,
+  info: Info,
+};
+
+export const sectionNumber = (idx: number) => String(idx + 1).padStart(2, '0');
+
+export function DocSection({
+  section,
+  index,
+  checkedIds,
+  onToggleCheck,
+  onCopyAnchor,
+  onCopySnippet,
+  copied,
+  preview,
+}: {
+  section: ArticleSection;
+  index: number;
+  checkedIds?: Set<string>;
+  onToggleCheck?: (itemId: string) => void;
+  onCopyAnchor?: (sectionId: string) => void;
+  onCopySnippet?: (sectionId: string, snippet: string) => void;
+  copied?: boolean;
+  /** Static rendering for the studio's live preview. */
+  preview?: boolean;
+}) {
+  const checks = section.checklist ?? [];
+  const done = checks.filter((c) => checkedIds?.has(c.id)).length;
+  const CalloutIcon = section.callout ? CALLOUT_ICON[section.callout.tone] : Info;
+
+  return (
+    <section id={preview ? undefined : section.id} className="wk-sec">
+      <header className="wk-sec__head">
+        <span className="wk-sec__num">{sectionNumber(index)}</span>
+        <h2 className="wk-sec__title">{section.heading}</h2>
+        {onCopyAnchor && (
+          <button
+            type="button"
+            className="neo-iconbtn neo-iconbtn--sm wk-sec__anchor"
+            onClick={() => onCopyAnchor(section.id)}
+            aria-label={`Copy link to ${section.heading}`}
+            data-tip="Copy section link"
+          >
+            <Hash />
+          </button>
+        )}
+      </header>
+
+      {(section.body || preview) && <p className="wk-sec__body">{section.body || '(Empty section body)'}</p>}
+
+      {section.callout && (
+        <div className="wk-callout" data-tone={CALLOUT_TONE[section.callout.tone]}>
+          <CalloutIcon className="wk-callout__icon" aria-hidden="true" />
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="wk-callout__title">{section.callout.title}</div>
+            <div className="wk-callout__text">{section.callout.text}</div>
+          </div>
+        </div>
+      )}
+
+      {section.code && (
+        <div className="wk-code">
+          <div className="wk-code__head">
+            <span className="wk-code__dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span className="wk-code__label">{section.code.label}</span>
+            {onCopySnippet && (
+              <button type="button" className="wk-code__copy" onClick={() => onCopySnippet(section.id, section.code!.snippet)}>
+                {copied ? <Check /> : <Copy />}
+                {copied ? 'Copied!' : 'Copy snippet'}
+              </button>
+            )}
+          </div>
+          <pre className="wk-code__pre">
+            <code>{section.code.snippet}</code>
+          </pre>
+        </div>
+      )}
+
+      {checks.length > 0 && (
+        <div className="wk-checklist">
+          <div className="wk-checklist__head">
+            <span className="neo-hud">
+              <ListChecks aria-hidden="true" /> {preview ? 'Interactive checklist' : 'Execution steps'}
+            </span>
+            <span className="neo-chip neo-chip--sm" data-tone={!preview && done === checks.length ? 'success' : 'app'}>
+              {preview ? `${checks.length} steps` : `${done}/${checks.length} complete`}
+            </span>
+          </div>
+          {checks.map((item) => {
+            const checked = !!checkedIds?.has(item.id);
+            if (preview || !onToggleCheck) {
+              return (
+                <div key={item.id} className="wk-check">
+                  <span className="wk-check__box" aria-hidden="true" />
+                  <span className="wk-check__label">{item.label}</span>
+                </div>
+              );
+            }
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="checkbox"
+                aria-checked={checked}
+                className={cx('wk-check', checked && 'is-checked')}
+                onClick={() => onToggleCheck(item.id)}
+              >
+                <span className="wk-check__box" aria-hidden="true">
+                  {checked && <Check strokeWidth={3} />}
+                </span>
+                <span className="wk-check__label">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ---------- Permission wall ---------- */
 
 export function SpaceBoundaryCard({
   space,
@@ -289,17 +553,28 @@ export function SpaceBoundaryCard({
   const primary = usePrimaryRole();
 
   return (
-    <div className="card glow-border hud" style={{ maxWidth: 620, margin: '18px auto', textAlign: 'center', padding: '32px 24px' }}>
-      <div className="empty__icon" style={{ margin: '0 auto 12px', color: 'var(--warning)' }}>
-        <LockKeyhole />
-      </div>
-      <div className="eyebrow" style={{ justifyContent: 'center' }}>
-        Permission Boundary · Space Clearance
-      </div>
-      <h2 className="page-title" style={{ fontSize: 24 }}>
-        {title ?? (space ? `${space.name} is role-restricted` : 'Restricted Knowledge Space')}
-      </h2>
-      <p className="muted text-sm" style={{ maxWidth: 480, margin: '8px auto 18px', lineHeight: 1.55 }}>
+    <div className="neo-denied wk-wall">
+      <NeoEmpty
+        icon={<LockKeyhole />}
+        title={title ?? (space ? `${space.name} is role-restricted` : 'Restricted Knowledge Space')}
+        action={
+          <div className="neo-denied__foot">
+            <div className="neo-denied__chips">
+              <span className="neo-hud">Your clearance</span>
+              <ClearanceBadge level={clearance} compact />
+              {space && space.audienceRoleIds.length > 0 && (
+                <>
+                  <span className="neo-hud">Cleared roles</span>
+                  <RoleAudienceChips roleIds={space.audienceRoleIds} />
+                </>
+              )}
+            </div>
+            <Link to="/wiki" className="neo-btn neo-btn--soft">
+              <ArrowLeft /> Back to Knowledge Base
+            </Link>
+          </div>
+        }
+      >
         {space ? (
           <>
             The <strong>{space.name}</strong> space contains internal architecture, product, or people playbooks scoped to specific
@@ -309,29 +584,7 @@ export function SpaceBoundaryCard({
         ) : (
           <>This playbook belongs to a space outside your current role clearance.</>
         )}
-      </p>
-
-      <div
-        className="row row--wrap"
-        style={{ justifyContent: 'center', gap: 22, padding: '14px 16px', borderRadius: 'var(--r-md)', background: 'var(--surface-2)' }}
-      >
-        <div className="stack stack--sm" style={{ alignItems: 'center' }}>
-          <span className="stat-label">Your Clearance</span>
-          <ClearanceBadge level={clearance} compact />
-        </div>
-        {space && space.audienceRoleIds.length > 0 && (
-          <div className="stack stack--sm" style={{ alignItems: 'center' }}>
-            <span className="stat-label">Cleared Roles</span>
-            <RoleAudienceChips roleIds={space.audienceRoleIds} />
-          </div>
-        )}
-      </div>
-
-      <div className="row row--wrap" style={{ justifyContent: 'center', marginTop: 20 }}>
-        <Link to="/wiki" className="btn btn--primary">
-          <ArrowLeft /> Back to Knowledge Base
-        </Link>
-      </div>
+      </NeoEmpty>
     </div>
   );
 }

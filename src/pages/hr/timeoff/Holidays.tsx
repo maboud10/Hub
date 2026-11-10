@@ -34,6 +34,7 @@ export function HolidaysPanel({ onPlan }: { onPlan: (start: string, end: string)
   return (
     <HrPanel
       className="hr-to-holidays"
+      hud="Official calendar"
       title="Public holidays"
       icon={<Flag aria-hidden="true" />}
       sub={applies ? `${location} calendar · never deducted from your balance` : 'Dubai office calendar, for reference'}

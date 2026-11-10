@@ -87,7 +87,7 @@ export function OnboardingBoard() {
         </div>
       </section>
 
-      <div className="hr-onb-board__toolbar">
+      <div className="neo-panel hr-onb-board__toolbar">
         <div className="hr-onb-board__filters" role="group" aria-label="Filter journeys">
           {(
             [
@@ -140,7 +140,7 @@ export function OnboardingBoard() {
             const Icon = GROUP_ICON[g];
             const meta = STATUS_META[g];
             return (
-              <section key={g} className={cx('hr-onb-col', `hr-onb-col--${g}`)} aria-labelledby={`hr-onb-col-${g}`}>
+              <section key={g} className={cx('neo-panel hr-onb-col', `hr-onb-col--${g}`)} aria-labelledby={`hr-onb-col-${g}`}>
                 <header className="hr-onb-col__head">
                   <span className="hr-onb-col__icon" aria-hidden="true">
                     <Icon />

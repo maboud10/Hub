@@ -36,7 +36,11 @@ export function PostCard({ post, usersById, rolesById, meId, canPublish, now, on
   const togglePin = () => toast.result(useHub.getState().togglePinAnnouncement(post.id));
 
   return (
-    <article className={cx('news-post card', `news-post--${post.priority}`, post.pinned && 'is-pinned')} aria-labelledby={titleId}>
+    <article
+      id={`post-${post.id}`}
+      className={cx('news-post card neo-spot', `news-post--${post.priority}`, post.pinned && 'is-pinned')}
+      aria-labelledby={titleId}
+    >
       {post.priority === 'critical' && <div className="news-post__alert" aria-hidden="true" />}
 
       <header className="news-post__head">

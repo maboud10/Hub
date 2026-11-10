@@ -43,6 +43,7 @@ export const SEED_ROLES: Role[] = [
       'wiki.manage',
       'projects.manage',
       'helpdesk.manage',
+      'performance.manage',
       'expenses.approve',
       'payroll.approve',
       'app:recruit',

@@ -18,7 +18,7 @@ const EAP_CODE = 'HELIXCARE';
 export function PerksPanel() {
   const [eap, setEap] = useState(false);
   return (
-    <HrPanel className="hr-bn-perks-panel" title="Perks & wellbeing" icon={<Sparkles aria-hidden="true" />} sub="Always on. No forms, no approvals.">
+    <HrPanel className="hr-bn-perks-panel" hud="Included for everyone" title="Perks & wellbeing" icon={<Sparkles aria-hidden="true" />} sub="Always on. No forms, no approvals.">
       <div className="hr-bn-perks">
         {PERKS.map((p) => (p.id === 'eap' ? <EapCard key={p.id} perk={p} onOpen={() => setEap(true)} /> : <PerkCard key={p.id} perk={p} />))}
       </div>
@@ -184,7 +184,7 @@ export function LifeEvents({ onEnrol }: { onEnrol: (event?: LifeEvent) => void }
     },
   ];
   return (
-    <HrPanel className="hr-bn-life-panel" title="Life event?" icon={<Sparkles aria-hidden="true" />} sub="Big moments change what you need. Update everything in one go.">
+    <HrPanel className="hr-bn-life-panel" hud="Qualifying changes" title="Life event?" icon={<Sparkles aria-hidden="true" />} sub="Big moments change what you need. Update everything in one go.">
       <div className="hr-bn-events">
         {cards.map((c) => {
           const Icon = c.icon;

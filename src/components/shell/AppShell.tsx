@@ -18,6 +18,7 @@ import { AmbientBackground } from './Brand';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { MobileMenu, MobileNav } from './MobileNav';
+import { useSidebarState } from './immersive';
 
 function GlobalHotkeys() {
   const navigate = useNavigate();
@@ -84,9 +85,9 @@ function PageFallback() {
 }
 
 export function AppShell() {
-  const prefs = usePrefs();
+  const { collapsed, immersive } = useSidebarState();
   return (
-    <div className="shell" data-collapsed={prefs.sidebarCollapsed}>
+    <div className="shell" data-collapsed={collapsed} data-immersive={immersive || undefined}>
       <AmbientBackground />
       <a href="#main" className="skip-link">
         Skip to content

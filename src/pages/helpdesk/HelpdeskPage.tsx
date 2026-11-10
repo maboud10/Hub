@@ -1,386 +1,189 @@
+/**
+ * IT Helpdesk — "Support Deck & Fleet Command".
+ * Employees: Home (Nova triage), Tickets, Devices, Catalog, Guides, Status.
+ * IT (`helpdesk.manage`): Queue, Fleet, Tags, Insights.
+ */
+import { lazy, Suspense, useEffect, useMemo, type ReactNode } from 'react';
+import { Link, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router';
+import { Activity, BookOpen, ChartNoAxesCombined, House, Laptop, LayoutGrid, LifeBuoy, Lock, Radar, ShoppingBag, Tags, Ticket } from 'lucide-react';
+import '@/styles/neo.css';
 import '@/styles/helpdesk.css';
-import { useEffect, useMemo, useState } from 'react';
-import {
-  Navigate,
-  NavLink,
-  Route,
-  Routes,
-  useNavigate,
-  useSearchParams,
-} from 'react-router';
-import {
-  Laptop,
-  LifeBuoy,
-  Package,
-  Plus,
-  QrCode,
-  ShieldCheck,
-  Sparkles,
-  Tag,
-  Terminal,
-  Ticket,
-  Wrench,
-  type LucideIcon,
-} from 'lucide-react';
-import { useSessionUser } from '@/store/selectors';
-import { firstName, greeting } from '@/lib/format';
-import { cx } from '@/lib/cx';
-import { canUserManageHelpdesk, useHelpdesk } from '@/helpdesk/store';
-import { OverviewView } from './OverviewView';
-import { TicketsView } from './TicketsView';
-import { MyDevicesView } from './MyDevicesView';
-import { CatalogView } from './CatalogView';
-import { InventoryView } from './InventoryView';
-import { QueueView } from './QueueView';
-import {
-  DeviceInspectorSheet,
-  DiagnosticsModal,
-  NewTicketModal,
-  RegisterDeviceModal,
-} from './shared';
+import { NeoEmpty, NeoHead, NeoRail, NeoStage, NeoWorkspace, type NeoNavItem } from '@/components/neo';
+import { useHotkeys } from '@/hooks/useHotkeys';
+import { useNow } from '@/hooks/useNow';
+import { useHelpdesk } from '@/helpdesk/store';
+import { activeIncidents, isUnread, requestsAwaiting } from '@/helpdesk/queries';
+import { isBreaching } from '@/helpdesk/sla';
+import { useOpenTicket, useSetParam, useViewer } from './ui';
+import { HomeView } from './HomeView';
+import { HealthCheckModal } from './HealthCheck';
 
-interface HelpdeskTab {
-  to: string;
-  label: string;
-  icon: LucideIcon;
-  end?: boolean;
-  badge?: number | string;
-  adminBadge?: boolean;
-}
+const TINT = { c1: '#34d399', c2: '#0ea5e9' };
+
+const TicketsView = lazy(() => import('./TicketsView').then((m) => ({ default: m.TicketsView })));
+const TicketDetailView = lazy(() => import('./TicketDetail').then((m) => ({ default: m.TicketDetailView })));
+const NewTicketWizard = lazy(() => import('./NewTicketWizard').then((m) => ({ default: m.NewTicketWizard })));
+const DevicesView = lazy(() => import('./DevicesView').then((m) => ({ default: m.DevicesView })));
+const DeviceDetailView = lazy(() => import('./DeviceDetail').then((m) => ({ default: m.DeviceDetailView })));
+const CatalogView = lazy(() => import('./CatalogView').then((m) => ({ default: m.CatalogView })));
+const RequestsView = lazy(() => import('./RequestsView').then((m) => ({ default: m.RequestsView })));
+const GuidesView = lazy(() => import('./GuidesView').then((m) => ({ default: m.GuidesView })));
+const GuideDetailView = lazy(() => import('./GuidesView').then((m) => ({ default: m.GuideDetailView })));
+const StatusView = lazy(() => import('./StatusView').then((m) => ({ default: m.StatusView })));
+const QueueView = lazy(() => import('./QueueView').then((m) => ({ default: m.QueueView })));
+const FleetView = lazy(() => import('./FleetView').then((m) => ({ default: m.FleetView })));
+const ScanOverlay = lazy(() => import('./ScanOverlay').then((m) => ({ default: m.ScanOverlay })));
+const TagsView = lazy(() => import('./TagsView').then((m) => ({ default: m.TagsView })));
+const InsightsView = lazy(() => import('./InsightsView').then((m) => ({ default: m.InsightsView })));
 
 export function HelpdeskPage() {
-  const me = useSessionUser();
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  const devices = useHelpdesk((s) => s.devices);
+  const viewer = useViewer();
   const tickets = useHelpdesk((s) => s.tickets);
-  const catalog = useHelpdesk((s) => s.catalog);
-  const adminPreviewOverride = useHelpdesk((s) => s.adminPreviewOverride);
-  const setAdminPreviewOverride = useHelpdesk((s) => s.setAdminPreviewOverride);
+  const requests = useHelpdesk((s) => s.requests);
+  const incidents = useHelpdesk((s) => s.incidents);
+  const seen = useHelpdesk((s) => s.seen);
+  const now = useNow(30_000);
+  const [sp] = useSearchParams();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const setParam = useSetParam();
+  const openTicket = useOpenTicket();
+  const it = !!viewer?.it;
+  const me = viewer?.user.id ?? '';
 
-  const isNativeItAdmin = canUserManageHelpdesk(me);
-  const isItAdmin = isNativeItAdmin || adminPreviewOverride;
-
-  const [newTicketOpen, setNewTicketOpen] = useState(false);
-  const [newTicketDeviceId, setNewTicketDeviceId] = useState<string | undefined>(undefined);
-  const [diagOpen, setDiagOpen] = useState(false);
-  const [registerDeviceOpen, setRegisterDeviceOpen] = useState(false);
-  const [inspectingDeviceId, setInspectingDeviceId] = useState<string | null>(null);
-
-  // Deep-link triggers (`?new=1`, `?diag=1`, `?device=<id>`)
   useEffect(() => {
-    if (searchParams.get('new') === '1') {
-      setNewTicketOpen(true);
-      const next = new URLSearchParams(searchParams);
-      next.delete('new');
-      setSearchParams(next, { replace: true });
-    }
-    if (searchParams.get('diag') === '1') {
-      setDiagOpen(true);
-      const next = new URLSearchParams(searchParams);
-      next.delete('diag');
-      setSearchParams(next, { replace: true });
-    }
-    const devParam = searchParams.get('device');
-    if (devParam) {
-      setInspectingDeviceId(devParam);
-      const next = new URLSearchParams(searchParams);
-      next.delete('device');
-      setSearchParams(next, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
+    useHelpdesk.getState().resumeSimulations();
+  }, []);
 
-  const myUserId = me?.id ?? 'u-mei';
-  const myDevicesCount = useMemo(
-    () => devices.filter((d) => d.assignedToUserId === myUserId).length,
-    [devices, myUserId],
-  );
-  const myOpenTicketsCount = useMemo(
-    () =>
-      tickets.filter(
-        (t) =>
-          t.requesterId === myUserId &&
-          t.status !== 'resolved' &&
-          t.status !== 'closed',
-      ).length,
-    [tickets, myUserId],
-  );
-  const openQueueCount = useMemo(
-    () => tickets.filter((t) => t.status !== 'resolved' && t.status !== 'closed').length,
-    [tickets],
-  );
-  const inStockCount = useMemo(
-    () => devices.filter((d) => d.status === 'in_stock').length,
-    [devices],
-  );
-  const compliancePct = useMemo(() => {
-    if (!devices.length) return 100;
-    const comp = devices.filter((d) => d.compliance === 'compliant').length;
-    return Math.round((comp / devices.length) * 100);
-  }, [devices]);
+  const counts = useMemo(() => {
+    const mine = tickets.filter((t) => t.requesterId === me);
+    const attention = mine.filter((t) => t.status === 'waiting' || (t.status !== 'resolved' && isUnread(t, seen[me]?.[t.id], me))).length;
+    return {
+      attention,
+      approvals: viewer ? requestsAwaiting(viewer, requests).length : 0,
+      incidents: activeIncidents(incidents).length,
+      breaching: it ? tickets.filter((t) => isBreaching(t, now)).length : 0,
+    };
+  }, [tickets, requests, incidents, seen, me, viewer, it, now]);
 
-  const tabs: HelpdeskTab[] = [
-    {
-      to: '/helpdesk',
-      label: 'Overview & Quick Fix',
-      icon: Sparkles,
-      end: true,
-    },
-    {
-      to: '/helpdesk/tickets',
-      label: 'My Tickets',
-      icon: Ticket,
-      badge: myOpenTicketsCount,
-    },
-    {
-      to: '/helpdesk/my-devices',
-      label: 'My Assigned Devices',
-      icon: Laptop,
-      badge: myDevicesCount,
-    },
-    {
-      to: '/helpdesk/catalog',
-      label: 'IT Request Catalog',
-      icon: Package,
-      badge: catalog.length,
-    },
-    {
-      to: '/helpdesk/inventory',
-      label: 'Admin: Device & Tag Inventory',
-      icon: Tag,
-      badge: devices.length,
-      adminBadge: true,
-    },
-    {
-      to: '/helpdesk/queue',
-      label: 'Admin: Ticket Triage Queue',
-      icon: Wrench,
-      badge: openQueueCount,
-      adminBadge: true,
-    },
+  const items: NeoNavItem[] = [
+    { to: '/helpdesk', label: 'Home', icon: <House />, end: true },
+    { to: '/helpdesk/tickets', label: 'Tickets', icon: <Ticket />, badge: counts.attention || null, title: counts.attention ? `Tickets · ${counts.attention} need you` : 'Tickets' },
+    { to: '/helpdesk/devices', label: 'Devices', icon: <Laptop /> },
+    { to: '/helpdesk/catalog', label: 'Catalog', icon: <ShoppingBag />, badge: counts.approvals || null, match: (p) => p.startsWith('/helpdesk/catalog') || p.startsWith('/helpdesk/requests'), title: counts.approvals ? `Catalog · ${counts.approvals} approvals waiting` : 'Catalog & requests' },
+    { to: '/helpdesk/guides', label: 'Guides', icon: <BookOpen /> },
+    { to: '/helpdesk/status', label: 'Status', icon: <Activity />, badge: counts.incidents || null, badgeTone: 'danger', title: counts.incidents ? `Status · ${counts.incidents} active incident` : 'Service status' },
   ];
+  const footer: NeoNavItem[] | undefined = it
+    ? [
+        { to: '/helpdesk/queue', label: 'Queue', icon: <LayoutGrid />, badge: counts.breaching || null, badgeTone: 'danger', title: counts.breaching ? `Queue · ${counts.breaching} breaching SLA` : 'IT queue' },
+        { to: '/helpdesk/fleet', label: 'Fleet', icon: <Radar /> },
+        { to: '/helpdesk/tags', label: 'Tags', icon: <Tags /> },
+        { to: '/helpdesk/insights', label: 'Insights', icon: <ChartNoAxesCombined /> },
+      ]
+    : undefined;
 
-  const handleOpenRaiseTicket = (deviceId?: string) => {
-    setNewTicketDeviceId(deviceId);
-    setNewTicketOpen(true);
+  useHotkeys({
+    c: (e) => {
+      if (sp.get('new') || sp.get('diag') || sp.get('scan') || document.querySelector('.modal, .sheet')) return;
+      e.preventDefault();
+      if (it && pathname.startsWith('/helpdesk/fleet')) setParam('register', '1');
+      else if (it && pathname.startsWith('/helpdesk/tags')) setParam('newtag', '1');
+      else openTicket();
+    },
+  });
+
+  const closeParam = (k: string, also: string[] = []) => {
+    const next = new URLSearchParams(sp);
+    next.delete(k);
+    for (const a of also) next.delete(a);
+    const qs = next.toString();
+    navigate(`${pathname}${qs ? `?${qs}` : ''}`, { replace: true });
   };
 
   return (
-    <div className="hd-page">
-      {/* Top Hero Banner */}
-      <header className="hd-hero">
-        <div className="hd-hero__main">
-          <div className="hd-hero__eyebrow">
-            <LifeBuoy size={14} />
-            <span>Helix IT Helpdesk & Fleet Command · Zero-Trust Endpoint Ops</span>
-            {isNativeItAdmin ? (
-              <span className="hd-role-badge hd-role-badge--admin">
-                <ShieldCheck size={12} /> IT & Fleet Admin
-              </span>
-            ) : (
-              <button
-                type="button"
-                className={cx('hd-role-badge', isItAdmin && 'hd-role-badge--admin')}
-                onClick={() => setAdminPreviewOverride(!adminPreviewOverride)}
-                title="Toggle IT Admin Fleet & Triage Governance Preview"
-              >
-                <ShieldCheck size={12} />
-                {isItAdmin ? 'IT Admin Preview: ON' : 'Preview as IT Admin'}
-              </button>
-            )}
-          </div>
-
-          <h1 className="hd-hero__title">
-            {greeting()}, {me ? firstName(me.name) : 'Team'} — how can IT & Fleet Ops help today?
-          </h1>
-          <p className="hd-hero__sub">
-            Run 1-click zero-trust diagnostics, inspect your assigned hardware & physical QR asset tags, request pre-approved gear, or govern the global device & tag inventory.
-          </p>
-
-          {/* Live KPI Pills */}
-          <div className="hd-hero__kpis">
-            <button
-              type="button"
-              className="hd-hero-pill"
-              onClick={() => navigate('/helpdesk/my-devices')}
-            >
-              <Laptop size={14} />
-              <span>My Assigned Devices:</span>
-              <strong>{myDevicesCount}</strong>
-            </button>
-
-            <button
-              type="button"
-              className="hd-hero-pill"
-              onClick={() => navigate('/helpdesk/tickets')}
-            >
-              <Ticket size={14} />
-              <span>My Open Tickets:</span>
-              <strong>{myOpenTicketsCount}</strong>
-            </button>
-
-            <button
-              type="button"
-              className="hd-hero-pill"
-              onClick={() => navigate('/helpdesk/inventory')}
-            >
-              <QrCode size={14} />
-              <span>Fleet Size:</span>
-              <strong>
-                {devices.length} ({inStockCount} in stock)
-              </strong>
-            </button>
-
-            <button
-              type="button"
-              className="hd-hero-pill"
-              onClick={() => navigate('/helpdesk/inventory')}
-            >
-              <ShieldCheck size={14} className="text-success" />
-              <span>MDM Compliance:</span>
-              <strong className="text-success">{compliancePct}%</strong>
-            </button>
-
-            <button
-              type="button"
-              className="hd-hero-pill"
-              onClick={() => navigate('/helpdesk/queue')}
-            >
-              <Wrench size={14} />
-              <span>Open Queue:</span>
-              <strong>{openQueueCount}</strong>
-            </button>
-          </div>
-        </div>
-
-        {/* Hero Primary CTA Buttons */}
-        <div className="hd-hero__actions">
-          <button
-            type="button"
-            className="btn btn--primary"
-            onClick={() => handleOpenRaiseTicket()}
-          >
-            <Plus size={16} /> Raise a Ticket
-          </button>
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={() => setDiagOpen(true)}
-          >
-            <Terminal size={16} /> Self-Service Diagnostics
-          </button>
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={() => setRegisterDeviceOpen(true)}
-          >
-            <QrCode size={16} /> + Register Device
-          </button>
-        </div>
-      </header>
-
-      {/* Sub-navigation Tabs */}
-      <nav className="hd-tabs" aria-label="IT Helpdesk navigation">
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          return (
-            <NavLink
-              key={t.to}
-              to={t.to}
-              end={t.end}
-              className={({ isActive }) =>
-                cx('hd-tab', isActive && 'is-active', t.adminBadge && 'hd-tab--admin')
-              }
-            >
-              <Icon size={15} />
-              <span>{t.label}</span>
-              {typeof t.badge !== 'undefined' && (
-                <span className="hd-tab__badge">{t.badge}</span>
-              )}
-            </NavLink>
-          );
-        })}
-      </nav>
-
-      {/* Main View Router */}
-      <div className="hd-content">
+    <NeoWorkspace app="helpdesk" tint={TINT}>
+      <NeoRail brand={{ icon: <LifeBuoy />, label: 'IT Helpdesk', to: '/helpdesk' }} items={items} footer={footer} label="IT Helpdesk" />
+      <Suspense fallback={<StageFallback />}>
         <Routes>
-          <Route
-            index
-            element={
-              <OverviewView
-                onInspectDevice={(id) => setInspectingDeviceId(id)}
-                onRaiseTicket={(devId) => handleOpenRaiseTicket(devId)}
-              />
-            }
-          />
-          <Route
-            path="tickets"
-            element={
-              <TicketsView
-                onInspectDevice={(id) => setInspectingDeviceId(id)}
-                onRaiseTicket={(devId) => handleOpenRaiseTicket(devId)}
-              />
-            }
-          />
-          <Route
-            path="my-devices"
-            element={
-              <MyDevicesView
-                onInspectDevice={(id) => setInspectingDeviceId(id)}
-                onRaiseTicket={(devId) => handleOpenRaiseTicket(devId)}
-              />
-            }
-          />
+          <Route index element={<HomeView />} />
+          <Route path="tickets" element={<TicketsView />} />
+          <Route path="tickets/:ticketId" element={<TicketDetailView />} />
+          <Route path="devices" element={<DevicesView />} />
+          <Route path="devices/:assetTag" element={<DeviceDetailView admin={false} />} />
           <Route path="catalog" element={<CatalogView />} />
-          <Route
-            path="inventory"
-            element={
-              <InventoryView
-                onInspectDevice={(id) => setInspectingDeviceId(id)}
-                onOpenRegisterModal={() => setRegisterDeviceOpen(true)}
-              />
-            }
-          />
-          <Route
-            path="queue"
-            element={
-              <QueueView onInspectDevice={(id) => setInspectingDeviceId(id)} />
-            }
-          />
-          <Route path="*" element={<Navigate to="/helpdesk" replace />} />
+          <Route path="requests" element={<RequestsView />} />
+          <Route path="guides" element={<GuidesView />} />
+          <Route path="guides/:slug" element={<GuideDetailView />} />
+          <Route path="status" element={<StatusView />} />
+          <Route path="queue" element={<ItOnly it={it}><QueueView /></ItOnly>} />
+          <Route path="fleet" element={<ItOnly it={it}><FleetView /></ItOnly>} />
+          <Route path="fleet/:assetTag" element={<ItOnly it={it}><DeviceDetailView admin /></ItOnly>} />
+          <Route path="tags" element={<ItOnly it={it}><TagsView /></ItOnly>} />
+          <Route path="insights" element={<ItOnly it={it}><InsightsView /></ItOnly>} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
+      </Suspense>
+      <HealthCheckModal open={sp.get('diag') === '1'} onClose={() => closeParam('diag', ['device'])} deviceTag={sp.get('diag') === '1' ? (sp.get('device') ?? undefined) : undefined} />
+      <Suspense fallback={null}>
+        {sp.get('new') === '1' && <NewTicketWizard onClose={() => closeParam('new', ['category', 'device', 'subject'])} />}
+        {it && sp.get('scan') === '1' && <ScanOverlay onClose={() => closeParam('scan')} />}
+      </Suspense>
+    </NeoWorkspace>
+  );
+}
+
+function StageFallback() {
+  return (
+    <NeoStage>
+      <div className="hd-skel">
+        <i />
+        <i />
+        <i />
       </div>
+    </NeoStage>
+  );
+}
 
-      {/* Global Slide-over Device Inspector & Modals */}
-      <DeviceInspectorSheet
-        deviceId={inspectingDeviceId}
-        onClose={() => setInspectingDeviceId(null)}
-        onReportIssue={(devId) => handleOpenRaiseTicket(devId)}
-      />
+function ItOnly({ it, children }: { it: boolean; children: ReactNode }) {
+  if (it) return <>{children}</>;
+  return (
+    <NeoStage>
+      <NeoHead icon={<Lock />} eyebrow="IT console" title="This area is for the IT team" />
+      <div className="neo-body">
+        <NeoEmpty
+          icon={<Lock />}
+          title="You need helpdesk admin access"
+          action={
+            <Link to="/helpdesk" className="neo-btn neo-btn--soft">
+              Back to Support Home
+            </Link>
+          }
+        >
+          The queue, fleet, tags and insights are part of the IT console (helpdesk.manage). Your own tickets and devices are always available to you.
+        </NeoEmpty>
+      </div>
+    </NeoStage>
+  );
+}
 
-      <NewTicketModal
-        open={newTicketOpen}
-        onClose={() => setNewTicketOpen(false)}
-        initialDeviceId={newTicketDeviceId}
-        onCreated={(tktId) => navigate(`/helpdesk/tickets?ticket=${tktId}`)}
-      />
-
-      <DiagnosticsModal
-        open={diagOpen}
-        onClose={() => setDiagOpen(false)}
-        onEscalateTicket={() => handleOpenRaiseTicket()}
-      />
-
-      <RegisterDeviceModal
-        open={registerDeviceOpen}
-        onClose={() => setRegisterDeviceOpen(false)}
-        onRegistered={(devId) => {
-          navigate('/helpdesk/inventory');
-          setInspectingDeviceId(devId);
-        }}
-      />
-    </div>
+function NotFound() {
+  return (
+    <NeoStage>
+      <NeoHead icon={<LifeBuoy />} eyebrow="IT Helpdesk" title="Page not found" />
+      <div className="neo-body">
+        <NeoEmpty
+          icon={<LifeBuoy />}
+          title="Nothing lives here"
+          action={
+            <Link to="/helpdesk" className="neo-btn neo-btn--plasma">
+              Go to Support Home
+            </Link>
+          }
+        >
+          The link may be old, or the item was removed.
+        </NeoEmpty>
+      </div>
+    </NeoStage>
   );
 }

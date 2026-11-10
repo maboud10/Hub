@@ -1,26 +1,39 @@
 /**
- * Talent Hub command deck: KPIs, the hiring "flight path" (every step of the
- * process at a glance), personal next steps, copilot insights, requisition
- * radar, upcoming interviews, funnel, source mix and live activity.
+ * Talent Hub command deck (/talent) — the Support-Deck anatomy for hiring:
+ * attention banners for the decisions and approvals waiting on you, a HUD
+ * ribbon with the funnel numbers, the Nova console (hands a JD or a one-line
+ * role brief to AI Sourcing — or, for hiring managers, to a new requisition),
+ * next steps, copilot insights, the hiring flight path (every step of the
+ * process at a glance), requisition radar, funnel and source mix — plus
+ * interviews, offers in flight, SLA watch, live activity and system status in
+ * the side column.
  * Everything is permission-scoped through `useTalentScope`.
  */
-import { useMemo, type CSSProperties, type ReactNode } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   Activity,
   ArrowRight,
   BadgeCheck,
+  BrainCircuit,
   Briefcase,
   CalendarClock,
   ChevronRight,
   CircleCheck,
   CircleX,
   ClipboardCheck,
+  Cloud,
+  Database,
+  FilePlus2,
+  FileSearch,
   Gavel,
   Hourglass,
   Lightbulb,
+  Linkedin,
+  ListChecks,
   PartyPopper,
   Radar,
+  Recycle,
   Reply,
   Rocket,
   Send,
@@ -30,12 +43,14 @@ import {
   Trophy,
   UserPlus,
   Users,
-  Workflow,
   type LucideIcon,
 } from 'lucide-react';
+import { Chip, NeoBanner, NeoBanners, NeoEmpty, NeoHome, NeoKpi, NeoKpis, NeoNovaPrompt, NeoPanel, Orb, type Tone as NeoTone } from '@/components/neo';
 import type { ActivityKind, StageId } from '@/talent/types';
-import { INTERVIEW_KIND_META, SOURCE_META, STAGES, STAGE_BY_ID, STAGE_PHASES } from '@/talent/constants';
-import { scoreMatch } from '@/talent/ai/engine';
+import { INTERVIEW_KIND_META, OFFER_STATUS_META, SOURCE_META, STAGES, STAGE_BY_ID, STAGE_PHASES } from '@/talent/constants';
+import { aiStatus, scoreMatch } from '@/talent/ai/engine';
+import { backendStatus } from '@/talent/backend';
+import { getLinkedInConnector } from '@/talent/linkedin/connector';
 import { daysUntilStart } from '@/talent/onboarding';
 import { useTalent } from '@/talent/store';
 import { useTalentUI } from '@/talent/ui';
@@ -52,114 +67,183 @@ import {
 } from '@/talent/selectors';
 import { useSessionUser } from '@/store/selectors';
 import { useNow } from '@/hooks/useNow';
-import { firstName, greeting, relativeTime } from '@/lib/format';
-import { Avatar, EmptyState } from '@/components/ui/primitives';
+import { relativeTime } from '@/lib/format';
+import { Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/cx';
 import { Funnel } from './components/Funnel';
-import { CandidateAvatar, PeopleStack, PriorityBadge, ReqStatusBadge, SampleTag } from './components/shared';
+import { CandidateAvatar, PeopleStack, PriorityBadge, ReqStatusBadge, SampleTag, type Tone as BadgeTone } from './components/shared';
 import { fmtRelativeDay, slaState } from './components/format';
 import { runTalentTask } from './components/actionRunner';
+import { studio, useStudio } from './sourcing/store';
 
 const DAY = 86_400_000;
+const s = (n: number) => (n === 1 ? '' : 's');
+/** Legacy badge tone → NEO tone. */
+const NEO_TONE: Record<BadgeTone, NeoTone> = { success: 'success', warning: 'warning', danger: 'danger', info: 'cyan', muted: 'slate' };
+const openCandidate = (id: string) => useTalentUI.getState().openCandidate(id);
 
-// ───────────────────────── KPIs ─────────────────────────
-function Kpi({ icon: Icon, label, value, unit, hint, to, hot, hue }: { icon: LucideIcon; label: string; value: ReactNode; unit?: string; hint: string; to?: string; hot?: boolean; hue: number }) {
+// ───────────────────────── attention banners ─────────────────────────
+/** Decisions and approvals that block someone else until you act. */
+const BANNERS: { kind: TalentTaskKind; tone: NeoTone; icon: LucideIcon; many: (n: number) => string; body: string }[] = [
+  { kind: 'offer-approval', tone: 'warning', icon: Signature, many: (n) => `${n} offers await your approval`, body: 'Every day an offer waits raises the risk of a counter-offer.' },
+  { kind: 'decision', tone: 'rose', icon: Gavel, many: (n) => `${n} hiring decisions are waiting on you`, body: 'The debriefs are in — make the call while the loop is fresh.' },
+  { kind: 'send-offer', tone: 'cyan', icon: Send, many: (n) => `${n} approved offers are ready to send`, body: 'All approvals are in — send them while the momentum is there.' },
+  { kind: 'req-approval', tone: 'amber', icon: BadgeCheck, many: (n) => `${n} headcount requests need your approval`, body: 'Approve or send back so recruiting can start.' },
+];
+
+function DeckBanners({ tasks }: { tasks: TalentTask[] }) {
   const navigate = useNavigate();
+  const now = useNow(60_000);
+  const rows = BANNERS.map((b) => ({ b, list: tasks.filter((t) => t.kind === b.kind) })).filter((r) => r.list.length > 0);
+  if (!rows.length) return null;
   return (
-    <button type="button" className={cx('tl-ov-kpi', hot && 'is-hot')} style={{ '--k-h': hue } as CSSProperties} onClick={() => to && navigate(to)} disabled={!to}>
-      <span className="tl-ov-kpi__top">
-        <span className="tl-ov-kpi__icon">
-          <Icon aria-hidden="true" />
-        </span>
-        <span className="tl-ov-kpi__label">{label}</span>
-      </span>
-      <span className="tl-ov-kpi__value">
-        {value}
-        {unit && <small>{unit}</small>}
-      </span>
-      <span className="tl-ov-kpi__hint">{hint}</span>
-    </button>
+    <NeoBanners>
+      {rows.slice(0, 3).map(({ b, list }) => {
+        const Icon = b.icon;
+        const first = list[0];
+        const oldest = Math.min(...list.map((t) => t.at));
+        const waited = oldest < now ? `waiting ${relativeTime(oldest, now).replace(/ ago$/, '')}` : fmtRelativeDay(oldest, now);
+        return list.length === 1 ? (
+          <NeoBanner key={b.kind} tone={b.tone} icon={<Icon />} title={first.title} meta={waited} onClick={() => runTalentTask(first, navigate)}>
+            {first.detail}
+          </NeoBanner>
+        ) : (
+          <NeoBanner key={b.kind} tone={b.tone} icon={<Icon />} title={b.many(list.length)} meta={waited} onClick={() => navigate(first.link)}>
+            {b.body}
+          </NeoBanner>
+        );
+      })}
+    </NeoBanners>
   );
 }
 
-function KpiStrip({ stats }: { stats: TalentStats }) {
+// ───────────────────────── HUD ribbon ─────────────────────────
+function DeckKpis({ stats }: { stats: TalentStats }) {
   const caps = useTalentCaps();
   const offersVisible = caps.manage || caps.approveOffers || caps.hire;
   return (
-    <div className="tl-ov-kpis">
-      <Kpi icon={Briefcase} hue={38} label="Open roles" value={stats.openReqs} hint={`${stats.openSeats} seat${stats.openSeats === 1 ? '' : 's'} to fill`} to="/talent/requisitions" />
-      <Kpi icon={Users} hue={214} label="In pipeline" value={stats.activeCandidates} hint={stats.avgMatch !== null ? `Avg match ${stats.avgMatch}%` : 'Active candidates'} to="/talent/pipeline" />
-      <Kpi icon={CalendarClock} hue={272} label="Interviews" value={stats.interviewsThisWeek} hint="Next 7 days" to="/talent/interviews" />
-      <Kpi icon={Signature} hue={20} label="Offers out" value={stats.offersOut} hint="Approval or signature" to={offersVisible ? '/talent/offers' : undefined} />
-      <Kpi
-        icon={Trophy}
-        hue={152}
-        label="Hires · 90d"
-        value={stats.hires90d}
-        hint={stats.avgDaysToHire !== null ? `${stats.avgDaysToHire} days avg to hire` : 'Welcome aboard'}
+    <NeoKpis label="Hiring at a glance">
+      <NeoKpi icon={<Briefcase />} label="Open roles" value={stats.openReqs} sub={`${stats.openSeats} seat${s(stats.openSeats)} to fill`} to="/talent/requisitions" />
+      <NeoKpi icon={<Users />} label="In pipeline" value={stats.activeCandidates} sub={stats.avgMatch !== null ? `Avg match ${stats.avgMatch}%` : 'Active candidates'} to="/talent/pipeline" />
+      <NeoKpi icon={<CalendarClock />} label="Interviews" value={stats.interviewsThisWeek} sub="Next 7 days" to="/talent/interviews" />
+      <NeoKpi icon={<Signature />} label="Offers out" value={stats.offersOut} sub="Approval or signature" to={offersVisible ? '/talent/offers' : undefined} />
+      <NeoKpi icon={<Trophy />} label="Hires · 90d" value={stats.hires90d} sub={stats.avgDaysToHire !== null ? `${stats.avgDaysToHire} days avg to hire` : 'Welcome aboard'} />
+      <NeoKpi
+        icon={<Hourglass />}
+        label="Past SLA"
+        value={stats.staleCount}
+        sub={stats.staleCount ? 'Waiting too long' : 'Everyone is moving'}
+        tone={stats.staleCount > 0 ? 'danger' : undefined}
         to="/talent/pipeline"
       />
-      <Kpi icon={Hourglass} hue={350} label="Past SLA" value={stats.staleCount} hint={stats.staleCount ? 'Waiting too long' : 'Everyone is moving'} hot={stats.staleCount > 0} to="/talent/pipeline" />
-    </div>
+    </NeoKpis>
   );
 }
 
-// ───────────────────────── flight path ─────────────────────────
-function FlightPath({ stats, stale }: { stats: TalentStats; stale: Map<StageId, number> }) {
+// ───────────────────────── Nova console ─────────────────────────
+const EXAMPLE_ROLES = ['Senior React engineer · fintech · Dubai hybrid', 'Data scientist, demand forecasting, Python', 'Head of Talent Acquisition for a scale-up', 'Flutter mobile engineer, remote GCC'];
+const EXAMPLE_REQS = ['Backend engineer for payments · Go · Dubai hybrid', 'Product designer, growth squad, 5+ years', 'Customer success lead, Arabic + English'];
+
+/** Recruiters: paste a JD or describe the role → AI Sourcing decodes it and starts the search. */
+function SourcingConsole() {
   const navigate = useNavigate();
-  const byStage = new Map(stats.funnel.map((f) => [f.stage, f]));
+  const scope = useTalentScope();
+  const resumeTitle = useStudio((st) => st.profile?.title ?? null);
+  const resumeStep = useStudio((st) => st.step);
+
+  // Thin pipelines on open roles become one-click suggestions (→ the studio with that JD loaded).
+  const reqHints = useMemo(() => {
+    const rank = { critical: 0, high: 1, normal: 2, low: 3 } as const;
+    return scope.requisitions
+      .filter((r) => r.status === 'open' && r.headcount > r.hires)
+      .map((r) => ({ r, active: scope.applications.filter((a) => a.requisitionId === r.id && a.status === 'active').length }))
+      .sort((a, b) => a.active - b.active || rank[a.r.priority] - rank[b.r.priority])
+      .slice(0, 2)
+      .map(({ r }) => ({ id: r.id, label: `Find more for ${r.title}` }));
+  }, [scope]);
+
   return (
-    <section className="card tl-ov-flight" aria-label="Hiring flight path">
-      <div className="tl-ov-flight__scan" aria-hidden="true" />
-      <header className="tl-ov-flight__head">
-        <div>
-          <div className="eyebrow">Hiring flight path</div>
-          <h2 className="section-title">
-            <Workflow aria-hidden="true" /> Every candidate, every step
-          </h2>
-        </div>
-        <p className="text-sm muted tl-ov-flight__lede">
-          Each stage has exit criteria, so nobody skips a step: outreach → interest &amp; consent → screen → scorecards → decision → approved offer → onboarding.
-        </p>
-      </header>
-      <div className="tl-ov-flight__track">
-        {STAGE_PHASES.map((phase, pi) => (
-          <div key={phase} className="tl-ov-phase" style={{ '--pi': pi } as CSSProperties}>
-            <div className="tl-ov-phase__label">
-              <span>{String(pi + 1).padStart(2, '0')}</span> {phase}
-            </div>
-            <div className="tl-ov-phase__nodes">
-              {STAGES.filter((s) => s.phase === phase).map((s) => {
-                const f = byStage.get(s.id);
-                const n = f?.current ?? 0;
-                const late = stale.get(s.id) ?? 0;
-                const Icon = s.icon;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className={cx('tl-ov-node', n > 0 && 'has-items', late > 0 && 'is-late')}
-                    style={{ '--stage-h': s.hue } as CSSProperties}
-                    onClick={() => navigate(`/talent/pipeline?stage=${s.id}`)}
-                    title={s.description}
-                  >
-                    <span className="tl-ov-node__orb">
-                      <Icon aria-hidden="true" />
-                      <span className="tl-ov-node__count">{n}</span>
-                    </span>
-                    <span className="tl-ov-node__label">{s.label}</span>
-                    <span className="tl-ov-node__meta">
-                      {f?.reached ?? 0} reached
-                      {late > 0 && <span className="tl-ov-node__late"> · {late} late</span>}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+    <NeoNovaPrompt
+      className="tl-deck-nova"
+      hud="Nova · AI sourcing"
+      title="Paste a job description or describe the role"
+      badge="Pool + LinkedIn in one pass"
+      placeholder="e.g. Senior React engineer · fintech payments · Dubai hybrid — or paste the full JD"
+      suggestions={[...reqHints.map((h) => h.label), ...EXAMPLE_ROLES].slice(0, 5)}
+      submitLabel="Source"
+      submitIcon={<Radar />}
+      label="Nova AI sourcing"
+      onSubmit={(text) => {
+        const hint = reqHints.find((h) => h.label === text);
+        if (hint) {
+          navigate(`/talent/sourcing?req=${hint.id}`);
+          return;
+        }
+        void studio.prefill(text);
+        navigate('/talent/sourcing');
+      }}
+    >
+      <div className="tl-deck-nova__foot">
+        <ol className="tl-deck-flow" aria-label="What Nova does next">
+          <li>
+            <FileSearch aria-hidden="true" /> Decode the JD
+          </li>
+          <li>
+            <Recycle aria-hidden="true" /> Rediscover your pool
+          </li>
+          <li>
+            <Linkedin aria-hidden="true" /> Build LinkedIn searches
+          </li>
+          <li>
+            <Send aria-hidden="true" /> Draft outreach
+          </li>
+        </ol>
+        {resumeTitle && (
+          <Link to="/talent/sourcing" className="tl-deck-resume" title="Pick up the sourcing session where you left it">
+            <span className="neo-hud">Resume</span>
+            <span className="truncate">{resumeTitle}</span>
+            <span className="neo-mono tl-deck-resume__step">{resumeStep + 1}/5</span>
+            <ArrowRight aria-hidden="true" />
+          </Link>
+        )}
       </div>
-    </section>
+    </NeoNovaPrompt>
+  );
+}
+
+/** Hiring managers: describe the role → the requisition wizard opens with the brief prefilled. */
+function RequisitionConsole() {
+  const navigate = useNavigate();
+  return (
+    <NeoNovaPrompt
+      className="tl-deck-nova"
+      hud="Nova · Requisition drafting"
+      title="Describe the role you need"
+      badge="JD + interview loop drafted"
+      placeholder="e.g. Backend engineer for payments · Go + Postgres · Dubai hybrid — or paste a JD"
+      suggestions={EXAMPLE_REQS}
+      submitLabel="Draft requisition"
+      submitIcon={<FilePlus2 />}
+      label="Nova requisition drafting"
+      onSubmit={(text) => navigate('/talent/requisitions/new', { state: { brief: text } })}
+    >
+      <div className="tl-deck-nova__foot">
+        <ol className="tl-deck-flow" aria-label="What Nova does next">
+          <li>
+            <BrainCircuit aria-hidden="true" /> Decode the brief
+          </li>
+          <li>
+            <FileSearch aria-hidden="true" /> Draft the JD
+          </li>
+          <li>
+            <ListChecks aria-hidden="true" /> Plan the loop
+          </li>
+          <li>
+            <BadgeCheck aria-hidden="true" /> Route approval
+          </li>
+        </ol>
+      </div>
+    </NeoNovaPrompt>
   );
 }
 
@@ -182,55 +266,47 @@ function whenLabel(t: TalentTask, now: number) {
 
 function NextSteps({ tasks }: { tasks: TalentTask[] }) {
   const navigate = useNavigate();
-  const me = useSessionUser();
   const now = useNow(60_000);
   const urgent = tasks.filter((t) => t.urgent).length;
   return (
-    <section className="card tl-ov-panel tl-ov-tasks">
-      <header className="tl-ov-panel__head">
-        <div className="grow">
-          <h2 className="section-title">
-            <CircleCheck aria-hidden="true" /> Your next steps <span className="count">{tasks.length}</span>
-          </h2>
-          <p className="text-sm muted">
-            {greeting()}
-            {me ? `, ${firstName(me.name)}` : ''}.{' '}
-            {tasks.length === 0 ? 'Nothing is waiting on you.' : urgent ? `${urgent} item${urgent === 1 ? ' needs' : 's need'} you today.` : 'Nothing urgent, nice work.'}
-          </p>
-        </div>
-      </header>
+    <NeoPanel
+      hud="Needs you"
+      title="Your next steps"
+      className="tl-deck-panel"
+      actions={tasks.length > 0 && <Chip tone={urgent ? 'danger' : 'app'} size="sm">{urgent ? `${urgent} urgent` : `${tasks.length} open`}</Chip>}
+    >
       {tasks.length === 0 ? (
-        <EmptyState icon={<PartyPopper />} title="You’re all caught up">
-          Scorecards, decisions, approvals and follow-ups show up here the moment they need you.
-        </EmptyState>
+        <NeoEmpty compact icon={<PartyPopper />} title="You’re all caught up">
+          Scorecards, decisions, approvals and follow-ups land here the moment they need you.
+        </NeoEmpty>
       ) : (
-        <ul className="tl-ov-tasklist">
-          {tasks.slice(0, 7).map((t, i) => {
+        <ul className="tl-deck-tasks neo-stagger">
+          {tasks.slice(0, 6).map((t, i) => {
             const m = TASK_META[t.kind];
             const Icon = m.icon;
             return (
               <li key={t.id} style={{ '--i': i } as CSSProperties}>
-                <button type="button" className={cx('tl-ov-task', t.urgent && 'is-urgent')} style={{ '--t-h': m.hue } as CSSProperties} onClick={() => runTalentTask(t, navigate)}>
-                  <span className="tl-ov-task__icon">
+                <button type="button" className="tl-deck-task" data-urgent={t.urgent || undefined} style={{ '--h': m.hue } as CSSProperties} onClick={() => runTalentTask(t, navigate)}>
+                  <span className="tl-deck-task__icon">
                     <Icon aria-hidden="true" />
                   </span>
-                  <span className="tl-ov-task__body">
-                    <span className="tl-ov-task__title">
-                      <span className="tl-ov-task__kind">{m.label}</span>
-                      <span className="truncate">{t.title}</span>
+                  <span className="tl-deck-task__body">
+                    <span className="tl-deck-task__top">
+                      <span className="tl-deck-task__kind">{m.label}</span>
+                      <span className="tl-deck-task__when">{whenLabel(t, now)}</span>
                     </span>
-                    <span className="tl-ov-task__detail truncate">{t.detail}</span>
+                    <span className="tl-deck-task__title truncate">{t.title}</span>
+                    <span className="tl-deck-task__detail truncate">{t.detail}</span>
                   </span>
-                  <span className="tl-ov-task__when">{whenLabel(t, now)}</span>
-                  <ChevronRight className="tl-ov-task__chev" aria-hidden="true" />
+                  <ChevronRight className="tl-deck-task__chev" aria-hidden="true" />
                 </button>
               </li>
             );
           })}
         </ul>
       )}
-      {tasks.length > 7 && <p className="text-xs faint tl-ov-more">+{tasks.length - 7} more across the tabs above</p>}
-    </section>
+      {tasks.length > 6 && <p className="tl-deck-more">+{tasks.length - 6} more in the sections on the left</p>}
+    </NeoPanel>
   );
 }
 
@@ -244,6 +320,8 @@ interface Insight {
   action?: { label: string; to?: string; candidateId?: string };
   weight: number;
 }
+
+const INSIGHT_TONE: Record<Insight['tone'], NeoTone> = { danger: 'danger', warning: 'warning', info: 'cyan', success: 'success' };
 
 function useInsights(): Insight[] {
   const scope = useTalentScope();
@@ -264,9 +342,9 @@ function useInsights(): Insight[] {
         id: 'stale',
         tone: 'warning',
         icon: Hourglass,
-        title: `${worst[1]} candidate${worst[1] === 1 ? '' : 's'} waiting too long in ${m.label}`,
+        title: `${worst[1]} candidate${s(worst[1])} waiting too long in ${m.label}`,
         detail: `The target is ${m.slaDays} days. Fast processes win the best candidates.`,
-        action: { label: 'Review pipeline', to: `/talent/pipeline?stage=${worst[0]}` },
+        action: { label: 'Review', to: `/talent/pipeline?stage=${worst[0]}` },
         weight: 80,
       });
     }
@@ -280,9 +358,9 @@ function useInsights(): Insight[] {
             id: `offer-${o.id}`,
             tone: 'danger',
             icon: Signature,
-            title: `${candName(o.candidateId)}’s offer has waited ${d} day${d === 1 ? '' : 's'} for approval`,
+            title: `${candName(o.candidateId)}’s offer has waited ${d} day${s(d)} for approval`,
             detail: 'Every day an offer waits raises the risk of a counter-offer.',
-            action: { label: 'Open offers', to: '/talent/offers' },
+            action: { label: 'Offers', to: '/talent/offers' },
             weight: 85,
           });
         }
@@ -296,9 +374,9 @@ function useInsights(): Insight[] {
         id: `thin-${r.id}`,
         tone: 'info',
         icon: Radar,
-        title: `${r.title} has only ${active} active candidate${active === 1 ? '' : 's'}`,
+        title: `${r.title} has only ${active} active candidate${s(active)}`,
         detail: 'Drop the JD into AI Sourcing to rediscover your pool and generate LinkedIn searches.',
-        action: caps.source ? { label: 'Source with AI', to: `/talent/sourcing?req=${r.id}` } : { label: 'Open requisition', to: `/talent/requisitions/${r.id}` },
+        action: caps.source ? { label: 'Source', to: `/talent/sourcing?req=${r.id}` } : { label: 'Open', to: `/talent/requisitions/${r.id}` },
         weight: 60 + (r.priority === 'critical' ? 20 : r.priority === 'high' ? 10 : 0),
       });
     }
@@ -338,7 +416,7 @@ function useInsights(): Insight[] {
           icon: Sparkles,
           title: `Rediscover ${best.name} for ${best.title}`,
           detail: `Silver medalist · ${best.score}% match. Warm candidates convert up to 3× faster.`,
-          action: { label: 'View profile', candidateId: best.id },
+          action: { label: 'Profile', candidateId: best.id },
           weight: 70,
         });
     }
@@ -352,14 +430,14 @@ function useInsights(): Insight[] {
           id: `acct-${j.id}`,
           tone: 'warning',
           icon: Rocket,
-          title: `${j.name} starts in ${d} day${d === 1 ? '' : 's'} without a NEXUS account`,
+          title: `${j.name} starts in ${d} day${s(d)} without a NEXUS account`,
           detail: 'Provision it now so day one starts with access, not tickets.',
-          action: { label: 'Open journey', to: `/hr/onboarding/${j.id}` },
+          action: { label: 'Journey', to: `/hr/onboarding/${j.id}` },
           weight: 75,
         });
       }
 
-    return out.sort((a, b) => b.weight - a.weight).slice(0, 5);
+    return out.sort((a, b) => b.weight - a.weight).slice(0, 4);
   }, [scope, data, caps, now]);
 }
 
@@ -367,44 +445,35 @@ function Insights() {
   const insights = useInsights();
   const navigate = useNavigate();
   return (
-    <section className="card tl-ov-panel tl-ov-insights">
-      <header className="tl-ov-panel__head">
-        <div className="grow">
-          <h2 className="section-title">
-            <Sparkles aria-hidden="true" /> Copilot insights
-          </h2>
-          <p className="text-sm muted">Patterns spotted across your requisitions, pool and pipeline.</p>
-        </div>
-      </header>
+    <NeoPanel hud="Nova suggests" title="Copilot insights" className="tl-deck-panel" actions={<Sparkles className="tl-deck-sparkle" aria-hidden="true" />}>
       {insights.length === 0 ? (
-        <EmptyState icon={<CircleCheck />} title="All systems nominal">
+        <NeoEmpty compact icon={<CircleCheck />} title="All systems nominal">
           No bottlenecks detected. Insights appear when something needs attention.
-        </EmptyState>
+        </NeoEmpty>
       ) : (
-        <ul className="tl-ov-insight-list">
+        <ul className="tl-deck-insights neo-stagger">
           {insights.map((ins, i) => {
             const Icon = ins.icon;
             return (
-              <li key={ins.id} className={cx('tl-ov-insight', `tl-ov-insight--${ins.tone}`)} style={{ '--i': i } as CSSProperties}>
-                <span className="tl-ov-insight__icon">
+              <li key={ins.id} className="tl-deck-insight" data-tone={INSIGHT_TONE[ins.tone]} style={{ '--i': i } as CSSProperties}>
+                <span className="tl-deck-insight__icon">
                   <Icon aria-hidden="true" />
                 </span>
-                <div className="grow">
-                  <div className="tl-ov-insight__title">{ins.title}</div>
-                  <div className="tl-ov-insight__detail">{ins.detail}</div>
+                <div className="tl-deck-insight__text">
+                  <b>{ins.title}</b>
+                  <span>{ins.detail}</span>
                 </div>
                 {ins.action && (
                   <button
                     type="button"
-                    className="btn btn--sm tl-ov-insight__cta"
+                    className="neo-btn neo-btn--ghost neo-btn--xs tl-deck-insight__cta"
                     onClick={() => {
                       const a = ins.action!;
-                      if (a.candidateId) useTalentUI.getState().openCandidate(a.candidateId);
+                      if (a.candidateId) openCandidate(a.candidateId);
                       else if (a.to) navigate(a.to);
                     }}
                   >
-                    {ins.action.label}
-                    <ArrowRight aria-hidden="true" />
+                    {ins.action.label} <ArrowRight aria-hidden="true" />
                   </button>
                 )}
               </li>
@@ -412,7 +481,65 @@ function Insights() {
           })}
         </ul>
       )}
-    </section>
+    </NeoPanel>
+  );
+}
+
+// ───────────────────────── flight path ─────────────────────────
+function FlightPath({ stats, stale }: { stats: TalentStats; stale: Map<StageId, number> }) {
+  const navigate = useNavigate();
+  const byStage = new Map(stats.funnel.map((f) => [f.stage, f]));
+  return (
+    <NeoPanel
+      hud="Hiring flight path"
+      title="Every candidate, every step"
+      className="tl-flight"
+      actions={
+        <Link to="/talent/pipeline" className="neo-btn neo-btn--ghost neo-btn--xs">
+          Board <ArrowRight aria-hidden="true" />
+        </Link>
+      }
+    >
+      <div className="tl-flight__scan" aria-hidden="true" />
+      <div className="tl-flight__track">
+        {STAGE_PHASES.map((phase, pi) => (
+          <div key={phase} className="tl-flight__phase" style={{ '--pi': pi } as CSSProperties}>
+            <div className="tl-flight__label neo-hud">
+              <span>{String(pi + 1).padStart(2, '0')}</span> {phase}
+            </div>
+            <div className="tl-flight__nodes">
+              {STAGES.filter((st) => st.phase === phase).map((st) => {
+                const f = byStage.get(st.id);
+                const n = f?.current ?? 0;
+                const late = stale.get(st.id) ?? 0;
+                const Icon = st.icon;
+                return (
+                  <button
+                    key={st.id}
+                    type="button"
+                    className={cx('tl-flight__node', n > 0 && 'has-items', late > 0 && 'is-late')}
+                    style={{ '--stage-h': st.hue } as CSSProperties}
+                    onClick={() => navigate(`/talent/pipeline?stage=${st.id}`)}
+                    title={st.description}
+                  >
+                    <span className="tl-flight__orb">
+                      <Icon aria-hidden="true" />
+                      <span className="tl-flight__count">{n}</span>
+                    </span>
+                    <span className="tl-flight__name">{st.label}</span>
+                    <span className="tl-flight__meta">
+                      {f?.reached ?? 0} reached
+                      {late > 0 && <span className="tl-flight__late"> · {late} late</span>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="tl-flight__lede">Exit criteria at every stage — outreach → interest &amp; consent → screen → scorecards → decision → approved offer → onboarding.</p>
+    </NeoPanel>
   );
 }
 
@@ -448,68 +575,127 @@ function ReqRadar() {
   );
 
   return (
-    <section className="card tl-ov-panel tl-ov-radar">
-      <header className="tl-ov-panel__head">
-        <div className="grow">
-          <h2 className="section-title">
-            <Radar aria-hidden="true" /> Requisition radar <span className="count">{rows.length}</span>
-          </h2>
-          <p className="text-sm muted">Where each role stands across Acquire, Assess and Decide.</p>
-        </div>
-        <Link to="/talent/requisitions" className="btn btn--sm btn--ghost">
-          All roles <ArrowRight aria-hidden="true" />
+    <NeoPanel
+      hud="Open roles"
+      title="Requisition radar"
+      flush
+      className="tl-deck-panel"
+      actions={
+        <Link to="/talent/requisitions" className="neo-btn neo-btn--ghost neo-btn--xs">
+          All {rows.length > 0 && <span className="neo-count">{rows.length}</span>} <ArrowRight aria-hidden="true" />
         </Link>
-      </header>
+      }
+    >
       {rows.length === 0 ? (
-        <EmptyState icon={<Briefcase />} title="No active requisitions">
+        <NeoEmpty compact icon={<Briefcase />} title="No active requisitions">
           Open a requisition to start building a pipeline.
-        </EmptyState>
+        </NeoEmpty>
       ) : (
-        <ul className="tl-ov-reqs">
-          {rows.slice(0, 6).map(({ r, active, phase, stale, days, best }) => {
-            const total = Math.max(1, phase.Acquire + phase.Assess + phase.Decide);
+        <>
+          <div className="tl-deck-legend" aria-hidden="true">
+            <span>
+              <i className="is-acquire" /> Acquire
+            </span>
+            <span>
+              <i className="is-assess" /> Assess
+            </span>
+            <span>
+              <i className="is-decide" /> Decide
+            </span>
+          </div>
+          <ul className="tl-deck-reqs">
+            {rows.slice(0, 6).map(({ r, active, phase, stale, days, best }) => {
+              const total = Math.max(1, phase.Acquire + phase.Assess + phase.Decide);
+              return (
+                <li key={r.id}>
+                  <button type="button" className="tl-deck-req" onClick={() => navigate(`/talent/requisitions/${r.id}`)}>
+                    <span className={cx('tl-deck-req__pri', `is-${r.priority}`)} aria-hidden="true" />
+                    <span className="tl-deck-req__main">
+                      <span className="tl-deck-req__title">
+                        <span className="truncate">{r.title}</span>
+                        {r.status !== 'open' ? <ReqStatusBadge status={r.status} /> : r.priority === 'critical' || r.priority === 'high' ? <PriorityBadge priority={r.priority} /> : null}
+                      </span>
+                      <span className="tl-deck-req__meta truncate">
+                        {r.department} · {r.location} · {active} active{best ? ` · best ${best}%` : ''}
+                      </span>
+                    </span>
+                    <span className="tl-deck-req__bar" title={`Acquire ${phase.Acquire} · Assess ${phase.Assess} · Decide ${phase.Decide}`}>
+                      {(['Acquire', 'Assess', 'Decide'] as const).map((p) => (
+                        <i key={p} className={`is-${p.toLowerCase()}`} style={{ flexGrow: phase[p] / total || 0.0001 }} />
+                      ))}
+                    </span>
+                    <span className="tl-deck-req__stat">
+                      <b className="neo-num">
+                        {r.hires}/{r.headcount}
+                      </b>
+                      <small>hired</small>
+                    </span>
+                    <span className={cx('tl-deck-req__stat', stale > 0 && 'is-warn')}>
+                      <b className="neo-num">{days}d</b>
+                      <small>{stale > 0 ? `${stale} late` : 'open'}</small>
+                    </span>
+                    <ChevronRight className="tl-deck-req__chev" aria-hidden="true" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </NeoPanel>
+  );
+}
+
+// ───────────────────────── funnel & sources ─────────────────────────
+function FunnelPanel({ stats }: { stats: TalentStats }) {
+  const navigate = useNavigate();
+  return (
+    <NeoPanel hud="Conversion" title="Hiring funnel" className="tl-deck-panel">
+      <Funnel steps={stats.funnel} compact onSelect={(stage) => navigate(`/talent/pipeline?stage=${stage}`)} />
+    </NeoPanel>
+  );
+}
+
+function SourceMix({ stats }: { stats: TalentStats }) {
+  const max = Math.max(1, ...stats.sourceMix.map((x) => x.candidates));
+  return (
+    <NeoPanel hud="Channels" title="Source of hire" className="tl-deck-panel">
+      {stats.sourceMix.length === 0 ? (
+        <p className="tl-deck-faint">No candidates yet.</p>
+      ) : (
+        <ul className="tl-deck-sources">
+          {stats.sourceMix.map((x, i) => {
+            const m = SOURCE_META[x.source];
+            const Icon = m.icon;
             return (
-              <li key={r.id}>
-                <button type="button" className="tl-ov-req" onClick={() => navigate(`/talent/requisitions/${r.id}`)}>
-                  <span className={cx('tl-ov-req__pri', `is-${r.priority}`)} aria-hidden="true" />
-                  <span className="tl-ov-req__main">
-                    <span className="tl-ov-req__title">
-                      <span className="truncate">{r.title}</span>
-                      {r.status !== 'open' ? <ReqStatusBadge status={r.status} /> : r.priority === 'critical' || r.priority === 'high' ? <PriorityBadge priority={r.priority} /> : null}
-                    </span>
-                    <span className="tl-ov-req__meta truncate">
-                      {r.department} · {r.location} · {active} active{best ? ` · best ${best}%` : ''}
-                    </span>
-                  </span>
-                  <span className="tl-ov-req__bar" title={`Acquire ${phase.Acquire} · Assess ${phase.Assess} · Decide ${phase.Decide}`}>
-                    {(['Acquire', 'Assess', 'Decide'] as const).map((p) => (
-                      <i key={p} className={`is-${p.toLowerCase()}`} style={{ flexGrow: phase[p] / total || 0.0001 }} />
-                    ))}
-                  </span>
-                  <span className="tl-ov-req__stat">
-                    <b>
-                      {r.hires}/{r.headcount}
-                    </b>
-                    <small>hired</small>
-                  </span>
-                  <span className={cx('tl-ov-req__stat', stale > 0 && 'is-warn')}>
-                    <b>{days}d</b>
-                    <small>{stale > 0 ? `${stale} late` : 'open'}</small>
-                  </span>
-                  <ChevronRight className="tl-ov-req__chev" aria-hidden="true" />
-                </button>
+              <li key={x.source} className="tl-deck-source" style={{ '--src-h': m.hue, '--w': `${Math.max(6, (x.candidates / max) * 100)}%`, '--i': i } as CSSProperties}>
+                <span className="tl-deck-source__label">
+                  <Icon aria-hidden="true" /> <span className="truncate">{m.label}</span>
+                </span>
+                <span className="tl-deck-source__bar">
+                  <i />
+                </span>
+                <span className="tl-deck-source__num neo-num">
+                  {x.candidates}
+                  {x.hires > 0 && (
+                    <small title={`${x.hires} hired`}>
+                      <Trophy aria-hidden="true" />
+                      {x.hires}
+                    </small>
+                  )}
+                </span>
               </li>
             );
           })}
         </ul>
       )}
-    </section>
+    </NeoPanel>
   );
 }
 
-// ───────────────────────── upcoming interviews ─────────────────────────
+// ───────────────────────── side: interviews ─────────────────────────
 function UpcomingInterviews() {
-  const interviews = useTalent((s) => s.interviews);
+  const interviews = useTalent((st) => st.interviews);
   const scope = useTalentScope();
   const me = useSessionUser();
   const { candById, reqById } = useTalentLookups();
@@ -522,25 +708,29 @@ function UpcomingInterviews() {
         .slice(0, 5),
     [interviews, scope, me, now],
   );
+  const endOfDay = new Date(now).setHours(23, 59, 59, 999);
+  const today = list.filter((i) => i.scheduledAt <= endOfDay).length;
   return (
-    <section className="card tl-ov-panel tl-ov-upcoming">
-      <header className="tl-ov-panel__head">
-        <div className="grow">
-          <h2 className="section-title">
-            <CalendarClock aria-hidden="true" /> Upcoming interviews
-          </h2>
-          <p className="text-sm muted">Structured loops, scored per competency.</p>
-        </div>
-        <Link to="/talent/interviews" className="btn btn--sm btn--ghost">
+    <NeoPanel
+      hud={today ? `Today · ${today}` : 'Up next'}
+      title="Interviews"
+      className="tl-deck-panel"
+      actions={
+        <Link to="/talent/interviews" className="neo-btn neo-btn--ghost neo-btn--xs">
           Agenda <ArrowRight aria-hidden="true" />
         </Link>
-      </header>
+      }
+    >
       {list.length === 0 ? (
-        <EmptyState icon={<CalendarClock />} title="Nothing scheduled">
-          Interviews you schedule appear here.
-        </EmptyState>
+        <div className="tl-deck-clear">
+          <CircleCheck aria-hidden="true" />
+          <div>
+            <b>Nothing scheduled</b>
+            <span>Interviews you schedule or sit on appear here.</span>
+          </div>
+        </div>
       ) : (
-        <ul className="tl-ov-ivs">
+        <ul className="tl-deck-ivs">
           {list.map((iv) => {
             const c = candById.get(iv.candidateId);
             const r = reqById.get(iv.requisitionId);
@@ -550,104 +740,198 @@ function UpcomingInterviews() {
             const live = iv.scheduledAt <= now;
             return (
               <li key={iv.id}>
-                <button type="button" className={cx('tl-ov-iv', live && 'is-live')} onClick={() => c && useTalentUI.getState().openCandidate(c.id)}>
-                  <span className="tl-ov-iv__time">
+                <button type="button" className={cx('tl-deck-iv', live && 'is-live')} onClick={() => c && openCandidate(c.id)}>
+                  <span className="tl-deck-iv__time">
                     {live ? (
                       <>
-                        <span className="dot dot--pulse dot--meeting" /> Now
+                        <Orb tone="success" pulse size={7} /> Now
                       </>
                     ) : (
                       fmtRelativeDay(iv.scheduledAt, now)
                     )}
                   </span>
-                  <span className="tl-ov-iv__kind" title={k.label}>
+                  <span className="tl-deck-iv__kind" title={k.label}>
                     <Icon aria-hidden="true" />
                   </span>
-                  <span className="tl-ov-iv__main">
-                    <span className="tl-ov-iv__who truncate">
-                      {c?.name ?? 'Candidate'}
+                  <span className="tl-deck-iv__main">
+                    <span className="tl-deck-iv__who">
+                      <span className="truncate">{c?.name ?? 'Candidate'}</span>
                       {c?.sample && <SampleTag />}
+                      {mine && (
+                        <Chip tone="app" size="sm">
+                          You
+                        </Chip>
+                      )}
                     </span>
-                    <span className="tl-ov-iv__what truncate">
+                    <span className="tl-deck-iv__what truncate">
                       {iv.title} · {r?.title ?? 'Requisition'} · {iv.durationMins}m
                     </span>
                   </span>
-                  {mine && <span className="badge badge--info tl-ov-iv__mine">You</span>}
-                  <PeopleStack userIds={iv.interviewerIds} max={3} size={22} />
+                  <PeopleStack userIds={iv.interviewerIds} max={3} size={20} />
                 </button>
               </li>
             );
           })}
         </ul>
       )}
-    </section>
+    </NeoPanel>
   );
 }
 
-// ───────────────────────── funnel & sources ─────────────────────────
-function FunnelPanel({ stats }: { stats: TalentStats }) {
+// ───────────────────────── side: offers in flight ─────────────────────────
+function OffersInFlight() {
+  const data = useTalentData();
+  const scope = useTalentScope();
+  const { candById } = useTalentLookups();
   const navigate = useNavigate();
-  return (
-    <section className="card tl-ov-panel">
-      <header className="tl-ov-panel__head">
-        <div className="grow">
-          <h2 className="section-title">
-            <Activity aria-hidden="true" /> Hiring funnel
-          </h2>
-          <p className="text-sm muted">Reached each stage · conversion from the previous one.</p>
-        </div>
-      </header>
-      <Funnel steps={stats.funnel} compact onSelect={(stage) => navigate(`/talent/pipeline?stage=${stage}`)} />
-    </section>
+  const now = useNow(60_000);
+  const list = useMemo(
+    () =>
+      data.offers
+        .filter((o) => scope.reqIds.has(o.requisitionId) && (o.status === 'pending-approval' || o.status === 'approved' || o.status === 'sent'))
+        .sort((a, b) => ({ 'pending-approval': 0, approved: 1, sent: 2 })[a.status as 'sent'] - ({ 'pending-approval': 0, approved: 1, sent: 2 })[b.status as 'sent'] || a.createdAt - b.createdAt),
+    [data.offers, scope],
   );
-}
-
-function SourceMix({ stats }: { stats: TalentStats }) {
-  const max = Math.max(1, ...stats.sourceMix.map((s) => s.candidates));
   return (
-    <section className="card tl-ov-panel">
-      <header className="tl-ov-panel__head">
-        <div className="grow">
-          <h2 className="section-title">
-            <UserPlus aria-hidden="true" /> Source of hire
-          </h2>
-          <p className="text-sm muted">Where candidates come from, and who converts.</p>
+    <NeoPanel
+      hud="In flight"
+      title="Offers"
+      className="tl-deck-panel"
+      actions={
+        <Link to="/talent/offers" className="neo-btn neo-btn--ghost neo-btn--xs">
+          All <ArrowRight aria-hidden="true" />
+        </Link>
+      }
+    >
+      {list.length === 0 ? (
+        <div className="tl-deck-clear">
+          <Signature aria-hidden="true" />
+          <div>
+            <b>No offers in flight</b>
+            <span>Approved decisions turn into offers here.</span>
+          </div>
         </div>
-      </header>
-      {stats.sourceMix.length === 0 ? (
-        <p className="text-sm faint">No candidates yet.</p>
       ) : (
-        <ul className="tl-ov-sources">
-          {stats.sourceMix.map((s, i) => {
-            const m = SOURCE_META[s.source];
-            const Icon = m.icon;
+        <ul className="tl-deck-offers">
+          {list.slice(0, 4).map((o) => {
+            const c = candById.get(o.candidateId);
+            const meta = OFFER_STATUS_META[o.status];
+            const signed = o.approvals.filter((a) => a.decision === 'approved').length;
+            const expires = o.status === 'sent' ? Math.ceil((o.expiresAt - now) / DAY) : null;
             return (
-              <li key={s.source} className="tl-ov-source" style={{ '--src-h': m.hue, '--w': `${Math.max(6, (s.candidates / max) * 100)}%`, '--i': i } as CSSProperties}>
-                <span className="tl-ov-source__label">
-                  <Icon aria-hidden="true" /> {m.label}
-                </span>
-                <span className="tl-ov-source__bar">
-                  <i />
-                </span>
-                <span className="tl-ov-source__num">
-                  {s.candidates}
-                  {s.hires > 0 && (
-                    <small title={`${s.hires} hired`}>
-                      <Trophy aria-hidden="true" />
-                      {s.hires}
-                    </small>
-                  )}
-                </span>
+              <li key={o.id}>
+                <button type="button" className="tl-deck-offer" onClick={() => navigate('/talent/offers')}>
+                  {c ? <CandidateAvatar person={c} size={30} /> : <span className="tl-deck-offer__ph" />}
+                  <span className="tl-deck-offer__main">
+                    <span className="tl-deck-offer__who truncate">{c?.name ?? 'Candidate'}</span>
+                    <span className="tl-deck-offer__what truncate">
+                      {o.title}
+                      {expires !== null && ` · ${expires > 0 ? `expires in ${expires}d` : 'expired'}`}
+                    </span>
+                  </span>
+                  <span className="tl-deck-offer__side">
+                    <Chip tone={NEO_TONE[meta.tone]} size="sm">
+                      {o.status === 'pending-approval' ? 'Approval' : o.status === 'approved' ? 'Ready' : 'Sent'}
+                    </Chip>
+                    {o.approvals.length > 0 && (
+                      <span className="tl-deck-offer__chain" title={`${signed}/${o.approvals.length} approvals`}>
+                        {o.approvals.map((a) => (
+                          <i key={a.step} data-state={a.decision} />
+                        ))}
+                      </span>
+                    )}
+                  </span>
+                </button>
               </li>
             );
           })}
         </ul>
       )}
-    </section>
+    </NeoPanel>
   );
 }
 
-// ───────────────────────── activity ─────────────────────────
+// ───────────────────────── side: SLA watch ─────────────────────────
+function SlaWatch() {
+  const scope = useTalentScope();
+  const { candById } = useTalentLookups();
+  const now = useNow(60_000);
+  const { ok, warn, stale, worst } = useMemo(() => {
+    const active = scope.applications.filter((a) => a.status === 'active' && STAGE_BY_ID[a.stage].slaDays > 0);
+    const tally = { ok: 0, warn: 0, stale: 0 };
+    for (const a of active) tally[slaState(a, now)] += 1;
+    const over = active
+      .map((a) => ({ a, over: (now - a.stageEnteredAt) / DAY - STAGE_BY_ID[a.stage].slaDays }))
+      .filter((x) => x.over > 0)
+      .sort((x, y) => y.over - x.over)
+      .slice(0, 3);
+    return { ...tally, worst: over };
+  }, [scope, now]);
+  const total = Math.max(1, ok + warn + stale);
+  return (
+    <NeoPanel
+      hud="Momentum"
+      title="SLA watch"
+      className="tl-deck-panel"
+      actions={
+        <Link to="/talent/pipeline" className="neo-btn neo-btn--ghost neo-btn--xs">
+          Board <ArrowRight aria-hidden="true" />
+        </Link>
+      }
+    >
+      <div className="tl-deck-sla" role="img" aria-label={`${ok} on track, ${warn} at risk, ${stale} past SLA`}>
+        <span className="tl-deck-sla__bar" aria-hidden="true">
+          <i data-state="ok" style={{ flexGrow: ok / total || 0.0001 }} />
+          <i data-state="warn" style={{ flexGrow: warn / total || 0.0001 }} />
+          <i data-state="stale" style={{ flexGrow: stale / total || 0.0001 }} />
+        </span>
+        <span className="tl-deck-sla__legend">
+          <span data-state="ok">
+            <b className="neo-num">{ok}</b> on track
+          </span>
+          <span data-state="warn">
+            <b className="neo-num">{warn}</b> at risk
+          </span>
+          <span data-state="stale">
+            <b className="neo-num">{stale}</b> past SLA
+          </span>
+        </span>
+      </div>
+      {worst.length === 0 ? (
+        <div className="tl-deck-clear">
+          <CircleCheck aria-hidden="true" />
+          <div>
+            <b>Everyone is moving</b>
+            <span>No candidate has waited past a stage target.</span>
+          </div>
+        </div>
+      ) : (
+        <ul className="tl-deck-late">
+          {worst.map(({ a, over }) => {
+            const c = candById.get(a.candidateId);
+            const st = STAGE_BY_ID[a.stage];
+            return (
+              <li key={a.id}>
+                <button type="button" className="tl-deck-late__row" onClick={() => openCandidate(a.candidateId)} style={{ '--stage-h': st.hue } as CSSProperties}>
+                  {c ? <CandidateAvatar person={c} size={26} /> : <span className="tl-deck-offer__ph" />}
+                  <span className="tl-deck-late__main">
+                    <span className="truncate">{c?.name ?? 'Candidate'}</span>
+                    <small>
+                      {st.label} · target {st.slaDays}d
+                    </small>
+                  </span>
+                  <span className="tl-deck-late__over neo-mono">+{Math.max(1, Math.round(over))}d</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </NeoPanel>
+  );
+}
+
+// ───────────────────────── side: activity ─────────────────────────
 const ACTIVITY_ICON: Record<ActivityKind, LucideIcon> = {
   created: UserPlus,
   import: UserPlus,
@@ -666,7 +950,7 @@ const ACTIVITY_ICON: Record<ActivityKind, LucideIcon> = {
 };
 
 function ActivityFeed() {
-  const activity = useTalent((s) => s.activity);
+  const activity = useTalent((st) => st.activity);
   const scope = useTalentScope();
   const { userById, candById } = useTalentLookups();
   const now = useNow(60_000);
@@ -675,37 +959,29 @@ function ActivityFeed() {
     return activity
       .filter((a) => (a.requisitionId && scope.reqIds.has(a.requisitionId)) || (a.candidateId && cands.has(a.candidateId)))
       .sort((a, b) => b.at - a.at)
-      .slice(0, 8);
+      .slice(0, 6);
   }, [activity, scope]);
   return (
-    <section className="card tl-ov-panel tl-ov-activity">
-      <header className="tl-ov-panel__head">
-        <div className="grow">
-          <h2 className="section-title">
-            <Activity aria-hidden="true" /> Live activity
-          </h2>
-          <p className="text-sm muted">Every action is audited and shared with the hiring team.</p>
-        </div>
-      </header>
+    <NeoPanel hud="Live" title="Activity" className="tl-deck-panel">
       {items.length === 0 ? (
-        <p className="text-sm faint">No activity yet.</p>
+        <p className="tl-deck-faint">No activity yet.</p>
       ) : (
-        <ol className="tl-ov-feed">
+        <ol className="tl-deck-feed">
           {items.map((a) => {
             const Icon = ACTIVITY_ICON[a.kind] ?? Activity;
             const actor = userById.get(a.actorId);
             const cand = a.candidateId ? candById.get(a.candidateId) : undefined;
             return (
-              <li key={a.id} className={cx('tl-ov-feed__item', `is-${a.kind}`)}>
-                <span className="tl-ov-feed__icon">
+              <li key={a.id} className={cx('tl-deck-feed__item', `is-${a.kind}`)}>
+                <span className="tl-deck-feed__icon">
                   <Icon aria-hidden="true" />
                 </span>
-                <div className="grow">
-                  <div className="tl-ov-feed__text">{a.text}</div>
-                  <div className="tl-ov-feed__meta">
+                <div className="tl-deck-feed__body">
+                  <div className="tl-deck-feed__text">{a.text}</div>
+                  <div className="tl-deck-feed__meta">
                     {actor ? (
                       <>
-                        <Avatar user={actor} size={16} /> {actor.name.split(' ')[0]}
+                        <Avatar user={actor} size={14} /> {actor.name.split(' ')[0]}
                       </>
                     ) : (
                       'System'
@@ -714,8 +990,8 @@ function ActivityFeed() {
                     {cand && (
                       <>
                         {' · '}
-                        <button type="button" className="tl-ov-feed__cand" onClick={() => useTalentUI.getState().openCandidate(cand.id)}>
-                          <CandidateAvatar person={cand} size={16} /> {cand.name}
+                        <button type="button" className="tl-deck-feed__cand" onClick={() => openCandidate(cand.id)}>
+                          {cand.name}
                         </button>
                       </>
                     )}
@@ -726,7 +1002,41 @@ function ActivityFeed() {
           })}
         </ol>
       )}
-    </section>
+    </NeoPanel>
+  );
+}
+
+// ───────────────────────── side: systems ─────────────────────────
+/** AI engine · data backend · LinkedIn connector — honest about what's live. */
+function SystemsPanel() {
+  const ai = aiStatus();
+  const be = backendStatus();
+  const li = getLinkedInConnector();
+  const rows: { icon: LucideIcon; label: string; value: string; detail: string; tone: NeoTone }[] = [
+    { icon: Sparkles, label: 'AI engine', value: ai.engine === 'gemini' ? (ai.model ?? 'Gemini') : 'Offline engine', detail: ai.detail, tone: ai.engine === 'gemini' ? 'success' : 'amber' },
+    { icon: be.kind === 'firestore' ? Cloud : Database, label: 'Data', value: be.kind === 'firestore' ? `Firestore · ${be.database}` : `Local · ${be.database}`, detail: be.detail, tone: be.kind === 'firestore' ? 'success' : 'cyan' },
+    { icon: Linkedin, label: 'LinkedIn', value: li.id === 'assisted' ? 'Assisted mode' : 'Recruiter System Connect', detail: li.description, tone: li.id === 'assisted' ? 'blue' : 'success' },
+  ];
+  return (
+    <NeoPanel hud="Under the hood" title="Systems" className="tl-deck-panel">
+      <ul className="tl-deck-sys">
+        {rows.map((r) => {
+          const Icon = r.icon;
+          return (
+            <li key={r.label} title={r.detail}>
+              <span className="tl-deck-sys__icon" data-tone={r.tone}>
+                <Icon aria-hidden="true" />
+              </span>
+              <span className="tl-deck-sys__main">
+                <span className="neo-hud">{r.label}</span>
+                <span className="truncate">{r.value}</span>
+              </span>
+              <Orb tone={r.tone} size={7} />
+            </li>
+          );
+        })}
+      </ul>
+    </NeoPanel>
   );
 }
 
@@ -735,32 +1045,47 @@ export function OverviewTab() {
   const stats = useTalentStats();
   const tasks = useMyTalentTasks();
   const scope = useTalentScope();
+  const caps = useTalentCaps();
   const now = useNow(60_000);
   const stale = useMemo(() => {
     const m = new Map<StageId, number>();
     for (const a of scope.applications) if (a.status === 'active' && slaState(a, now) === 'stale') m.set(a.stage, (m.get(a.stage) ?? 0) + 1);
     return m;
   }, [scope, now]);
+  const offersVisible = caps.manage || caps.approveOffers || caps.hire;
+  const console_ = caps.source ? <SourcingConsole /> : caps.hire ? <RequisitionConsole /> : null;
 
   return (
-    <div className="tl-ov">
-      <KpiStrip stats={stats} />
-      <FlightPath stats={stats} stale={stale} />
-      <div className="tl-ov__grid">
-        <div className="tl-ov__col tl-ov__col--main">
-          <NextSteps tasks={tasks} />
-          <ReqRadar />
-          <div className="tl-ov__pair">
-            <FunnelPanel stats={stats} />
-            <SourceMix stats={stats} />
-          </div>
-        </div>
-        <div className="tl-ov__col tl-ov__col--side">
-          <Insights />
-          <UpcomingInterviews />
-          <ActivityFeed />
-        </div>
-      </div>
+    <div className="tl-deck">
+      <DeckBanners tasks={tasks} />
+      <DeckKpis stats={stats} />
+      <NeoHome
+        sideLabel="Interviews, offers and momentum"
+        main={
+          <>
+            {console_}
+            <div className="tl-deck-pair">
+              <NextSteps tasks={tasks} />
+              <Insights />
+            </div>
+            <FlightPath stats={stats} stale={stale} />
+            <ReqRadar />
+            <div className="tl-deck-pair">
+              <FunnelPanel stats={stats} />
+              <SourceMix stats={stats} />
+            </div>
+          </>
+        }
+        side={
+          <>
+            <UpcomingInterviews />
+            {offersVisible && <OffersInFlight />}
+            <SlaWatch />
+            <ActivityFeed />
+            <SystemsPanel />
+          </>
+        }
+      />
     </div>
   );
 }

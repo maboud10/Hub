@@ -17,7 +17,8 @@ import { useHub } from '@/store/hub';
 import { useClearance, usePermissions } from '@/store/selectors';
 import { useNow } from '@/hooks/useNow';
 import { toast } from '@/store/toast';
-import { AppIcon, Avatar, EmptyState } from '@/components/ui/primitives';
+import { NeoEmpty, NeoPanel, NeoSearch } from '@/components/neo';
+import { AppIcon, Avatar } from '@/components/ui/primitives';
 import { APP_CATEGORIES } from '@/data/apps';
 import { buildPermissionCatalog, hasPermission, matchesPermission } from '@/lib/rbac';
 import { pluralize } from '@/lib/format';
@@ -125,25 +126,17 @@ export function PermissionMatrix() {
   }, [pendingRole, pendingPerm, users, permsByUser]);
 
   return (
-    <section className="section" aria-labelledby="adm-matrix-h">
-      <div className="section-head adm-wrap-head">
-        <div>
-          <h2 id="adm-matrix-h" className="section-title">
-            <Fingerprint aria-hidden="true" /> Permission matrix
-          </h2>
-          <p className="text-sm faint">Click a cell to grant or revoke. Sensitive permissions ask for confirmation.</p>
-        </div>
-      </div>
-
-      <div className="adm-toolbar">
-        <label className="input-wrap adm-search">
-          <Search aria-hidden="true" />
-          <span className="sr-only">Search permissions</span>
-          <input className="input" type="search" placeholder="Search permissions or apps…" value={q} onChange={(e) => setQ(e.target.value)} />
-        </label>
-      </div>
-      <div className="adm-toolbar adm-toolbar--sub">
-        <div className="chips" role="group" aria-label="Permission category">
+    <NeoPanel
+      flush
+      hud="Policy"
+      title="Permission matrix"
+      icon={<Fingerprint />}
+      className="adm-matrix-panel"
+      actions={<span className="adm-toolbar-hint adm-hide-sm">Click a cell to grant or revoke · sensitive ones ask first</span>}
+    >
+      <div className="adm-matrix-tools">
+        <NeoSearch value={q} onChange={setQ} placeholder="Search permissions or apps…" size="sm" label="Search permissions" className="adm-tool-search" />
+        <div className="adm-chips" role="group" aria-label="Permission category">
           <FilterChip active={cat === 'all'} count={catCounts.all} onClick={() => setCat('all')}>
             All
           </FilterChip>
@@ -159,11 +152,9 @@ export function PermissionMatrix() {
       </div>
 
       {rowCount === 0 ? (
-        <div className="card">
-          <EmptyState icon={<Search />} title="No permissions match">
-            Try another search term or category.
-          </EmptyState>
-        </div>
+        <NeoEmpty compact icon={<Search />} title="No permissions match">
+          Try another search term or category.
+        </NeoEmpty>
       ) : (
         <div className="adm-matrix-wrap" tabIndex={0} role="region" aria-label="Permission matrix (scrolls horizontally)">
           <table className="adm-matrix">
@@ -338,6 +329,6 @@ export function PermissionMatrix() {
           </div>
         )}
       </ConfirmModal>
-    </section>
+    </NeoPanel>
   );
 }

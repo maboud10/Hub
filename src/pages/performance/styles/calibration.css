@@ -1,0 +1,1370 @@
+/* ==========================================================================
+   Performance · Calibration — 9-box talent grid (prefix: pf-cal-)
+   ========================================================================== */
+
+/* ───────── Toolbar ───────── */
+.pf-cal-toolbar {
+  row-gap: 8px;
+}
+.pf-cal-search {
+  flex: 1 1 200px;
+  max-width: 260px;
+}
+.pf-cal-filter {
+  width: auto;
+  flex: 0 1 200px;
+  min-width: 150px;
+}
+.pf-cal-cyc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pf-cal-cyc em {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 99px;
+  background: var(--track);
+  color: var(--text-3);
+}
+.pf-cal-cyc em[data-live] {
+  background: rgb(var(--pf-ok) / 0.16);
+  color: rgb(var(--pf-ok));
+}
+[data-theme='light'] .pf-cal-cyc em[data-live] {
+  color: color-mix(in oklab, rgb(var(--pf-ok)) 60%, #0b1020);
+}
+.pf-cal-legend {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.pf-cal-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Source markers (legend, overview, inspector) */
+.pf-cal-legend i,
+.pf-cal-ov__src i,
+.pf-cal-place__src i {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: 1.5px solid var(--border-3);
+}
+[data-source='calibrated'] > i {
+  background: var(--surface);
+  border: 2px solid var(--app-c1);
+  box-shadow: 0 0 8px rgb(var(--app-rgb) / 0.7);
+}
+[data-source='manager'] > i {
+  background: linear-gradient(135deg, var(--surface-3), var(--surface-2));
+  border-color: var(--border-3);
+}
+[data-source='previous'] > i {
+  background: transparent;
+  border: 1.5px dashed var(--text-3);
+}
+[data-source='pending'] > i {
+  background: transparent;
+  border: 1.5px dashed var(--app-c1);
+}
+[data-source='none'] > i {
+  background: transparent;
+  border: 1.5px dotted var(--border-3);
+}
+
+/* ───────── Layout ───────── */
+.pf-cal-split {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+.pf-cal-split--solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+.pf-cal-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pf-cal-h2 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.pf-cal-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.pf-cal-card-icon {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--app-ink);
+  background: linear-gradient(150deg, rgb(var(--app-rgb) / 0.2), rgb(var(--app-rgb-2) / 0.1));
+  box-shadow: inset 0 0 0 1px rgb(var(--app-rgb) / 0.26);
+}
+.pf-cal-card-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* Banner (locked / closed) */
+.pf-cal-banner {
+  --tone: 148 163 184;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2);
+  background: rgb(var(--tone) / 0.1);
+  border: 1px solid rgb(var(--tone) / 0.3);
+}
+.pf-cal-banner[data-kind='locked'] {
+  --tone: var(--pf-done);
+}
+.pf-cal-banner > svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: rgb(var(--tone));
+}
+.pf-cal-banner b {
+  color: var(--text);
+}
+.pf-cal-banner .neo-btn {
+  flex: none;
+}
+
+/* ───────── Board ───────── */
+.pf-cal-board-card {
+  padding: 16px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background:
+    linear-gradient(45deg, rgb(251 113 133 / 0.05), transparent 38%, transparent 62%, rgb(167 139 250 / 0.08)),
+    var(--plane-2);
+}
+.pf-cal-board-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pf-cal-board-stats {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pf-cal-board-stats b {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+  margin-right: 3px;
+  font-variant-numeric: tabular-nums;
+}
+.pf-cal-board-stats [data-warn] b {
+  color: var(--app-ink);
+}
+
+.pf-cal-grid {
+  --cell-h: 156px;
+  display: grid;
+  grid-template-columns: 18px 22px repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(var(--cell-h), auto)) auto auto;
+  gap: 8px;
+}
+.pf-cal-axis,
+.pf-cal-tick {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.pf-cal-axis {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--app-ink);
+}
+.pf-cal-axis svg {
+  width: 13px;
+  height: 13px;
+}
+.pf-cal-axis--y {
+  grid-column: 1;
+  grid-row: 1 / span 3;
+  writing-mode: vertical-rl;
+  rotate: 180deg;
+}
+.pf-cal-axis--y svg {
+  rotate: 180deg;
+}
+.pf-cal-axis--x {
+  grid-column: 3 / span 3;
+  grid-row: 5;
+  padding-top: 2px;
+}
+.pf-cal-tick--y {
+  grid-column: 2;
+  align-self: center;
+  justify-self: center;
+  writing-mode: vertical-rl;
+  rotate: 180deg;
+}
+.pf-cal-tick--x {
+  grid-row: 4;
+  text-align: center;
+}
+
+.pf-cal-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgb(var(--tone) / 0.07), rgb(var(--tone) / 0.015) 70%), var(--plane);
+  border: 1px solid rgb(var(--tone) / 0.22);
+  box-shadow: var(--plane-inset);
+  transition:
+    border-color var(--dur-fast),
+    box-shadow var(--dur),
+    transform var(--dur) var(--ease-out),
+    background var(--dur);
+}
+.pf-cal-box__glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(120% 95% at 100% 0%, rgb(var(--tone) / calc(0.05 + var(--glow, 0) * 0.24)), transparent 64%);
+  transition: background var(--dur-slow);
+}
+.pf-cal-box > :not(.pf-cal-box__glow) {
+  position: relative;
+}
+.pf-cal-box__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.pf-cal-box__label {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pf-cal-box__label::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 7px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: rgb(var(--tone));
+  box-shadow: 0 0 9px rgb(var(--tone) / 0.85);
+}
+.pf-cal-box__count {
+  flex: none;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 7px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 99px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgb(var(--tone));
+  background: rgb(var(--tone) / 0.14);
+  border: 1px solid rgb(var(--tone) / 0.3);
+}
+[data-theme='light'] .pf-cal-box__count {
+  color: color-mix(in oklab, rgb(var(--tone)) 62%, #0b1020);
+}
+.pf-cal-box.is-empty .pf-cal-box__count {
+  color: var(--text-3);
+  background: var(--track);
+  border-color: transparent;
+}
+.pf-cal-box__blurb {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--text-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pf-cal-box__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.pf-cal-box__drop {
+  position: absolute !important;
+  left: 50%;
+  bottom: 8px;
+  translate: -50% 0;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+  color: var(--app-on);
+  background: var(--app-grad);
+  box-shadow: 0 8px 20px -8px rgb(var(--app-rgb) / 0.9);
+  pointer-events: none;
+}
+.pf-cal-grid.is-dragging .pf-cal-box {
+  outline: 1px dashed rgb(var(--tone) / 0.4);
+  outline-offset: -5px;
+}
+.pf-cal-box.is-over {
+  border-color: rgb(var(--app-rgb) / 0.75);
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 3px rgb(var(--app-rgb) / 0.18),
+    0 16px 40px -20px rgb(var(--app-rgb) / 0.9);
+  outline-color: transparent !important;
+}
+
+/* ───────── Person chip ───────── */
+.pf-cal-chip,
+.pf-cal-overlay {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  max-width: 100%;
+  padding: 3px 11px 3px 3px;
+  border-radius: 99px;
+  background: var(--surface);
+  border: 1px solid var(--plane-border-2);
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.pf-cal-chip {
+  position: relative;
+  cursor: grab;
+  touch-action: none;
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast),
+    background var(--dur-fast),
+    box-shadow var(--dur),
+    opacity var(--dur);
+}
+.pf-cal-chip.is-static {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.pf-cal-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgb(var(--app-rgb) / 0.45);
+}
+.pf-cal-chip:focus-visible {
+  outline: 2px solid rgb(var(--app-rgb) / 0.85);
+  outline-offset: 2px;
+}
+.pf-cal-chip.is-selected {
+  background: linear-gradient(160deg, rgb(var(--app-rgb) / 0.26), rgb(var(--app-rgb-2) / 0.16));
+  border-color: rgb(var(--app-rgb) / 0.65);
+  box-shadow:
+    0 0 0 3px rgb(var(--app-rgb) / 0.16),
+    0 10px 24px -14px rgb(var(--app-rgb) / 0.9);
+}
+.pf-cal-chip.is-dragging {
+  opacity: 0.32;
+}
+.pf-cal-chip.is-dim {
+  opacity: 0.28;
+  filter: grayscale(0.6);
+}
+.pf-cal-chip.is-match {
+  border-color: rgb(var(--app-rgb) / 0.75);
+  box-shadow: 0 0 0 3px rgb(var(--app-rgb) / 0.2);
+}
+.pf-cal-chip.is-flash {
+  animation: pf-cal-flash 1.3s var(--ease-out);
+}
+.pf-cal-chip__ava {
+  display: inline-flex;
+  flex: none;
+  border-radius: 50%;
+}
+.pf-cal-chip__ava .avatar {
+  font-size: 10px;
+}
+.pf-cal-chip__ava[data-source='calibrated'] {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 3.5px var(--app-c1),
+    0 0 12px rgb(var(--app-rgb) / 0.7);
+}
+.pf-cal-chip__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pf-cal-chip__src {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  margin-left: -2px;
+  color: var(--text-3);
+}
+/* last cycle → dashed ghost */
+.pf-cal-chip[data-source='previous'] {
+  border-style: dashed;
+  border-color: var(--border-3);
+  background: transparent;
+  color: var(--text-2);
+}
+.pf-cal-chip[data-source='previous'] .pf-cal-chip__ava {
+  filter: saturate(0.5);
+  opacity: 0.8;
+}
+.pf-cal-chip[data-source='previous'].is-selected {
+  background: linear-gradient(160deg, rgb(var(--app-rgb) / 0.2), rgb(var(--app-rgb-2) / 0.1));
+  color: var(--text);
+}
+/* not placed → dotted */
+.pf-cal-chip[data-source='none'] {
+  border-style: dotted;
+}
+/* pending move → animated plasma dash */
+.pf-cal-chip[data-source='pending'] {
+  border: 1.5px dashed var(--app-c1);
+  background: rgb(var(--app-rgb) / 0.12);
+  animation: pf-cal-pend 1.4s ease-in-out infinite;
+}
+
+/* Drag overlay (portaled to body) */
+.pf-cal-overlay {
+  cursor: grabbing;
+  border: 1.5px solid var(--app-c1);
+  background: var(--plane-solid);
+  box-shadow:
+    0 18px 40px -14px rgb(0 0 0 / 0.6),
+    0 0 0 4px rgb(var(--app-rgb) / 0.18),
+    0 0 26px -4px rgb(var(--app-rgb) / 0.8);
+  rotate: -3deg;
+  scale: 1.06;
+}
+.pf-cal-overlay .pf-cal-chip__ava {
+  display: inline-flex;
+}
+
+/* ───────── Lower row: tray + distribution ───────── */
+.pf-cal-lower {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.pf-cal-tray,
+.pf-cal-dist {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pf-cal-tray__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1.5px dashed rgb(var(--app-rgb) / 0.35);
+  background: repeating-linear-gradient(-45deg, rgb(var(--app-rgb) / 0.04) 0 10px, transparent 10px 20px);
+}
+.pf-cal-tray__empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.pf-cal-tray__empty svg {
+  width: 17px;
+  height: 17px;
+  color: rgb(var(--pf-ok));
+}
+
+.pf-cal-dist__cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 14px 20px;
+}
+.pf-cal-dist__col {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+}
+.pf-cal-dist__title {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text-2);
+}
+.pf-cal-dist__title .pf-faint {
+  font-weight: 500;
+}
+.pf-cal-dist__row {
+  display: grid;
+  grid-template-columns: 66px minmax(40px, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.pf-cal-dist__label {
+  color: var(--text-2);
+}
+.pf-cal-dist__track {
+  position: relative;
+  height: 10px;
+  border-radius: 99px;
+  background: var(--track);
+}
+.pf-cal-dist__track i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgb(var(--tone) / 0.6), rgb(var(--tone)));
+  box-shadow: 0 0 12px rgb(var(--tone) / 0.5);
+  transition: width 600ms var(--ease-out);
+}
+.pf-cal-dist__track b {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  translate: -1px 0;
+  border-radius: 2px;
+  background: var(--text);
+  box-shadow: 0 0 0 2px var(--plane-solid);
+}
+.pf-cal-dist__val {
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.pf-cal-dist__val small {
+  font-family: var(--font-sans, inherit);
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.pf-cal-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 34px;
+  justify-content: flex-end;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+.pf-cal-delta svg {
+  width: 12px;
+  height: 12px;
+}
+.pf-cal-delta.is-off {
+  color: var(--warning);
+  font-weight: 600;
+}
+.pf-cal-nova .pf-nova__body p {
+  margin: 0;
+}
+
+/* ───────── Inspector (desktop column + narrow sheet) ───────── */
+.pf-cal-insp__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 12px 18px;
+  border-bottom: 1px solid var(--plane-border);
+}
+.pf-cal-insp__who {
+  min-width: 0;
+}
+.pf-cal-insp__title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pf-cal-insp__sub {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pf-cal-insp__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  scrollbar-width: thin;
+}
+.pf-cal-insp__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  border-top: 1px solid var(--plane-border);
+}
+.pf-cal-danger {
+  --b-fg: var(--danger) !important;
+  margin-left: auto;
+}
+
+.pf-cal-sheet {
+  position: fixed;
+  z-index: 86;
+  top: calc(var(--topbar-h) + var(--safe-top) + 10px);
+  right: 10px;
+  bottom: 10px;
+  width: min(420px, calc(100vw - 20px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--plane-solid);
+  border: 1px solid var(--plane-border-2);
+  border-radius: 22px;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  animation: pf-cal-in-right 260ms var(--ease-out) both;
+}
+.pf-cal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 85;
+  background: rgb(2 3 9 / 0.38);
+  animation: pf-cal-fade 200ms ease both;
+}
+[data-theme='light'] .pf-cal-scrim {
+  background: rgb(15 23 42 / 0.22);
+}
+
+/* Overview */
+.pf-cal-ov {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.pf-cal-ov__pct {
+  font-size: 24px;
+}
+.pf-cal-ov__pct small {
+  font-size: 0.55em;
+  color: var(--text-3);
+}
+.pf-cal-ov__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.pf-cal-ov__text .pf-faint {
+  font-size: 12.5px;
+}
+.pf-cal-ov__src {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--pf-glass);
+  border: 1px solid var(--plane-border);
+}
+.pf-cal-ov__src li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.pf-cal-ov__src b {
+  margin-left: auto;
+  font-family: var(--font-display);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.pf-cal-help {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--plane-border);
+  background: linear-gradient(160deg, rgb(var(--app-rgb) / 0.07), transparent 70%);
+}
+.pf-cal-help__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.pf-cal-help__title svg {
+  width: 16px;
+  height: 16px;
+  color: var(--app-ink);
+}
+.pf-cal-help ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pf-cal-help li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.pf-cal-help li > span:last-child {
+  display: inline-flex;
+  gap: 3px;
+}
+
+/* Placement card */
+:where(.pf-cal-place, .pf-cal-badge, .pf-cal-hist li) {
+  --tone: 148 163 184;
+}
+.pf-cal-place {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgb(var(--tone) / 0.32);
+  background: linear-gradient(140deg, rgb(var(--tone) / 0.16), rgb(var(--tone) / 0.03));
+}
+.pf-cal-place__glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(70% 120% at 100% 0%, rgb(var(--tone) / 0.22), transparent 70%);
+}
+.pf-cal-place > :not(.pf-cal-place__glow) {
+  position: relative;
+}
+.pf-cal-place__label {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+.pf-cal-place__src {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.pf-cal-place__blurb {
+  margin-top: -8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+
+/* Mini 3×3 */
+.pf-cal-mini {
+  display: grid;
+  grid-template-columns: repeat(3, 8px);
+  gap: 2px;
+  flex: none;
+}
+.pf-cal-mini i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: rgb(var(--tone) / 0.2);
+}
+.pf-cal-mini i.on {
+  background: rgb(var(--tone));
+  box-shadow: 0 0 8px rgb(var(--tone) / 0.9);
+}
+.pf-cal-place .pf-cal-mini {
+  grid-template-columns: repeat(3, 11px);
+  gap: 3px;
+}
+.pf-cal-place .pf-cal-mini i {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+/* Sections */
+.pf-cal-sec__title {
+  margin-bottom: 9px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.pf-cal-sec__title .pf-faint {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: inherit;
+}
+.pf-cal-small {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.pf-cal-picker {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.pf-cal-picker__cell {
+  min-height: 40px;
+  padding: 6px;
+  border-radius: 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-2);
+  background: rgb(var(--tone) / 0.07);
+  border: 1px solid rgb(var(--tone) / 0.22);
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast),
+    color var(--dur-fast),
+    transform var(--dur-fast) var(--ease-out);
+}
+.pf-cal-picker__cell:hover:not(:disabled) {
+  color: var(--text);
+  background: rgb(var(--tone) / 0.16);
+  border-color: rgb(var(--tone) / 0.5);
+  transform: translateY(-1px);
+}
+.pf-cal-picker__cell[aria-pressed='true'] {
+  color: var(--text);
+  background: rgb(var(--tone) / 0.26);
+  border-color: rgb(var(--tone) / 0.75);
+  box-shadow: 0 0 16px -4px rgb(var(--tone) / 0.8);
+}
+.pf-cal-picker__cell:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.pf-cal-picker__cell:focus-visible {
+  outline: 2px solid rgb(var(--app-rgb) / 0.8);
+  outline-offset: 2px;
+}
+.pf-cal-quote {
+  margin: 0 0 6px;
+  padding: 10px 12px;
+  border-left: 3px solid rgb(var(--app-rgb) / 0.6);
+  border-radius: 0 12px 12px 0;
+  background: var(--pf-glass);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.pf-cal-rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pf-cal-comp {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 12px;
+}
+.pf-cal-comp__cap {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.pf-cal-comp li:not(.pf-cal-comp__cap) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 76px;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+}
+.pf-cal-comp__label {
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pf-cal-comp__meter {
+  display: inline-flex;
+  gap: 3px;
+}
+.pf-cal-comp__meter i {
+  width: 14px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--track);
+}
+.pf-cal-comp__meter i.on {
+  background: var(--app-grad);
+  box-shadow: 0 0 6px rgb(var(--app-rgb) / 0.5);
+}
+.pf-cal-comp__val {
+  font-size: 11.5px;
+  color: var(--text-3);
+  text-align: right;
+}
+.pf-cal-okr {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.pf-cal-okr__list {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pf-cal-okr__list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.pf-cal-okr__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pf-cal-okr__title:hover {
+  color: var(--app-ink);
+}
+.pf-cal-okr__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pf-cal-themes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.pf-cal-hist {
+  display: flex;
+  flex-direction: column;
+}
+.pf-cal-hist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--plane-border);
+}
+.pf-cal-hist li:last-child {
+  border-bottom: 0;
+}
+.pf-cal-hist li .pf-cal-mini {
+  margin-top: 2px;
+}
+.pf-cal-hist__top {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+}
+.pf-cal-hist__top b {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+
+/* ───────── Modals (portal) ───────── */
+.pf-cal-move {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pf-cal-move__who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pf-cal-move__name {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+}
+.pf-cal-move__path {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pf-cal-move__arrow {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--app-ink);
+}
+.pf-cal-move__nova {
+  align-self: flex-start;
+}
+.pf-cal-badge {
+  flex: 1 1 170px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgb(var(--tone) / 0.28);
+  background: rgb(var(--tone) / 0.07);
+}
+.pf-cal-badge.is-active {
+  border-color: rgb(var(--tone) / 0.7);
+  background: linear-gradient(140deg, rgb(var(--tone) / 0.22), rgb(var(--tone) / 0.06));
+  box-shadow: 0 0 22px -8px rgb(var(--tone) / 0.9);
+}
+.pf-cal-badge.is-none {
+  border-style: dashed;
+}
+.pf-cal-badge__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pf-cal-badge__text b {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 650;
+}
+.pf-cal-badge__text span {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.pf-cal-modal-hint {
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.pf-cal-lockbody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+.pf-cal-lockstats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.pf-cal-lockstats > div {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--pf-glass);
+  border: 1px solid var(--plane-border);
+}
+.pf-cal-lockstats dt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.pf-cal-lockstats dd {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 650;
+  color: var(--text);
+}
+.pf-cal-warn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--warning);
+  font-size: 13px;
+}
+.pf-cal-warn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* ───────── Light theme ───────── */
+[data-theme='light'] .pf-cal-box {
+  background: linear-gradient(180deg, rgb(var(--tone) / 0.09), rgb(var(--tone) / 0.02) 70%), rgb(255 255 255 / 0.72);
+  border-color: rgb(var(--tone) / 0.3);
+}
+[data-theme='light'] .pf-cal-chip {
+  background: #fff;
+  box-shadow: 0 2px 6px -3px rgb(15 23 42 / 0.25);
+}
+[data-theme='light'] .pf-cal-chip[data-source='previous'] {
+  background: rgb(255 255 255 / 0.5);
+  box-shadow: none;
+}
+[data-theme='light'] .pf-cal-chip.is-selected {
+  background: linear-gradient(160deg, rgb(var(--app-rgb) / 0.2), rgb(var(--app-rgb-2) / 0.12)), #fff;
+}
+[data-theme='light'] .pf-cal-overlay {
+  box-shadow:
+    0 18px 40px -16px rgb(15 23 42 / 0.45),
+    0 0 0 4px rgb(var(--app-rgb) / 0.18);
+}
+[data-theme='light'] .pf-cal-board-card {
+  background:
+    linear-gradient(45deg, rgb(251 113 133 / 0.06), transparent 38%, transparent 62%, rgb(167 139 250 / 0.09)),
+    var(--plane-2);
+}
+[data-theme='light'] .pf-cal-dist__track b {
+  background: #0b1020;
+}
+
+/* ───────── Responsive ───────── */
+@media (max-width: 1280px) {
+  .pf-cal-grid {
+    --cell-h: 140px;
+  }
+}
+@media (max-width: 900px) {
+  .pf-cal-legend {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+@media (max-width: 720px) {
+  .pf-cal-toolbar > .pf-seg {
+    width: 100%;
+  }
+  .pf-cal-search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  .pf-cal-filter {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+  .pf-cal-legend {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .pf-cal-board-card {
+    padding: 12px 10px 10px;
+  }
+  .pf-cal-grid {
+    --cell-h: 112px;
+    grid-template-columns: 12px 14px repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .pf-cal-axis,
+  .pf-cal-tick {
+    font-size: 8.5px;
+    letter-spacing: 0.1em;
+  }
+  .pf-cal-axis svg {
+    width: 10px;
+    height: 10px;
+  }
+  .pf-cal-box {
+    padding: 8px 6px 8px;
+    border-radius: 12px;
+    gap: 5px;
+  }
+  .pf-cal-box__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding-right: 22px;
+  }
+  .pf-cal-box__label {
+    font-size: 11.5px;
+    white-space: normal;
+    line-height: 1.15;
+  }
+  .pf-cal-box__label::before {
+    display: none;
+  }
+  .pf-cal-box__count {
+    position: absolute !important;
+    top: 6px;
+    right: 6px;
+    min-width: 20px;
+    height: 18px;
+    font-size: 10.5px;
+    padding: 0 5px;
+  }
+  .pf-cal-box__blurb {
+    display: none;
+  }
+  .pf-cal-box__chips {
+    gap: 4px;
+  }
+  .pf-cal-box .pf-cal-chip {
+    height: 30px;
+    padding: 2px;
+    gap: 0;
+  }
+  .pf-cal-box .pf-cal-chip__name,
+  .pf-cal-box .pf-cal-chip__src {
+    display: none;
+  }
+  .pf-cal-box__drop {
+    font-size: 10px;
+    padding: 2px 7px;
+  }
+  .pf-cal-dist__row {
+    grid-template-columns: 62px minmax(30px, 1fr) auto auto;
+    gap: 8px;
+  }
+  .pf-cal-sheet {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-height: 86dvh;
+    border-radius: 22px 22px 0 0;
+    padding-bottom: var(--safe-bottom);
+    animation-name: pf-cal-in-up;
+  }
+  .pf-cal-modal-hint {
+    display: none;
+  }
+}
+
+/* ───────── Motion ───────── */
+@keyframes pf-cal-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgb(var(--app-rgb) / 0.75);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgb(var(--app-rgb) / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--app-rgb) / 0);
+  }
+}
+@keyframes pf-cal-pend {
+  50% {
+    box-shadow: 0 0 0 4px rgb(var(--app-rgb) / 0.18);
+  }
+}
+@keyframes pf-cal-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+@keyframes pf-cal-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+}
+@keyframes pf-cal-fade {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pf-cal-chip,
+  .pf-cal-chip[data-source='pending'],
+  .pf-cal-chip.is-flash,
+  .pf-cal-sheet,
+  .pf-cal-scrim,
+  .pf-cal-box,
+  .pf-cal-dist__track i {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+[data-motion='reduced'] .pf-cal-chip,
+[data-motion='reduced'] .pf-cal-sheet,
+[data-motion='reduced'] .pf-cal-scrim {
+  animation: none !important;
+}

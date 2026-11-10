@@ -281,6 +281,7 @@ export const SEED_NOTIFICATIONS: HubNotification[] = [
   ...learningNotifications(),
   ...spendPayrollNotifications(),
   ...workNotifications(),
+  ...performanceNotifications(),
 ];
 
 /** Projects & Drive starter notifications (merged by the v6 migration). */
@@ -294,6 +295,19 @@ export function workNotifications(): HubNotification[] {
     n('n-w6', 'u-daniel', 9 * 60, 'work', 'Approval waiting · GCC-5', 'Aisha needs Finance review of multi-year discount guardrails', '/projects/p/prj-gcc?task=t-g5'),
     n('n-w7', 'u-kwame', 2 * 60, 'work', 'Due today · ONB-6', 'Sign IP agreement in HR Portal · urgent', '/projects/p/prj-onb-kwame?task=t-o6'),
     n('n-w8', 'u-alex', 2 * 24 * 60, 'work', 'Omar shared “Prism frontend kit” with you', 'Editor access for 45 days · Engineering drive', '/drive/d/drv-eng/fo-prism-fe', true),
+  ];
+}
+
+/** Performance & OKRs starter notifications (merged by the v7 migration). */
+export function performanceNotifications(): HubNotification[] {
+  return [
+    n('n-pf1', 'u-mei', 90, 'hr', 'Your Q4 check-in is open', 'Self-reflection due in 12 days · Nova can draft it from your quarter’s highlights.', '/performance/checkins'),
+    n('n-pf2', 'u-omar', 75, 'hr', '5 quarterly check-ins to review', 'Self-reflections from Mei, Priya, Lucas, Hana and Kwame unlock your manager reviews.', '/performance/team'),
+    n('n-pf3', 'u-omar', 4 * 60, 'hr', 'Mei asked for your feedback', 'On “Prism v4 rollout” · due Friday', '/performance/feedback?tab=requests'),
+    n('n-pf4', 'u-priya', 3 * 60, 'hr', 'Omar shared feedback with you', '“The query planner rewrite unblocked three teams — thank you.”', '/performance/feedback'),
+    n('n-pf5', 'u-sara', 2 * 60, 'hr', 'Q4 2026 check-ins: 68% submitted', 'Calibration opens in 9 days — nudge the remaining participants.', '/performance/cycles'),
+    n('n-pf6', 'u-layla', 5 * 60, 'hr', 'Company OKR at risk', '“Make Helix passwordless” is trending behind plan.', '/performance/okrs/obj-co-passwordless'),
+    n('n-pf7', 'u-kwame', 30, 'hr', 'Set your first OKRs', 'Draft 2–3 onboarding objectives with Omar before your 30-day check-in.', '/performance/okrs?new=1'),
   ];
 }
 

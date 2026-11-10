@@ -1,363 +1,370 @@
+/**
+ * Helix Projects — "Mission Orbit".
+ * Shell: rail + project navigator + stage (nested routes) + floating task panel.
+ */
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Navigate, Route, Routes, useLocation, useMatch, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Archive, Copy, Link2, PanelLeftClose, Plus, Star, StarOff } from 'lucide-react';
+import '@/styles/neo.css';
 import '@/styles/projects.css';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router';
-import {
-  AlertTriangle,
-  CalendarCheck,
-  CheckCircle2,
-  Clock,
-  Inbox,
-  Keyboard,
-  LayoutGrid,
-  LayoutTemplate,
-  Layers,
-  Lock,
-  Plus,
-  Search,
-  Sparkles,
-  Star,
-  Target,
-  X,
-} from 'lucide-react';
-import { initProjects, taskLink, useProjects } from '@/projects/store';
-import { searchWork, useMyProjectsState, useMyTasks, useProjectsCaps, useVisibleProjects, useWorkInbox } from '@/projects/selectors';
-import { useSessionUser } from '@/store/selectors';
+import './screens.css';
+import { NeoEmpty, NeoRail, NeoSearch, NeoSide, NeoSideGroup, NeoSideItem, NeoStage, NeoWorkspace, useContextMenu, type MenuEntry } from '@/components/neo';
 import { Modal } from '@/components/ui/Modal';
-import { EmptyState } from '@/components/ui/primitives';
-import { firstName, greeting } from '@/lib/format';
-import { cx } from '@/lib/cx';
-import { MyTasksView } from './MyTasksView';
-import { InboxView } from './InboxView';
-import { BrowseView } from './BrowseView';
-import { PortfoliosView } from './PortfoliosView';
-import { GoalsView } from './GoalsView';
-import { TemplatesView } from './TemplatesView';
-import { ProjectView } from './ProjectView';
-import { TaskPanel } from './TaskPanel';
-import { emitQuickAdd, ProjectIcon, useTaskParam } from './shared';
+import { useHotkeys } from '@/hooks/useHotkeys';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { toast } from '@/store/toast';
+import { canCreateProject, createProjectReason, isProjectsAdmin } from '@/projects/access';
+import { useProjects } from '@/projects/store';
+import type { Project } from '@/projects/types';
+import { ProjectsUIContext, useActor, useMyState, useVisibleProjects, type ProjectsUI, type QuickAddDefaults } from './ctx';
+import { BrandMissionOrbit, IconInbox, IconMyWork, IconPortfolios, IconProjectsGrid, IconWorkload } from './icons';
+import { ProjectGlyph, UndoBar } from './ui';
+import { QuickCapture } from './QuickCapture';
+import { TaskPanelHost } from './TaskPanel';
+import { MyWork } from './MyWork';
 
-const isTyping = (el: EventTarget | null) => {
-  const node = el as HTMLElement | null;
-  if (!node) return false;
-  const tag = node.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || node.isContentEditable;
-};
+const Inboxes = lazy(() => import('./Inbox').then((m) => ({ default: m.InboxScreen })));
+const Browse = lazy(() => import('./Browse').then((m) => ({ default: m.BrowseScreen })));
+const ProjectView = lazy(() => import('./ProjectView').then((m) => ({ default: m.ProjectView })));
+const Portfolios = lazy(() => import('./Portfolios').then((m) => ({ default: m.PortfoliosScreen })));
+const PortfolioDetail = lazy(() => import('./Portfolios').then((m) => ({ default: m.PortfolioDetail })));
+const Workload = lazy(() => import('./Workload').then((m) => ({ default: m.WorkloadScreen })));
+
+const TINT = { c1: '#a78bfa', c2: '#6d28d9' };
 
 export function ProjectsPage() {
-  const me = useSessionUser();
+  const actor = useActor();
   const navigate = useNavigate();
   const location = useLocation();
-  const caps = useProjectsCaps();
-  const cards = useVisibleProjects();
-  const allTasks = useProjects((s) => s.tasks);
-  const my = useMyTasks();
-  const inbox = useWorkInbox();
-  const state = useMyProjectsState();
-  const { taskId, close: closeTask } = useTaskParam();
+  const [params, setParams] = useSearchParams();
+  const narrow = useMediaQuery('(max-width: 1100px)');
+  const me = useMyState();
+  const setSideCollapsed = useProjects((s) => s.setSideCollapsed);
+  const [peek, setPeek] = useState(false);
+  const [quick, setQuick] = useState<QuickAddDefaults | null>(null);
+  const searchRef = useRef<HTMLInputElement | null>(null);
+  const sideSearchRef = useRef<HTMLInputElement | null>(null);
+  const projectMatch = useMatch('/projects/p/:projectId/*');
+  const currentProjectId = projectMatch?.params.projectId ?? null;
 
-  const [query, setQuery] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const searchRef = useRef<HTMLInputElement>(null);
-  const searchWrapRef = useRef<HTMLDivElement>(null);
+  const taskId = params.get('task');
+  const collapsed = me.sideCollapsed && !narrow;
 
+  // close the floating side panel on navigation (narrow screens)
+  useEffect(() => setPeek(false), [location.pathname]);
+
+  // due-soon automations sweep once per session
   useEffect(() => {
-    initProjects();
+    const n = useProjects.getState().runDueSoonSweep();
+    if (n) toast.info('Automations ran', `${n} due-date ${n === 1 ? 'rule' : 'rules'} fired`);
   }, []);
 
-  const onProjectRoute = location.pathname.startsWith('/projects/p/');
-  const supportsQuickAdd = onProjectRoute || location.pathname === '/projects';
+  const openTask = useCallback(
+    (id: string) =>
+      setParams(
+        (p) => {
+          const n = new URLSearchParams(p);
+          n.set('task', id);
+          return n;
+        },
+        { replace: false },
+      ),
+    [setParams],
+  );
+  const closeTask = useCallback(
+    () =>
+      setParams((p) => {
+        const n = new URLSearchParams(p);
+        n.delete('task');
+        return n;
+      }),
+    [setParams],
+  );
+  const toggleSide = useCallback(() => {
+    if (narrow) setPeek((v) => !v);
+    else setSideCollapsed(!me.sideCollapsed);
+  }, [narrow, me.sideCollapsed, setSideCollapsed]);
 
-  // Document-level shortcuts (ignored while typing).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (isTyping(e.target)) return;
-      if (e.key === '/') {
-        e.preventDefault();
-        searchRef.current?.focus();
-      } else if (e.key === 'c' && supportsQuickAdd) {
-        e.preventDefault();
-        emitQuickAdd();
-      } else if (e.key === '?') {
-        e.preventDefault();
-        setShortcutsOpen(true);
+  const ui: ProjectsUI = useMemo(
+    () => ({
+      taskId,
+      openTask,
+      closeTask,
+      quickAdd: (d) => setQuick(d ?? {}),
+      toggleSide,
+      registerSearch: (el) => {
+        searchRef.current = el;
+      },
+    }),
+    [taskId, openTask, closeTask, toggleSide],
+  );
+
+  useHotkeys({
+    c: (e) => {
+      if (document.querySelector('.modal')) return;
+      e.preventDefault();
+      const capture = document.querySelector<HTMLInputElement>('[data-capture="main"]');
+      if (capture && location.pathname === '/projects') {
+        capture.focus();
+        return;
       }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [supportsQuickAdd]);
+      setQuick({ projectId: currentProjectId });
+    },
+    s: (e) => {
+      if (document.querySelector('.modal')) return;
+      e.preventDefault();
+      const target = searchRef.current && document.body.contains(searchRef.current) ? searchRef.current : sideSearchRef.current;
+      if (target === sideSearchRef.current && (collapsed || narrow)) {
+        if (narrow) setPeek(true);
+        else setSideCollapsed(false);
+        requestAnimationFrame(() => sideSearchRef.current?.focus());
+        return;
+      }
+      target?.focus();
+    },
+    '[': () => toggleSide(),
+    ']': () => taskId && closeTask(),
+    escape: () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
+        el.blur();
+        return;
+      }
+      if (document.querySelector('.modal')) return;
+      if (taskId) closeTask();
+      else if (peek) setPeek(false);
+    },
+  });
 
-  // Close the search dropdown on outside click.
-  useEffect(() => {
-    if (!searchOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target as Node)) setSearchOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [searchOpen]);
-
-  const hits = useMemo(() => searchWork(query, cards, allTasks, 6), [query, cards, allTasks]);
-  const showHits = searchOpen && query.trim().length > 0;
-
-  const cardById = useMemo(() => new Map(cards.map((c) => [c.project.id, c])), [cards]);
-  const starred = state.starredProjectIds.map((id) => cardById.get(id)).filter((c): c is NonNullable<typeof c> => Boolean(c));
-  const recent = state.recentProjectIds
-    .filter((id) => !state.starredProjectIds.includes(id))
-    .map((id) => cardById.get(id))
-    .filter((c): c is NonNullable<typeof c> => Boolean(c))
-    .slice(0, 6);
-
-  const goToHit = (to: string) => {
-    setSearchOpen(false);
-    setQuery('');
-    navigate(to);
-  };
-
-  if (!caps.canUse) {
-    return (
-      <div className="page pj-page">
-        <EmptyState icon={<Lock />} title="Projects isn’t enabled for your role">
-          Ask your workspace admin for access to Helix Projects.
-        </EmptyState>
-      </div>
-    );
-  }
-
-  const counts = my?.counts ?? { open: 0, dueToday: 0, overdue: 0, blocked: 0 };
-
-  const navItems = [
-    { to: '/projects', label: 'My Tasks', icon: CheckCircle2, end: true, count: counts.open || undefined },
-    { to: '/projects/inbox', label: 'Inbox', icon: Inbox, count: inbox.unread || undefined, alert: inbox.unread > 0 },
-    { to: '/projects/browse', label: 'Browse projects', icon: LayoutGrid, count: cards.length || undefined },
-    { to: '/projects/portfolios', label: 'Portfolios', icon: Layers },
-    { to: '/projects/goals', label: 'Goals', icon: Target },
-    { to: '/projects/templates', label: 'Templates', icon: LayoutTemplate },
-  ];
+  if (!actor) return null;
+  const unread = 0;
 
   return (
-    <div className="page pj-page">
-      <header className={cx('pj-hero hud', onProjectRoute && 'pj-hero--slim')}>
-        <div className="pj-hero__glow" aria-hidden="true" />
-        <div className="pj-hero__main">
-          <div className="eyebrow pj-hero__eyebrow">Helix Projects · Mission Control</div>
-          <h1 className="pj-hero__title">
-            {greeting()}
-            {me ? `, ${firstName(me.name)}` : ''}.{' '}
-            <span className="pj-hero__accent">{onProjectRoute ? 'Ship it together' : 'Here’s your work at a glance'}</span>
-          </h1>
-          {!onProjectRoute && (
-            <p className="pj-hero__sub">Plan in lists, boards and timelines; triage My Tasks; keep leadership in the loop with Nova-drafted status updates.</p>
-          )}
-          <div className="pj-hero__pills">
-            <Link to="/projects" className="pj-stat-chip">
-              <CheckCircle2 /> <b>{counts.open}</b> open
-            </Link>
-            <Link to="/projects" className={cx('pj-stat-chip', counts.dueToday > 0 && 'pj-stat-chip--warn')}>
-              <CalendarCheck /> <b>{counts.dueToday}</b> due today
-            </Link>
-            <Link to="/projects" className={cx('pj-stat-chip', counts.overdue > 0 && 'pj-stat-chip--danger')}>
-              <AlertTriangle /> <b>{counts.overdue}</b> overdue
-            </Link>
-            {counts.blocked > 0 && (
-              <Link to="/projects" className="pj-stat-chip">
-                <Lock /> <b>{counts.blocked}</b> blocked
-              </Link>
-            )}
-            {inbox.unread > 0 && (
-              <Link to="/projects/inbox" className="pj-stat-chip pj-stat-chip--accent">
-                <Inbox /> <b>{inbox.unread}</b> new in inbox
-              </Link>
-            )}
-          </div>
-        </div>
-        <div className="pj-hero__cta">
-          {caps.canCreate && (
-            <button type="button" className="btn btn--primary pj-btn-violet" onClick={() => navigate('/projects/browse?new=1')}>
-              <Plus /> New project
-            </button>
-          )}
-          {supportsQuickAdd && (
-            <button type="button" className="btn" onClick={() => emitQuickAdd()} title="Press c anywhere">
-              <Plus /> Add task <span className="kbd pj-kbd">c</span>
-            </button>
-          )}
-          <button type="button" className="icon-btn" onClick={() => setShortcutsOpen(true)} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">
-            <Keyboard />
-          </button>
-        </div>
-      </header>
-
-      <div className="pj-shell">
-        <aside className="pj-side" aria-label="Projects workspace">
-          <div ref={searchWrapRef} className="pj-search">
-            <div className="pj-search__box">
-              <Search aria-hidden="true" />
-              <input
-                ref={searchRef}
-                type="search"
-                className="pj-search__input"
-                placeholder="Search projects & tasks…"
-                aria-label="Search projects and tasks"
-                value={query}
-                onFocus={() => setSearchOpen(true)}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setSearchOpen(true);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Escape') {
-                    setSearchOpen(false);
-                    searchRef.current?.blur();
-                  }
-                  if (e.key === 'Enter') {
-                    const first = hits.projects[0] ? `/projects/p/${hits.projects[0].id}` : hits.tasks[0] ? taskLink(hits.tasks[0].project.id, hits.tasks[0].task.id) : null;
-                    if (first) goToHit(first);
-                  }
-                }}
-              />
-              {query ? (
-                <button type="button" className="pj-search__clear" onClick={() => setQuery('')} aria-label="Clear search">
-                  <X />
-                </button>
-              ) : (
-                <span className="kbd pj-kbd pj-search__kbd">/</span>
-              )}
-            </div>
-            {showHits && (
-              <div className="pj-search__pop">
-                {hits.projects.length === 0 && hits.tasks.length === 0 ? (
-                  <div className="pj-search__empty">Nothing matches “{query}”.</div>
-                ) : (
-                  <>
-                    {hits.projects.length > 0 && <div className="pj-search__group">Projects</div>}
-                    {hits.projects.map((p) => (
-                      <button key={p.id} type="button" className="pj-search__item" onClick={() => goToHit(`/projects/p/${p.id}`)}>
-                        <ProjectIcon project={p} size={26} />
-                        <span className="grow truncate">
-                          {p.name}
-                          <small>
-                            {p.key} · {p.department}
-                          </small>
-                        </span>
-                      </button>
-                    ))}
-                    {hits.tasks.length > 0 && <div className="pj-search__group">Tasks</div>}
-                    {hits.tasks.map(({ task, project }) => (
-                      <button key={task.id} type="button" className="pj-search__item" onClick={() => goToHit(taskLink(project.id, task.id))}>
-                        <span className="pj-search__ref mono">
-                          {project.key}-{task.number}
-                        </span>
-                        <span className="grow truncate">
-                          {task.title}
-                          <small>{project.name}</small>
-                        </span>
-                      </button>
-                    ))}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          <nav className="pj-side__nav">
-            {navItems.map((n) => {
-              const Icon = n.icon;
-              return (
-                <NavLink key={n.to} to={n.to} end={n.end} className={({ isActive }) => cx('pj-side__item', isActive && 'is-active')}>
-                  <Icon aria-hidden="true" />
-                  <span className="grow truncate">{n.label}</span>
-                  {!!n.count && <span className={cx('pj-side__count', n.alert && 'is-alert')}>{n.count}</span>}
-                </NavLink>
-              );
-            })}
-          </nav>
-
-          <div className="pj-side__group">
-            <div className="pj-side__label">
-              <Star /> Starred
-            </div>
-            {starred.length === 0 ? (
-              <p className="pj-side__hint">Star a project to pin it here.</p>
-            ) : (
-              <ul className="pj-side__projects">
-                {starred.map((c) => (
-                  <li key={c.project.id}>
-                    <NavLink to={`/projects/p/${c.project.id}`} className={({ isActive }) => cx('pj-side__proj', isActive && 'is-active')}>
-                      <i className="pj-side__dot" style={{ background: c.project.color }} />
-                      <span className="pj-side__emoji">{c.project.icon}</span>
-                      <span className="grow truncate">{c.project.name}</span>
-                      {c.myOpenTasks > 0 && <span className="pj-side__mini">{c.myOpenTasks}</span>}
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {recent.length > 0 && (
-            <div className="pj-side__group">
-              <div className="pj-side__label">
-                <Clock /> Recent
-              </div>
-              <ul className="pj-side__projects">
-                {recent.map((c) => (
-                  <li key={c.project.id}>
-                    <NavLink to={`/projects/p/${c.project.id}`} className={({ isActive }) => cx('pj-side__proj', isActive && 'is-active')}>
-                      <i className="pj-side__dot" style={{ background: c.project.color }} />
-                      <span className="pj-side__emoji">{c.project.icon}</span>
-                      <span className="grow truncate">{c.project.name}</span>
-                    </NavLink>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {caps.canCreate ? (
-            <button type="button" className="btn btn--block pj-side__new" onClick={() => navigate('/projects/browse?new=1')}>
-              <Plus /> New project
-            </button>
-          ) : (
-            <p className="pj-side__hint pj-side__contractor">
-              <Lock /> As a contractor you work inside projects you’re invited to.
-            </p>
-          )}
-        </aside>
-
-        <main className="pj-main">
-          <Routes>
-            <Route index element={<MyTasksView />} />
-            <Route path="inbox" element={<InboxView />} />
-            <Route path="browse" element={<BrowseView />} />
-            <Route path="portfolios" element={<PortfoliosView />} />
-            <Route path="goals" element={<GoalsView />} />
-            <Route path="templates" element={<TemplatesView />} />
-            <Route path="p/:projectId" element={<ProjectView />} />
-            <Route path="*" element={<Navigate to="/projects" replace />} />
-          </Routes>
-        </main>
-      </div>
-
-      {taskId && <TaskPanel taskId={taskId} onClose={closeTask} />}
-
-      <Modal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title="Keyboard shortcuts" icon={<Sparkles className="pj-modal-icon" />} width={420}>
-        <ul className="pj-shortcuts">
-          <li>
-            <span className="kbd">c</span> Quick-add a task (My Tasks or the open project)
-          </li>
-          <li>
-            <span className="kbd">/</span> Focus search
-          </li>
-          <li>
-            <span className="kbd">Esc</span> Close the task panel or any menu
-          </li>
-          <li>
-            <span className="kbd">?</span> Show this help
-          </li>
-        </ul>
+    <ProjectsUIContext.Provider value={ui}>
+      <NeoWorkspace app="projects" tint={TINT} side={!collapsed} sidePeek={peek} onSidePeekChange={setPeek} className={collapsed ? 'pj-side-off' : undefined}>
+        <ProjectsRail canWorkload={isProjectsAdmin(actor)} unreadFallback={unread} />
+        {!collapsed && <ProjectNavigator currentId={currentProjectId} searchRef={sideSearchRef} onCollapse={toggleSide} narrow={narrow} />}
+        <NeoStage label="Helix Projects">
+          <Suspense fallback={<StageLoading />}>
+            <Routes>
+              <Route index element={<MyWork />} />
+              <Route path="inbox" element={<Inboxes />} />
+              <Route path="browse" element={<Browse />} />
+              <Route path="p/:projectId" element={<ProjectRoute />} />
+              <Route path="p/:projectId/:view" element={<ProjectRoute />} />
+              <Route path="portfolios" element={<Portfolios />} />
+              <Route path="portfolios/:portfolioId" element={<PortfolioDetail />} />
+              <Route path="workload" element={isProjectsAdmin(actor) ? <Workload /> : <Denied title="Workload is for managers" body="Team capacity is visible to people leaders and Projects admins." />} />
+              <Route path="*" element={<Denied title="Nothing here" body="That page doesn’t exist in Projects." />} />
+            </Routes>
+          </Suspense>
+        </NeoStage>
+        <TaskPanelHost />
+        <UndoBar />
+      </NeoWorkspace>
+      <Modal
+        open={!!quick}
+        onClose={() => setQuick(null)}
+        title="New task"
+        subtitle="Type naturally — dates, @people, #projects, !priority and +tags are understood."
+        width={620}
+        className="neo-portal pj-modal pj-quickmodal"
+      >
+        {quick && (
+          <QuickCapture
+            variant="modal"
+            defaults={quick}
+            autoFocus
+            onCreated={(id, t) => {
+              setQuick(null);
+              const p = t.projectId;
+              if (p && !location.pathname.startsWith(`/projects/p/${p}`)) navigate(`/projects/p/${p}?task=${id}`);
+              else openTask(id);
+            }}
+          />
+        )}
       </Modal>
+    </ProjectsUIContext.Provider>
+  );
+}
+
+function ProjectRoute() {
+  const { projectId = '', view } = useParams();
+  return <ProjectView key={projectId} projectId={projectId} view={view} />;
+}
+
+function StageLoading() {
+  return (
+    <div className="pj-loading" aria-busy="true">
+      <span className="pj-loading__orbit" />
     </div>
   );
 }
+
+function Denied({ title, body }: { title: string; body: string }) {
+  const navigate = useNavigate();
+  return (
+    <div className="neo-body neo-pad">
+      <NeoEmpty
+        icon={<BrandMissionOrbit />}
+        title={title}
+        action={
+          <button type="button" className="neo-btn neo-btn--soft" onClick={() => navigate('/projects')}>
+            Back to My Work
+          </button>
+        }
+      >
+        {body}
+      </NeoEmpty>
+    </div>
+  );
+}
+
+/* ───────────────────────── rail ───────────────────────── */
+
+function ProjectsRail({ canWorkload }: { canWorkload: boolean; unreadFallback: number }) {
+  const actor = useActor();
+  const inbox = useProjects((s) => s.inbox);
+  const unread = useMemo(() => inbox.filter((i) => i.userId === actor?.id && !i.read && !i.archived).length, [inbox, actor]);
+  return (
+    <NeoRail
+      label="Projects navigation"
+      brand={{ icon: <BrandMissionOrbit />, label: 'Helix Projects', to: '/projects' }}
+      items={[
+        { to: '/projects', label: 'My Work', icon: <IconMyWork />, end: true },
+        { to: '/projects/inbox', label: 'Inbox', icon: <IconInbox />, badge: unread || null },
+        { to: '/projects/browse', label: 'Projects', icon: <IconProjectsGrid />, match: (p) => p.startsWith('/projects/browse') || p.startsWith('/projects/p/') },
+        { to: '/projects/portfolios', label: 'Portfolios', icon: <IconPortfolios /> },
+        ...(canWorkload ? [{ to: '/projects/workload', label: 'Workload', icon: <IconWorkload /> }] : []),
+      ]}
+    />
+  );
+}
+
+/* ───────────────────────── project navigator ───────────────────────── */
+
+function ProjectNavigator({
+  currentId,
+  searchRef,
+  onCollapse,
+  narrow,
+}: {
+  currentId: string | null;
+  searchRef: React.RefObject<HTMLInputElement | null>;
+  onCollapse: () => void;
+  narrow: boolean;
+}) {
+  const actor = useActor();
+  const navigate = useNavigate();
+  const projects = useVisibleProjects();
+  const tasks = useProjects((s) => s.tasks);
+  const me = useMyState();
+  const toggleStar = useProjects((s) => s.toggleStar);
+  const archive = useProjects((s) => s.archiveProject);
+  const [q, setQ] = useState('');
+  const ctx = useContextMenu();
+
+  const openCount = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const t of tasks) if (t.projectId && !t.completedAt) m.set(t.projectId, (m.get(t.projectId) ?? 0) + 1);
+    return m;
+  }, [tasks]);
+
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return s ? projects.filter((p) => `${p.name} ${p.key} ${p.department}`.toLowerCase().includes(s)) : projects;
+  }, [projects, q]);
+  const starred = filtered.filter((p) => me.starred.includes(p.id));
+  const groups = useMemo(() => {
+    const m = new Map<string, Project[]>();
+    for (const p of filtered) m.set(p.department, [...(m.get(p.department) ?? []), p]);
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtered]);
+
+  const canCreate = actor ? canCreateProject(actor) : false;
+  const menuFor = (p: Project): MenuEntry[] => [
+    { label: me.starred.includes(p.id) ? 'Unstar' : 'Star', icon: me.starred.includes(p.id) ? <StarOff /> : <Star />, onSelect: () => toggleStar(p.id) },
+    { label: 'Open board', icon: <IconProjectsGrid />, onSelect: () => navigate(`/projects/p/${p.id}/board`) },
+    {
+      label: 'Copy link',
+      icon: <Link2 />,
+      onSelect: () => {
+        void navigator.clipboard?.writeText(`${window.location.origin}/projects/p/${p.id}`);
+        toast.success('Link copied');
+      },
+    },
+    { kind: 'sep' },
+    {
+      label: 'Archive',
+      icon: <Archive />,
+      onSelect: () => {
+        const r = archive(p.id, true);
+        if (toast.result(r, `${p.name} archived`)) return;
+      },
+    },
+  ];
+
+  const item = (p: Project) => (
+    <NeoSideItem
+      key={p.id}
+      to={`/projects/p/${p.id}`}
+      icon={<ProjectGlyph project={p} size={22} />}
+      label={p.name}
+      meta={<span className="pj-side-meta" data-status={p.status}>{openCount.get(p.id) ?? 0}</span>}
+      active={p.id === currentId}
+      title={`${p.key} · ${p.name}`}
+      onContextMenu={(e) => ctx.open(e, menuFor(p))}
+    />
+  );
+
+  return (
+    <NeoSide
+      title="Projects"
+      label="Project navigator"
+      actions={
+        <>
+          <button
+            type="button"
+            className="neo-iconbtn"
+            aria-label="New project"
+            data-tip={canCreate ? 'New project' : (createProjectReason(actor!) ?? '')}
+            data-tip-pos="bottom"
+            disabled={!canCreate}
+            onClick={() => navigate('/projects/browse?new=1')}
+            data-qa="side-new-project"
+          >
+            <Plus />
+          </button>
+          {!narrow && (
+            <button type="button" className="neo-iconbtn" aria-label="Hide panel" data-tip="Hide panel  [" data-tip-pos="bottom" onClick={onCollapse}>
+              <PanelLeftClose />
+            </button>
+          )}
+        </>
+      }
+      top={<NeoSearch value={q} onChange={setQ} size="sm" placeholder="Find a project" kbd="s" inputRef={searchRef} label="Find a project" />}
+    >
+      {starred.length > 0 && <NeoSideGroup label="Starred">{starred.map(item)}</NeoSideGroup>}
+      {groups.map(([dept, list]) => (
+        <NeoSideGroup key={dept} label={dept}>
+          {list.map(item)}
+        </NeoSideGroup>
+      ))}
+      {filtered.length === 0 && (
+        <div className="pj-side-empty">
+          <span>No projects match “{q}”.</span>
+          <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={() => setQ('')}>
+            <Copy /> Clear search
+          </button>
+        </div>
+      )}
+      {ctx.element}
+    </NeoSide>
+  );
+}
+
+export function SideToggleSlot({ children }: { children?: ReactNode }) {
+  return <>{children}</>;
+}
+
+export { Navigate };

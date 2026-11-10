@@ -1,10 +1,11 @@
 import { useMemo, useState, type CSSProperties } from 'react';
 import { useSearchParams } from 'react-router';
-import { AppWindow, Pencil, Plus, Search, Users } from 'lucide-react';
+import { Activity, AppWindow, EyeOff, Pencil, Plus, Sparkles, Users, Wrench } from 'lucide-react';
+import { NeoEmpty, NeoKpi, NeoKpis, NeoPanel, NeoSearch, NeoTabs } from '@/components/neo';
 import { useHub } from '@/store/hub';
 import { useNow } from '@/hooks/useNow';
 import { toast } from '@/store/toast';
-import { AppIcon, EmptyState, RoleChip, Switch } from '@/components/ui/primitives';
+import { AppIcon, RoleChip, Switch } from '@/components/ui/primitives';
 import { APP_CATEGORIES } from '@/data/apps';
 import { appPermissionId } from '@/data/permissions';
 import { hasPermission, rolesGranting } from '@/lib/rbac';
@@ -12,8 +13,9 @@ import { pluralize } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import type { AppCategory, AppStatus, HubApp, Role } from '@/types';
 import { AppSheet } from './AppSheet';
+import { useAdminChrome } from './chrome';
 import { RegisterAppModal } from './RegisterAppModal';
-import { ConfirmModal, EMPTY_PERMS, FilterChip, usePermsByUser, useDisclosure } from './shared';
+import { ConfirmModal, EMPTY_PERMS, usePermsByUser, useDisclosure } from './shared';
 
 type StatusFilter = 'all' | AppStatus | 'disabled';
 type CatFilter = 'all' | AppCategory;
@@ -111,97 +113,108 @@ export function AppsTab() {
   };
   const disableApp = disable.value ? apps.find((a) => a.id === disable.value) : undefined;
 
-  return (
-    <div className="adm-panel">
-      <div className="adm-apps-summary">
-        <div className="adm-sumstat adm-tone--accent">
-          <span className="adm-sumstat__value">
-            {summary.enabled}
-            <small>/{summary.total}</small>
-          </span>
-          <span className="adm-micro">Enabled</span>
-        </div>
-        <div className={cx('adm-sumstat', summary.degraded ? 'adm-tone--warning' : 'adm-tone--muted')}>
-          <span className="adm-sumstat__value">{summary.degraded}</span>
-          <span className="adm-micro">Degraded</span>
-        </div>
-        <div className={cx('adm-sumstat', summary.maintenance ? 'adm-tone--info' : 'adm-tone--muted')}>
-          <span className="adm-sumstat__value">{summary.maintenance}</span>
-          <span className="adm-micro">Maintenance</span>
-        </div>
-        <div className="adm-sumstat adm-tone--muted">
-          <span className="adm-sumstat__value">{summary.hidden}</span>
-          <span className="adm-micro">Not discoverable</span>
-        </div>
-        <div className="adm-sumstat adm-tone--muted">
-          <span className="adm-sumstat__value">{summary.custom}</span>
-          <span className="adm-micro">Custom</span>
-        </div>
-        <span className="spacer" />
-        <button type="button" className="btn btn--primary" onClick={() => setRegister((r) => ({ open: true, key: r.key + 1 }))}>
-          <Plus aria-hidden="true" /> Register app
-        </button>
-      </div>
-
-      <div className="adm-toolbar">
-        <label className="input-wrap adm-search">
-          <Search aria-hidden="true" />
-          <span className="sr-only">Search apps</span>
-          <input className="input" type="search" placeholder="Search apps, owners, keywords…" value={q} onChange={(e) => setQ(e.target.value)} />
-        </label>
-        <label className="adm-select-label">
-          <span className="sr-only">Filter by status</span>
-          <select className="select" value={status} onChange={(e) => setStatus(parseStatus(e.target.value))}>
-            <option value="all">All statuses</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </option>
-            ))}
-            <option value="disabled">Disabled</option>
-          </select>
-        </label>
-      </div>
-      <div className="adm-toolbar adm-toolbar--sub">
-        <div className="chips" role="group" aria-label="Filter by category">
-          <FilterChip active={cat === 'all'} count={catCounts.all} onClick={() => setCat('all')}>
-            All
-          </FilterChip>
-          {APP_CATEGORIES.map((c) => (
-            <FilterChip key={c} active={cat === c} count={catCounts[c] ?? 0} onClick={() => setCat(c)}>
-              {c}
-            </FilterChip>
+  useAdminChrome({
+    toolbar: (
+      <>
+        <NeoTabs<CatFilter>
+          label="App category"
+          value={cat}
+          onChange={setCat}
+          items={[
+            { value: 'all', label: 'All', count: catCounts.all },
+            ...APP_CATEGORIES.map((c) => ({ value: c, label: c, count: catCounts[c] ?? 0 })),
+          ]}
+        />
+        <div className="grow" />
+        <NeoSearch value={q} onChange={setQ} placeholder="Search apps, owners, keywords…" size="sm" label="Search apps" className="adm-tool-search" />
+        <select className="neo-select neo-select--sm adm-tool-select" value={status} onChange={(e) => setStatus(parseStatus(e.target.value))} aria-label="Filter by status">
+          <option value="all">All statuses</option>
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {STATUS_LABEL[s]}
+            </option>
           ))}
-        </div>
-        <span className="spacer" />
-        <span className="text-xs faint" aria-live="polite">
-          {pluralize(filtered.length, 'app')}
-        </span>
+          <option value="disabled">Disabled</option>
+        </select>
         {hasFilters && (
-          <button type="button" className="btn btn--ghost btn--sm" onClick={clearFilters}>
+          <button type="button" className="neo-btn neo-btn--ghost neo-btn--sm" onClick={clearFilters}>
             Clear
           </button>
         )}
+      </>
+    ),
+    actions: (
+      <button type="button" className="neo-btn neo-btn--plasma" onClick={() => setRegister((r) => ({ open: true, key: r.key + 1 }))} data-qa="adm-register-app">
+        <Plus /> <span className="neo-btn__label">Register app</span>
+      </button>
+    ),
+  });
+
+  const statusChip = (s: StatusFilter) => () => setStatus((cur) => (cur === s ? 'all' : s));
+
+  return (
+    <div className="adm-view">
+      <NeoKpis label="Catalog health">
+        <NeoKpi
+          icon={<AppWindow />}
+          label="Enabled"
+          value={
+            <>
+              {summary.enabled}
+              <small>/{summary.total}</small>
+            </>
+          }
+          sub={`${summary.total - summary.enabled} disabled`}
+          onClick={statusChip('disabled')}
+          title="Toggle the disabled filter"
+        />
+        <NeoKpi
+          icon={<Activity />}
+          label="Degraded"
+          value={summary.degraded}
+          sub={summary.degraded ? 'Users see a warning' : 'All healthy'}
+          tone={summary.degraded ? 'warning' : undefined}
+          onClick={statusChip('degraded')}
+          title="Toggle the degraded filter"
+        />
+        <NeoKpi
+          icon={<Wrench />}
+          label="Maintenance"
+          value={summary.maintenance}
+          sub={summary.maintenance ? 'Launch shows a notice' : 'None scheduled'}
+          tone={summary.maintenance ? 'cyan' : undefined}
+          onClick={statusChip('maintenance')}
+          title="Toggle the maintenance filter"
+        />
+        <NeoKpi icon={<EyeOff />} label="Not discoverable" value={summary.hidden} sub="Hidden from launchpad & search" />
+        <NeoKpi icon={<Sparkles />} label="Custom" value={summary.custom} sub="Registered by your team" />
+      </NeoKpis>
+
+      <div className="adm-list-head">
+        <span className="neo-hud">
+          {pluralize(filtered.length, 'app')}
+          {hasFilters ? ' match' : ' in the catalog'}
+        </span>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="card">
-          <EmptyState
+        <NeoPanel>
+          <NeoEmpty
             icon={<AppWindow />}
             title="No apps match"
             action={
               hasFilters ? (
-                <button type="button" className="btn btn--sm" onClick={clearFilters}>
+                <button type="button" className="neo-btn neo-btn--soft" onClick={clearFilters}>
                   Clear filters
                 </button>
               ) : undefined
             }
           >
             Try another search, category or status.
-          </EmptyState>
-        </div>
+          </NeoEmpty>
+        </NeoPanel>
       ) : (
-        <div className="adm-apps-grid stagger">
+        <div className="adm-apps-grid neo-stagger">
           {filtered.map((app, i) => (
             <AppCard
               key={app.id}
@@ -259,37 +272,45 @@ function AppCard({
   const shownRoles = info.roles.slice(0, 4);
   return (
     <article
-      className={cx('card adm-app', !app.enabled && 'is-disabled')}
+      className={cx('neo-card adm-app', !app.enabled && 'is-disabled')}
       style={{ '--i': index, '--c1': app.gradient[0], '--c2': app.gradient[1] } as CSSProperties}
       aria-labelledby={`adm-app-${app.id}`}
     >
       <span className="adm-app__glow" aria-hidden="true" />
       <div className="adm-app__head">
-        <AppIcon app={app} size={46} />
+        <AppIcon app={app} size={44} />
         <div className="grow">
           <div className="adm-app__title">
             <h3 id={`adm-app-${app.id}`} className="adm-app__name truncate">
               {app.name}
             </h3>
-            {app.badge && <span className="badge badge--info">{app.badge === 'new' ? 'New' : 'Beta'}</span>}
-            {app.custom && <span className="tag">Custom</span>}
+            {app.badge && (
+              <span className="neo-chip neo-chip--sm" data-tone="blue">
+                {app.badge === 'new' ? 'New' : 'Beta'}
+              </span>
+            )}
+            {app.custom && (
+              <span className="neo-chip neo-chip--sm" data-tone="app">
+                Custom
+              </span>
+            )}
           </div>
-          <div className="text-xs faint truncate">
+          <div className="adm-cell-sub truncate">
             {app.category} · {app.owner}
           </div>
         </div>
-        <button type="button" className="icon-btn icon-btn--sm" onClick={onEdit} aria-label={`Edit ${app.name}`}>
+        <button type="button" className="neo-iconbtn" onClick={onEdit} aria-label={`Edit ${app.name}`}>
           <Pencil />
         </button>
       </div>
 
       <div className="adm-app__controls">
         <label className="adm-mini-field">
-          <span className="adm-micro">Status</span>
+          <span className="neo-hud">Status</span>
           <span className="adm-status-select">
             <span className={`dot dot--${app.status}`} aria-hidden="true" />
             <select
-              className="select adm-select-sm"
+              className="neo-select neo-select--sm adm-select-sm"
               value={app.status}
               onChange={(e) => onUpdate({ status: e.target.value as AppStatus })}
               aria-label={`Status of ${app.name}`}
@@ -303,9 +324,9 @@ function AppCard({
           </span>
         </label>
         <label className="adm-mini-field">
-          <span className="adm-micro">Badge</span>
+          <span className="neo-hud">Badge</span>
           <select
-            className="select adm-select-sm"
+            className="neo-select neo-select--sm adm-select-sm"
             value={app.badge ?? 'none'}
             onChange={(e) => {
               const v = e.target.value;
@@ -333,8 +354,8 @@ function AppCard({
 
       <div className="adm-app__access">
         <div className="row row--between">
-          <span className="adm-micro">Access</span>
-          <span className="text-xs muted adm-app__people">
+          <span className="neo-hud">Access</span>
+          <span className="adm-app__people">
             <Users aria-hidden="true" /> {pluralize(info.people, 'person', 'people')}
           </span>
         </div>
@@ -342,8 +363,12 @@ function AppCard({
           {shownRoles.map((r) => (
             <RoleChip key={r.id} name={r.name} color={r.color} />
           ))}
-          {info.roles.length > shownRoles.length && <span className="badge badge--muted">+{info.roles.length - shownRoles.length}</span>}
-          {info.roles.length === 0 && <span className="text-xs faint">No roles — direct grants only</span>}
+          {info.roles.length > shownRoles.length && (
+            <span className="neo-chip neo-chip--sm" data-tone="slate">
+              +{info.roles.length - shownRoles.length}
+            </span>
+          )}
+          {info.roles.length === 0 && <span className="adm-cell-sub">No roles — direct grants only</span>}
         </div>
       </div>
     </article>

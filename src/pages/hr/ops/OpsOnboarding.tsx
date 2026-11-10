@@ -30,7 +30,7 @@ export function OutToday({ stats }: { stats: HrStats }) {
   const now = useNow(60_000);
   const today = todayISO(now);
   return (
-    <HrPanel className="hr-ops-out" title="Out today" icon={<TreePalm aria-hidden="true" />} sub={formatDay(today, { weekday: 'long', day: 'numeric', month: 'long' })}>
+    <HrPanel className="hr-ops-out" hud="Live attendance" title="Out today" icon={<TreePalm aria-hidden="true" />} sub={formatDay(today, { weekday: 'long', day: 'numeric', month: 'long' })}>
       {stats.outToday.length ? (
         <ul className="hr-ops-out__list">
           {stats.outToday.map((a) => {
@@ -112,6 +112,7 @@ export function OnboardingOverview() {
   return (
     <HrPanel
       className="hr-ops-onb"
+      hud="First 90 days"
       title="Onboarding & new-hire pulse"
       icon={<Rocket aria-hidden="true" />}
       sub="Every hire handed over from Talent Hub, from pre-boarding to day 90."

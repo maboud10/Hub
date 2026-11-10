@@ -1,6 +1,5 @@
 import { NavLink, useLocation } from 'react-router';
 import { PanelLeftClose, PanelLeftOpen, Timer } from 'lucide-react';
-import { useHub } from '@/store/hub';
 import { useAppAccessMap, usePermissions, usePrefs, useReviewableRequests } from '@/store/selectors';
 import { hasAny, hasPermission } from '@/lib/rbac';
 import { AppIcon } from '@/components/ui/primitives';
@@ -11,6 +10,7 @@ import { mmss } from '@/lib/format';
 import { BrandMark } from './Brand';
 import { NAV_ITEMS, type NavItem } from './nav';
 import { UserMenu } from './UserMenu';
+import { useSidebarState } from './immersive';
 
 function useNavAllowed() {
   const perms = usePermissions();
@@ -41,7 +41,7 @@ export function Sidebar() {
   const location = useLocation();
   const allowed = useNavAllowed();
   const prefs = usePrefs();
-  const updatePrefs = useHub((s) => s.updatePrefs);
+  const { collapsed, toggle } = useSidebarState();
   const reviewable = useReviewableRequests();
   const accessMap = useAppAccessMap();
   const launch = useLaunchApp();
@@ -56,7 +56,7 @@ export function Sidebar() {
         to={item.to}
         end={item.end}
         className={({ isActive }) => 'nav-item' + (isActive ? ' is-active' : '')}
-        data-tip={prefs.sidebarCollapsed ? item.label : undefined}
+        data-tip={collapsed ? item.label : undefined}
         data-tip-pos="right"
         data-count={count || undefined}
       >
@@ -98,7 +98,7 @@ export function Sidebar() {
                 key={id}
                 className={'pin-link' + (isActiveApp ? ' is-active' : '')}
                 onClick={() => launch(id)}
-                data-tip={prefs.sidebarCollapsed ? a.app.name : undefined}
+                data-tip={collapsed ? a.app.name : undefined}
                 data-tip-pos="right"
               >
                 <AppIcon app={a.app} size={26} />
@@ -114,12 +114,12 @@ export function Sidebar() {
         <UserMenu />
         <button
           className="icon-btn icon-btn--sm collapse-btn"
-          onClick={() => updatePrefs({ sidebarCollapsed: !prefs.sidebarCollapsed })}
-          aria-label={prefs.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          data-tip={prefs.sidebarCollapsed ? 'Expand' : 'Collapse'}
+          onClick={toggle}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          data-tip={collapsed ? 'Expand' : 'Collapse'}
           data-tip-pos="right"
         >
-          {prefs.sidebarCollapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
+          {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
         </button>
       </div>
     </aside>

@@ -15,6 +15,7 @@ import { useNow } from '@/hooks/useNow';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { EmptyState, Segmented, Switch } from '@/components/ui/primitives';
 import { cx } from '@/lib/cx';
+import { HeadActions } from './components/head';
 import { PersonChip, PriorityBadge, ReqStatusBadge } from './components/shared';
 import { daysInStage, slaState } from './components/format';
 import { PipelineBoard } from './pipeline/PipelineBoard';
@@ -193,6 +194,17 @@ export function PipelineTab() {
 
   return (
     <div className="tl-pipe">
+      <HeadActions>
+        <button type="button" className="neo-btn neo-btn--soft" onClick={() => navigate('/talent/candidates')}>
+          <Users /> <span className="neo-btn__label">Talent pool</span>
+        </button>
+        {caps.source && (
+          <button type="button" className="neo-btn neo-btn--plasma" onClick={() => navigate(req ? `/talent/sourcing?req=${req.id}` : '/talent/sourcing')}>
+            <Radar /> <span className="neo-btn__label">Source from a JD</span>
+          </button>
+        )}
+      </HeadActions>
+
       {req && (
         <section className="tl-pipe-context hud" aria-label="Requisition filter">
           <div className="tl-pipe-context__main">
@@ -237,7 +249,6 @@ export function PipelineTab() {
       <section className="tl-pipe-toolbar glass" aria-label="Pipeline filters">
         <div className="tl-pipe-toolbar__top">
           <div className="tl-pipe-telemetry" role="status" aria-live="polite">
-            <span className="tl-pipe-telemetry__title">Pipeline</span>
             <span className="tl-pipe-stat">
               <b>{live.length}</b> in flight
             </span>

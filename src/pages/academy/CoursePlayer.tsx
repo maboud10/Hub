@@ -28,6 +28,7 @@ import {
   Sparkles,
   Zap,
 } from 'lucide-react';
+import { NeoEmpty, NeoPanel, NeoTabs } from '@/components/neo';
 import { FORMAT_LABEL, LEVEL_META } from '@/academy/constants';
 import { enrollmentProgressPct } from '@/academy/selectors';
 import { useAcademy, type QuizSubmissionResult } from '@/academy/store';
@@ -36,9 +37,9 @@ import { useWiki } from '@/wiki/store';
 import { useHub } from '@/store/hub';
 import { useSessionUser } from '@/store/selectors';
 import { toast } from '@/store/toast';
-import { Avatar, EmptyState } from '@/components/ui/primitives';
+import { Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/cx';
-import { CertificateModal, ProgressRing, SourceBadge, TrackBadge } from './shared';
+import { LEVEL_TONE, ProgressRing, SourceBadge, TrackBadge, useCertParam } from './shared';
 
 function CalloutIcon({ tone }: { tone: 'tip' | 'warning' | 'policy' | 'insight' }) {
   if (tone === 'tip') return <CheckCircle2 />;
@@ -59,11 +60,11 @@ function FlashcheckCard({ question, answer }: { question: string; answer: string
   return (
     <div className="ac-flashcheck">
       <div className="row row--between row--wrap" style={{ gap: 8 }}>
-        <span className="eyebrow" style={{ marginBottom: 0 }}>
-          <Sparkles size={13} /> Check Your Intuition
+        <span className="neo-hud" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Sparkles size={13} /> Check your intuition
         </span>
-        <button type="button" className="btn btn--sm" onClick={() => setRevealed((v) => !v)}>
-          <Eye /> {revealed ? 'Hide Answer' : 'Reveal Answer'}
+        <button type="button" className="neo-btn neo-btn--soft neo-btn--xs" onClick={() => setRevealed((v) => !v)}>
+          <Eye /> {revealed ? 'Hide answer' : 'Reveal answer'}
         </button>
       </div>
       <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--text)', lineHeight: 1.5 }}>{question}</div>
@@ -127,7 +128,7 @@ function LessonBlockRenderer({ block }: { block: LessonBlock }) {
       <div className="ac-code-box">
         <div className="ac-code-box__head">
           <span>{block.label}</span>
-          <button type="button" className="btn btn--ghost btn--sm" onClick={copyCode}>
+          <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs" onClick={copyCode}>
             {copied ? <Check /> : <Copy />}
             {copied ? 'Copied' : 'Copy'}
           </button>
@@ -147,6 +148,7 @@ export function CoursePlayer() {
   const navigate = useNavigate();
   const me = useSessionUser();
   const users = useHub((s) => s.users);
+  const { open: openCert } = useCertParam();
 
   const courses = useAcademy((s) => s.courses);
   const enrollments = useAcademy((s) => s.enrollments);
@@ -177,7 +179,6 @@ export function CoursePlayer() {
   const [notesOpen, setNotesOpen] = useState<boolean>(true);
   const [noteDraft, setNoteDraft] = useState<string>('');
   const [noteDirty, setNoteDirty] = useState<boolean>(false);
-  const [modalCertOpen, setModalCertOpen] = useState<boolean>(false);
 
   // Initialize stage when course changes
   useEffect(() => {
@@ -218,17 +219,19 @@ export function CoursePlayer() {
 
   if (!course) {
     return (
-      <EmptyState
-        icon={<BookOpen />}
-        title="Course not found"
-        action={
-          <Link to="/academy/catalog" className="btn ac-btn-indigo">
-            <ArrowLeft /> Back to Catalog
-          </Link>
-        }
-      >
-        That course ID does not exist in Helix Academy or may have been moved.
-      </EmptyState>
+      <NeoPanel hud="Course studio" title="Course not found">
+        <NeoEmpty
+          icon={<BookOpen />}
+          title="Course not found"
+          action={
+            <Link to="/academy/catalog" className="neo-btn neo-btn--plasma neo-btn--sm">
+              <ArrowLeft /> Back to catalog
+            </Link>
+          }
+        >
+          That course ID does not exist in Helix Academy or may have been moved.
+        </NeoEmpty>
+      </NeoPanel>
     );
   }
 
@@ -237,6 +240,9 @@ export function CoursePlayer() {
   const progressPct = enrollmentProgressPct(course, enrollment);
   const currentLessonIndex = course.lessons.findIndex((l) => l.id === activeStage);
   const currentLesson = currentLessonIndex >= 0 ? course.lessons[currentLessonIndex] : undefined;
+  const totalStages = course.lessons.length + (course.quiz.length ? 1 : 0);
+  const completedStages =
+    (enrollment?.completedLessonIds.length ?? 0) + (enrollment?.status === 'completed' ? 1 : 0);
 
   const selectStage = (stageId: string) => {
     setActiveStage(stageId);
@@ -307,74 +313,102 @@ export function CoursePlayer() {
       ? currentLesson.choices.find((c) => c.id === selectedScenarioChoiceId)
       : undefined;
 
+  const stageTabItems = [
+    ...course.lessons.map((l, idx) => ({
+      value: l.id,
+      label: l.kind === 'scenario' ? `Lab ${idx + 1}` : `Lesson ${idx + 1}`,
+      title: l.title,
+    })),
+    ...(course.quiz.length > 0
+      ? [
+          {
+            value: 'quiz',
+            label: 'Assessment',
+            count: course.quiz.length,
+            title: 'Graded certification quiz',
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <div className="stack stack--lg">
-      {/* Top Course Banner */}
-      <div className="ac-player-top" style={{ '--th': course.hue } as CSSProperties}>
-        <div className="stack stack--sm" style={{ flex: '1 1 480px', minWidth: 0 }}>
+    <div className="neo-stack">
+      {/* Compact Course Meta & Stage Switcher Strip */}
+      <NeoPanel className="ac-player-bar" style={{ '--th': course.hue } as CSSProperties}>
+        <div className="ac-player-bar__row">
           <div className="row row--wrap" style={{ gap: 8 }}>
-            <button type="button" className="btn btn--ghost btn--sm" onClick={() => navigate('/academy')}>
-              <ArrowLeft /> My Learning
+            <button type="button" className="neo-btn neo-btn--ghost neo-btn--sm" onClick={() => navigate('/academy')}>
+              <ArrowLeft /> Learning
             </button>
             <TrackBadge track={course.track} />
-            <span className={`badge badge--${levelMeta.badgeTone}`}>{levelMeta.label}</span>
-            <span className="tag">{FORMAT_LABEL[course.format]}</span>
-            {course.mandatory && <span className="badge badge--warning">Annual Compliance</span>}
+            <span className="neo-chip" data-tone={LEVEL_TONE[course.level]}>
+              {levelMeta.label}
+            </span>
+            <span className="neo-chip" data-tone="slate">
+              {FORMAT_LABEL[course.format]}
+            </span>
+            {course.mandatory && (
+              <span className="neo-chip" data-tone="warning">
+                Annual compliance
+              </span>
+            )}
             {enrollment && <SourceBadge source={enrollment.source} />}
           </div>
 
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(20px, 2.6vw, 26px)', fontWeight: 700, marginTop: 4 }}>
-            {course.title}
-          </h2>
-          <p className="text-sm muted" style={{ maxWidth: '72ch' }}>
-            {course.description}
-          </p>
-
-          <div className="row row--wrap" style={{ gap: 14, marginTop: 4 }}>
+          <div className="row row--wrap" style={{ gap: 12, alignItems: 'center' }}>
             {instructor && (
               <div className="row" style={{ gap: 8 }}>
-                <Avatar user={instructor} size={26} />
+                <Avatar user={instructor} size={24} />
                 <span className="text-xs muted">
-                  Taught by <strong style={{ color: 'var(--text)' }}>{instructor.name}</strong> ({instructor.title})
+                  <strong style={{ color: 'var(--text)' }}>{instructor.name}</strong> · {instructor.title}
                 </span>
               </div>
             )}
-            <span className="text-xs muted mono">
-              <Clock size={13} style={{ verticalAlign: '-2px' }} /> {course.durationMins} mins · +{course.xp} XP · Pass {course.passScore}%
+            <span className="text-xs muted neo-mono">
+              <Clock size={12} style={{ verticalAlign: '-2px' }} /> {course.durationMins}m · +{course.xp} XP · Pass{' '}
+              {course.passScore}%
             </span>
+            <ProgressRing pct={progressPct} hue={course.hue} size={44} stroke={4} />
+            {!enrollment ? (
+              <button type="button" className="neo-btn neo-btn--plasma neo-btn--sm" onClick={handleEnrolNow}>
+                <Play /> Enrol &amp; start
+              </button>
+            ) : existingCert ? (
+              <button
+                type="button"
+                className="neo-btn neo-btn--soft neo-btn--sm"
+                onClick={() => openCert(existingCert.id)}
+              >
+                <Award /> View certificate
+              </button>
+            ) : null}
           </div>
         </div>
 
-        <div className="row row--wrap" style={{ gap: 12, alignItems: 'center' }}>
-          <ProgressRing pct={progressPct} hue={course.hue} size={58} />
-          {!enrollment ? (
-            <button type="button" className="btn ac-btn-indigo" onClick={handleEnrolNow}>
-              <Play /> Enrol & Start
-            </button>
-          ) : existingCert ? (
-            <button type="button" className="btn btn--success" onClick={() => setModalCertOpen(true)}>
-              <Award /> View Certificate
-            </button>
-          ) : null}
+        <div className="ac-player-bar__tabs">
+          <NeoTabs<string>
+            label="Course stages"
+            value={activeStage}
+            onChange={selectStage}
+            items={stageTabItems}
+          />
         </div>
-      </div>
+      </NeoPanel>
 
       {/* Main Split: Curriculum Rail + Interactive Stage */}
       <div className="ac-player-layout">
         {/* Left/Top Curriculum Rail */}
         <aside className="ac-player-rail">
-          <div className="card card--tight stack stack--sm">
-            <div className="row row--between">
-              <span className="text-xs mono faint" style={{ textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Course Curriculum
-              </span>
-              <span className="mono text-xs muted">{progressPct}%</span>
-            </div>
-            <div className="ac-bar" style={{ '--th': course.hue } as CSSProperties}>
+          <NeoPanel
+            hud="Course curriculum"
+            title={`${completedStages}/${totalStages} stages`}
+            actions={<span className="neo-mono text-xs muted">{progressPct}%</span>}
+          >
+            <div className="ac-bar" style={{ '--th': course.hue, marginBottom: 12 } as CSSProperties}>
               <i style={{ width: `${progressPct}%` }} />
             </div>
 
-            <div className="ac-stage-list" style={{ marginTop: 6 }}>
+            <div className="ac-stage-list">
               {course.lessons.map((lesson, idx) => {
                 const isDone = enrollment?.completedLessonIds.includes(lesson.id) ?? false;
                 const isActive = activeStage === lesson.id;
@@ -388,7 +422,7 @@ export function CoursePlayer() {
                     <span className="ac-stage-btn__icon">
                       {isDone ? <Check /> : lesson.kind === 'scenario' ? <FlaskConical /> : idx + 1}
                     </span>
-                    <div className="grow">
+                    <div className="grow" style={{ minWidth: 0 }}>
                       <div className="ac-stage-btn__title">{lesson.title}</div>
                       <div className="ac-stage-btn__sub">
                         {lesson.kind === 'scenario' ? 'Scenario Lab' : 'Concept Lesson'} · {lesson.durationMins}m
@@ -411,7 +445,7 @@ export function CoursePlayer() {
                   <span className="ac-stage-btn__icon">
                     {enrollment?.status === 'completed' ? <Check /> : <ClipboardCheck />}
                   </span>
-                  <div className="grow">
+                  <div className="grow" style={{ minWidth: 0 }}>
                     <div className="ac-stage-btn__title">Certification Assessment</div>
                     <div className="ac-stage-btn__sub">
                       {course.quiz.length} questions · Pass {course.passScore}% · +{course.xp} XP
@@ -420,59 +454,50 @@ export function CoursePlayer() {
                 </button>
               )}
             </div>
-          </div>
+          </NeoPanel>
 
           {/* Companion Knowledge Base Playbooks */}
           {companionPlaybooks.length > 0 && (
-            <div className="card card--tight stack stack--sm">
-              <div className="row" style={{ gap: 7 }}>
-                <BookOpen size={15} style={{ color: '#818cf8' }} />
-                <span style={{ fontWeight: 650, fontSize: 13.5 }}>Companion Playbooks</span>
-              </div>
-              <p className="text-xs muted">Reference guides in Helix Knowledge Base linked to this curriculum:</p>
+            <NeoPanel icon={<BookOpen />} hud="Knowledge base" title="Companion playbooks">
               <div className="stack stack--sm">
                 {companionPlaybooks.map((pb) => (
                   <Link key={pb.slug} to={`/wiki/doc/${pb.slug}`} className="ac-playbook-link">
-                    <FileText size={16} style={{ color: '#818cf8', flex: 'none', marginTop: 2 }} />
-                    <div className="grow">
+                    <FileText size={16} style={{ color: 'var(--app-ink)', flex: 'none', marginTop: 2 }} />
+                    <div className="grow" style={{ minWidth: 0 }}>
                       <div className="text-sm" style={{ fontWeight: 600, color: 'var(--text)' }}>
                         {pb.title}
                       </div>
                       <div className="text-xs muted clamp-2">{pb.subtitle}</div>
-                      <div className="mono text-xs faint" style={{ marginTop: 3 }}>
+                      <div className="neo-mono text-xs faint" style={{ marginTop: 3 }}>
                         {pb.readMins} min read →
                       </div>
                     </div>
                   </Link>
                 ))}
               </div>
-            </div>
+            </NeoPanel>
           )}
         </aside>
 
         {/* Main Interactive Stage */}
-        <div className="stack" style={{ minWidth: 0 }}>
+        <div className="neo-stack" style={{ minWidth: 0 }}>
           {/* STAGE A: Concept Lesson */}
           {currentLesson?.kind === 'concept' && (
-            <article className="card ac-lesson-card">
-              <div className="stack stack--sm">
-                <div className="row row--between row--wrap">
-                  <span className="eyebrow" style={{ marginBottom: 0 }}>
-                    Lesson {currentLessonIndex + 1} of {course.lessons.length} · Concept Studio · {currentLesson.durationMins} mins
+            <NeoPanel
+              className="ac-lesson-card"
+              hud={`Lesson ${currentLessonIndex + 1} of ${course.lessons.length} · Concept studio · ${currentLesson.durationMins}m`}
+              title={currentLesson.title}
+              actions={
+                enrollment?.completedLessonIds.includes(currentLesson.id) ? (
+                  <span className="neo-chip" data-tone="emerald">
+                    <Check /> Completed
                   </span>
-                  {enrollment?.completedLessonIds.includes(currentLesson.id) && (
-                    <span className="badge badge--success">
-                      <Check /> Completed
-                    </span>
-                  )}
-                </div>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(19px, 2.3vw, 23px)', fontWeight: 700 }}>
-                  {currentLesson.title}
-                </h3>
-                <p className="text-sm muted">{currentLesson.summary}</p>
-              </div>
+                ) : undefined
+              }
+            >
+              <p className="ac-panel-lead">{currentLesson.summary}</p>
 
-              <hr className="divider" style={{ margin: 0 }} />
+              <hr className="neo-divider" style={{ margin: '4px 0' }} />
 
               <div className="stack" style={{ gap: 18 }}>
                 {currentLesson.blocks.map((block, bIdx) => (
@@ -483,7 +508,7 @@ export function CoursePlayer() {
               {currentLesson.keyTakeaways.length > 0 && (
                 <div className="ac-takeaways">
                   <div className="row" style={{ gap: 7, marginBottom: 8 }}>
-                    <Zap size={15} style={{ color: '#818cf8' }} />
+                    <Zap size={15} style={{ color: 'var(--app-ink)' }} />
                     <strong style={{ fontSize: 13.5 }}>Key Takeaways</strong>
                   </div>
                   <ul className="ac-bullets">
@@ -494,49 +519,54 @@ export function CoursePlayer() {
                 </div>
               )}
 
-              <div className="row row--between row--wrap" style={{ paddingTop: 6 }}>
+              <div className="row row--between row--wrap" style={{ paddingTop: 6, gap: 10 }}>
                 {currentLessonIndex > 0 ? (
                   <button
                     type="button"
-                    className="btn btn--ghost"
+                    className="neo-btn neo-btn--ghost"
                     onClick={() => selectStage(course.lessons[currentLessonIndex - 1].id)}
                   >
-                    <ArrowLeft /> Previous Lesson
+                    <ArrowLeft /> Previous lesson
                   </button>
                 ) : (
                   <span />
                 )}
-                <button type="button" className="btn ac-btn-indigo" onClick={() => handleCompleteConcept(currentLesson)}>
-                  Mark Lesson Complete & Next <ArrowRight />
+                <button
+                  type="button"
+                  className="neo-btn neo-btn--plasma"
+                  onClick={() => handleCompleteConcept(currentLesson)}
+                >
+                  Mark complete &amp; next <ArrowRight />
                 </button>
               </div>
-            </article>
+            </NeoPanel>
           )}
 
           {/* STAGE B: Workplace Scenario Simulator */}
           {currentLesson?.kind === 'scenario' && (
-            <article className="card ac-lesson-card">
-              <div className="stack stack--sm">
-                <div className="row row--between row--wrap">
-                  <span className="eyebrow" style={{ marginBottom: 0 }}>
-                    <FlaskConical size={13} /> Lesson {currentLessonIndex + 1} of {course.lessons.length} · Workplace Scenario Simulator
+            <NeoPanel
+              className="ac-lesson-card"
+              icon={<FlaskConical />}
+              hud={`Lesson ${currentLessonIndex + 1} of ${course.lessons.length} · Workplace scenario simulator`}
+              title={currentLesson.title}
+              actions={
+                enrollment?.completedLessonIds.includes(currentLesson.id) ? (
+                  <span className="neo-chip" data-tone="emerald">
+                    <Check /> Optimal move mastered
                   </span>
-                  {enrollment?.completedLessonIds.includes(currentLesson.id) && (
-                    <span className="badge badge--success">
-                      <Check /> Optimal Move Mastered
-                    </span>
-                  )}
-                </div>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(19px, 2.3vw, 23px)', fontWeight: 700 }}>
-                  {currentLesson.title}
-                </h3>
-                <p className="text-sm muted">{currentLesson.summary}</p>
-              </div>
+                ) : undefined
+              }
+            >
+              <p className="ac-panel-lead">{currentLesson.summary}</p>
 
-              <div className="ac-sim-frame hud">
-                <div className="row row--between row--wrap">
-                  <span className="tag">Simulation Context · {currentLesson.contextLabel}</span>
-                  <span className="text-xs muted">Choose a response to inspect real-world blast radius & coaching</span>
+              <div className="ac-sim-frame">
+                <div className="row row--between row--wrap" style={{ gap: 8 }}>
+                  <span className="neo-chip" data-tone="violet">
+                    Simulation context · {currentLesson.contextLabel}
+                  </span>
+                  <span className="text-xs muted">
+                    Choose a response to inspect real-world blast radius &amp; coaching
+                  </span>
                 </div>
 
                 {currentLesson.artifact && (
@@ -576,13 +606,21 @@ export function CoursePlayer() {
                 </div>
 
                 {selectedScenarioChoice && (
-                  <div className={cx('ac-coaching', selectedScenarioChoice.optimal ? 'ac-coaching--optimal' : 'ac-coaching--retry')}>
+                  <div
+                    className={cx(
+                      'ac-coaching',
+                      selectedScenarioChoice.optimal ? 'ac-coaching--optimal' : 'ac-coaching--retry',
+                    )}
+                  >
                     <div className="row row--wrap" style={{ gap: 8 }}>
-                      <span className={cx('badge', selectedScenarioChoice.optimal ? 'badge--success' : 'badge--warning')}>
+                      <span
+                        className="neo-chip"
+                        data-tone={selectedScenarioChoice.optimal ? 'emerald' : 'warning'}
+                      >
                         {selectedScenarioChoice.optimal ? <CheckCircle2 /> : <AlertTriangle />}
-                        {selectedScenarioChoice.optimal ? 'Optimal Response' : 'Suboptimal — Try Another Move'}
+                        {selectedScenarioChoice.optimal ? 'Optimal response' : 'Suboptimal — try another move'}
                       </span>
-                      <span className="text-xs mono" style={{ fontWeight: 600, color: 'var(--text)' }}>
+                      <span className="text-xs neo-mono" style={{ fontWeight: 600, color: 'var(--text)' }}>
                         Impact: {selectedScenarioChoice.impact}
                       </span>
                     </div>
@@ -593,68 +631,67 @@ export function CoursePlayer() {
                 )}
               </div>
 
-              <div className="row row--between row--wrap">
+              <div className="row row--between row--wrap" style={{ gap: 10 }}>
                 {currentLessonIndex > 0 ? (
                   <button
                     type="button"
-                    className="btn btn--ghost"
+                    className="neo-btn neo-btn--ghost"
                     onClick={() => selectStage(course.lessons[currentLessonIndex - 1].id)}
                   >
-                    <ArrowLeft /> Previous Lesson
+                    <ArrowLeft /> Previous lesson
                   </button>
                 ) : (
                   <span />
                 )}
                 <button
                   type="button"
-                  className="btn ac-btn-indigo"
+                  className="neo-btn neo-btn--plasma"
                   disabled={!enrollment?.completedLessonIds.includes(currentLesson.id)}
                   onClick={() => advanceAfterLesson(currentLesson.id)}
                 >
-                  {course.lessons[currentLessonIndex + 1] ? 'Next Lesson' : 'Proceed to Certification Quiz'} <ArrowRight />
+                  {course.lessons[currentLessonIndex + 1] ? 'Next lesson' : 'Proceed to certification quiz'}{' '}
+                  <ArrowRight />
                 </button>
               </div>
-            </article>
+            </NeoPanel>
           )}
 
           {/* STAGE C: Graded Certification Quiz */}
           {activeStage === 'quiz' && (
-            <article className="card ac-lesson-card">
-              <div className="row row--between row--wrap" style={{ gap: 12 }}>
-                <div className="stack stack--sm">
-                  <span className="eyebrow" style={{ marginBottom: 0 }}>
-                    <ClipboardCheck size={13} /> Final Stage · Graded Certification Assessment
+            <NeoPanel
+              className="ac-lesson-card"
+              icon={<ClipboardCheck />}
+              hud="Final stage · Graded certification assessment"
+              title="Verify mastery & unlock credential"
+              actions={
+                enrollment?.bestQuizScore !== undefined ? (
+                  <span className="neo-chip" data-tone="cyan">
+                    Best: {enrollment.bestQuizScore}% ({enrollment.attempts}{' '}
+                    {enrollment.attempts === 1 ? 'attempt' : 'attempts'})
                   </span>
-                  <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(19px, 2.3vw, 23px)', fontWeight: 700 }}>
-                    Verify Mastery & Unlock Credential
-                  </h3>
-                  <p className="text-sm muted">
-                    Score at least <strong>{course.passScore}%</strong> across {course.quiz.length} questions to earn{' '}
-                    <strong>+{course.xp} XP</strong>, endorse your directory skills, and issue your verifiable certificate.
-                  </p>
-                </div>
-                {enrollment?.bestQuizScore !== undefined && (
-                  <span className="badge badge--info">
-                    Best Score: {enrollment.bestQuizScore}% ({enrollment.attempts} {enrollment.attempts === 1 ? 'attempt' : 'attempts'})
-                  </span>
-                )}
-              </div>
+                ) : undefined
+              }
+            >
+              <p className="ac-panel-lead">
+                Score at least <strong>{course.passScore}%</strong> across {course.quiz.length} questions to earn{' '}
+                <strong>+{course.xp} XP</strong>, endorse your directory skills, and issue your verifiable certificate.
+              </p>
 
               {/* Celebratory Credential Unlocked Banner */}
               {(quizResult?.passed || existingCert) && (
                 <div className="ac-unlock-banner">
                   <div className="row row--between row--wrap" style={{ gap: 14 }}>
                     <div className="row" style={{ gap: 14, minWidth: 0 }}>
-                      <ProgressRing pct={quizResult?.score ?? existingCert?.score ?? 100} hue={150} size={64} />
-                      <div className="grow">
-                        <div className="eyebrow" style={{ color: 'var(--success)', marginBottom: 4 }}>
-                          Credential Unlocked · +{course.xp} XP Earned
+                      <ProgressRing pct={quizResult?.score ?? existingCert?.score ?? 100} hue={150} size={60} />
+                      <div className="grow" style={{ minWidth: 0 }}>
+                        <div className="neo-hud" style={{ color: 'var(--success)', marginBottom: 4 }}>
+                          Credential unlocked · +{course.xp} XP earned
                         </div>
-                        <div style={{ fontFamily: 'var(--font-display)', fontSize: 19, fontWeight: 700 }}>
+                        <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700 }}>
                           {course.title} — Certified!
                         </div>
                         {existingCert && (
-                          <div className="mono text-xs muted" style={{ marginTop: 2 }}>
+                          <div className="neo-mono text-xs muted" style={{ marginTop: 2 }}>
                             {existingCert.credentialCode} · Hash {existingCert.verificationHash}
                           </div>
                         )}
@@ -663,12 +700,16 @@ export function CoursePlayer() {
 
                     <div className="row row--wrap" style={{ gap: 8 }}>
                       {existingCert && (
-                        <button type="button" className="btn ac-btn-indigo btn--sm" onClick={() => setModalCertOpen(true)}>
-                          <Award /> View Certificate
+                        <button
+                          type="button"
+                          className="neo-btn neo-btn--plasma neo-btn--sm"
+                          onClick={() => openCert(existingCert.id)}
+                        >
+                          <Award /> View certificate
                         </button>
                       )}
-                      <Link to="/academy/certificates" className="btn btn--sm">
-                        Certificates Vault <ArrowRight />
+                      <Link to="/academy/certificates" className="neo-btn neo-btn--soft neo-btn--sm">
+                        Certificates vault <ArrowRight />
                       </Link>
                     </div>
                   </div>
@@ -677,7 +718,7 @@ export function CoursePlayer() {
                   <div className="row row--wrap" style={{ gap: 6 }}>
                     <span className="text-xs muted">Endorsed on your NEXUS profile:</span>
                     {course.skills.map((sk) => (
-                      <span key={sk} className="badge badge--success">
+                      <span key={sk} className="ac-skill ac-skill--ok">
                         <Check /> {sk}
                       </span>
                     ))}
@@ -697,8 +738,11 @@ export function CoursePlayer() {
                           </div>
                         </div>
                       </div>
-                      <Link to={`/hr/onboarding/${quizResult.syncedOnboarding.journeyId}`} className="btn btn--sm btn--success">
-                        View Onboarding Journey <ExternalLink size={13} />
+                      <Link
+                        to={`/hr/onboarding/${quizResult.syncedOnboarding.journeyId}`}
+                        className="neo-btn neo-btn--soft neo-btn--sm"
+                      >
+                        View onboarding journey <ExternalLink size={13} />
                       </Link>
                     </div>
                   )}
@@ -710,10 +754,11 @@ export function CoursePlayer() {
                 <div className="ac-coaching ac-coaching--retry">
                   <div className="row row--between row--wrap" style={{ gap: 12 }}>
                     <div className="row" style={{ gap: 12 }}>
-                      <ProgressRing pct={quizResult.score ?? 0} hue={38} size={56} />
+                      <ProgressRing pct={quizResult.score ?? 0} hue={38} size={52} />
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 15 }}>
-                          Scored {quizResult.score}% ({quizResult.correctCount}/{quizResult.total} correct) — {course.passScore}% required
+                          Scored {quizResult.score}% ({quizResult.correctCount}/{quizResult.total} correct) —{' '}
+                          {course.passScore}% required
                         </div>
                         <p className="text-xs muted">
                           Review the per-question explanations below, adjust your selections, and submit again.
@@ -722,13 +767,13 @@ export function CoursePlayer() {
                     </div>
                     <button
                       type="button"
-                      className="btn btn--sm"
+                      className="neo-btn neo-btn--soft neo-btn--sm"
                       onClick={() => {
                         setQuizResult(null);
                         setQuizAnswers(new Array(course.quiz.length).fill(-1));
                       }}
                     >
-                      <RotateCcw /> Reset Answers
+                      <RotateCcw /> Reset answers
                     </button>
                   </div>
                 </div>
@@ -742,7 +787,9 @@ export function CoursePlayer() {
                   return (
                     <div key={q.id} className="ac-quiz-q">
                       <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
-                        <span className="badge badge--muted mono">Q{qIdx + 1}</span>
+                        <span className="neo-chip neo-mono" data-tone="slate">
+                          Q{qIdx + 1}
+                        </span>
                         <div style={{ fontWeight: 650, fontSize: 14.5, lineHeight: 1.45, color: 'var(--text)' }}>
                           {q.prompt}
                         </div>
@@ -776,14 +823,16 @@ export function CoursePlayer() {
                             >
                               <span className="ac-choice__key">{String.fromCharCode(65 + oIdx)}</span>
                               <span className="grow">{opt}</span>
-                              {isCorrect && <CheckCircle2 size={16} style={{ color: 'var(--success)', flex: 'none' }} />}
+                              {isCorrect && (
+                                <CheckCircle2 size={16} style={{ color: 'var(--success)', flex: 'none' }} />
+                              )}
                             </button>
                           );
                         })}
                       </div>
 
                       {showReview && (
-                        <div className="text-xs muted" style={{ padding: '8px 11px', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
+                        <div className="ac-quiz-review">
                           <strong style={{ color: chosen === q.correctIndex ? 'var(--success)' : 'var(--warning)' }}>
                             {chosen === q.correctIndex ? 'Correct · ' : 'Explanation · '}
                           </strong>
@@ -795,14 +844,14 @@ export function CoursePlayer() {
                 })}
               </div>
 
-              <div className="row row--between row--wrap">
+              <div className="row row--between row--wrap" style={{ gap: 10 }}>
                 {course.lessons.length > 0 ? (
                   <button
                     type="button"
-                    className="btn btn--ghost"
+                    className="neo-btn neo-btn--ghost"
                     onClick={() => selectStage(course.lessons[course.lessons.length - 1].id)}
                   >
-                    <ArrowLeft /> Back to Lessons
+                    <ArrowLeft /> Back to lessons
                   </button>
                 ) : (
                   <span />
@@ -812,58 +861,60 @@ export function CoursePlayer() {
                   {quizResult?.passed && (
                     <button
                       type="button"
-                      className="btn"
+                      className="neo-btn neo-btn--soft"
                       onClick={() => {
                         setQuizResult(null);
                         setQuizAnswers(new Array(course.quiz.length).fill(-1));
                       }}
                     >
-                      <RotateCcw /> Retake Quiz
+                      <RotateCcw /> Retake quiz
                     </button>
                   )}
                   {!quizResult?.passed && (
                     <button
                       type="button"
-                      className="btn ac-btn-indigo"
+                      className="neo-btn neo-btn--plasma"
                       disabled={quizAnswers.some((a) => a < 0)}
                       onClick={handleSubmitQuiz}
                     >
-                      <Award /> Submit Certification Assessment
+                      <Award /> Submit assessment
                     </button>
                   )}
                 </div>
               </div>
-            </article>
+            </NeoPanel>
           )}
 
           {/* Personal Study Notes Pad */}
-          <section className="card card--tight stack stack--sm">
-            <div className="row row--between row--wrap">
-              <button
-                type="button"
-                className="btn btn--ghost btn--sm"
-                style={{ paddingLeft: 6 }}
-                onClick={() => setNotesOpen((v) => !v)}
-              >
-                <NotebookPen size={15} style={{ color: '#818cf8' }} />
-                <strong>My Personal Study Notes</strong>
-                <span className="text-xs muted">
-                  ({activeStage === 'quiz' ? 'Assessment prep' : currentLesson?.title ?? 'Lesson'})
-                </span>
-              </button>
+          <NeoPanel
+            icon={<NotebookPen />}
+            hud="Private study pad"
+            title={`Personal notes · ${activeStage === 'quiz' ? 'Assessment prep' : currentLesson?.title ?? 'Lesson'}`}
+            actions={
               <div className="row" style={{ gap: 8 }}>
-                {noteDirty && <span className="text-xs warning">Unsaved changes</span>}
+                {noteDirty && (
+                  <span className="neo-chip" data-tone="warning">
+                    Unsaved
+                  </span>
+                )}
+                <button
+                  type="button"
+                  className="neo-btn neo-btn--ghost neo-btn--xs"
+                  onClick={() => setNotesOpen((v) => !v)}
+                >
+                  {notesOpen ? 'Collapse' : 'Expand'}
+                </button>
                 {notesOpen && (
-                  <button type="button" className="btn btn--sm" onClick={handleSaveNote}>
-                    <Save /> Save Note
+                  <button type="button" className="neo-btn neo-btn--soft neo-btn--xs" onClick={handleSaveNote}>
+                    <Save /> Save note
                   </button>
                 )}
               </div>
-            </div>
-
-            {notesOpen && (
+            }
+          >
+            {notesOpen ? (
               <textarea
-                className="textarea"
+                className="neo-textarea"
                 rows={3}
                 placeholder="Jot down takeaways, prompts, or action items for your team (private to your Academy profile)…"
                 value={noteDraft}
@@ -872,14 +923,12 @@ export function CoursePlayer() {
                   setNoteDirty(true);
                 }}
               />
+            ) : savedNote ? (
+              <p className="text-xs muted truncate">Saved: “{savedNote}”</p>
+            ) : (
+              <p className="text-xs muted">No study note saved for this stage yet.</p>
             )}
-
-            {!notesOpen && savedNote && (
-              <p className="text-xs muted truncate" style={{ paddingLeft: 6 }}>
-                Saved: “{savedNote}”
-              </p>
-            )}
-          </section>
+          </NeoPanel>
 
           {/* Helpful hint for unenrolled viewers */}
           {!enrollment && (
@@ -889,13 +938,7 @@ export function CoursePlayer() {
           )}
         </div>
       </div>
-
-      {/* Printable Official Certificate Modal */}
-      <CertificateModal
-        certificate={modalCertOpen ? existingCert ?? null : null}
-        course={course}
-        onClose={() => setModalCertOpen(false)}
-      />
     </div>
   );
 }
+
