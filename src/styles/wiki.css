@@ -19,8 +19,18 @@
   --wk-ink: #0f766e;
 }
 
+.neo[data-app='wiki'],
+.neo[data-app='wiki'] > .neo-rail,
+.neo[data-app='wiki'] > .neo-stage,
+.neo[data-app='wiki'] .neo-head,
+.neo[data-app='wiki'] .neo-body {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .wk-body {
   min-width: 0;
+  width: 100%;
 }
 
 .wk-head-slot {
