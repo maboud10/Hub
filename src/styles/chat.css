@@ -53,7 +53,7 @@
   background: var(--app-grad);
   box-shadow: 0 0 10px rgb(var(--app-rgb) / 0.8);
 }
-.pc-convicon {
+.pc-convicon:not(.pj-sigil) {
   display: inline-grid;
   place-items: center;
   flex: none;
@@ -62,11 +62,11 @@
   box-shadow: inset 0 0 0 1px rgb(var(--app-rgb) / 0.2);
   line-height: 1;
 }
-.pc-convicon.is-private {
+.pc-convicon:not(.pj-sigil).is-private {
   background: linear-gradient(150deg, rgb(251 191 36 / 0.16), rgb(251 146 60 / 0.08));
   box-shadow: inset 0 0 0 1px rgb(251 191 36 / 0.25);
 }
-.pc-convicon svg {
+.pc-convicon:not(.pj-sigil) svg {
   width: 60%;
   height: 60%;
   color: var(--text-3);
@@ -510,27 +510,29 @@
 .pc-day {
   position: relative;
 }
-/* rule lines live on the section (they scroll away); only the pill is sticky */
-.pc-day::before {
+.pc-daydiv {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 10px 0 6px;
+  padding: 4px var(--pc-msg-x);
+  pointer-events: none;
+}
+.pc-daydiv::before {
   content: '';
   position: absolute;
-  top: 21px;
+  top: 50%;
   left: var(--pc-msg-x);
   right: var(--pc-msg-x);
   height: 1px;
-  background: linear-gradient(90deg, transparent, var(--plane-border-2) 30%, var(--plane-border-2) 70%, transparent);
-  pointer-events: none;
-}
-.pc-daydiv {
-  position: sticky;
-  top: 6px;
-  z-index: 4;
-  display: flex;
-  justify-content: center;
-  padding: 8px var(--pc-msg-x) 6px;
+  background: linear-gradient(90deg, transparent, var(--plane-border-2) 25%, var(--plane-border-2) 75%, transparent);
   pointer-events: none;
 }
 .pc-daydiv span {
+  position: relative;
+  z-index: 1;
   padding: 4px 12px;
   border-radius: 99px;
   font-family: var(--font-mono);

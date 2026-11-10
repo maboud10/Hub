@@ -1654,11 +1654,11 @@ a.neo-card {
   align-items: center;
 }
 .neo-avatars > * {
-  margin-left: -7px;
+  margin-inline-start: -3px;
   box-shadow: 0 0 0 2px var(--bg-2);
 }
 .neo-avatars > *:first-child {
-  margin-left: 0;
+  margin-inline-start: 0;
 }
 .neo-avatars__more {
   display: inline-grid;

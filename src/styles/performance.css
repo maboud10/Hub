@@ -497,7 +497,8 @@
 }
 .pf-tl__seg > i {
   position: absolute;
-  inset: 0 auto 0 0;
+  inset-block: 0;
+  inset-inline: 0 auto;
   border-radius: inherit;
   background: var(--app-grad);
   box-shadow: 0 0 14px rgb(var(--app-rgb) / 0.6);
@@ -510,7 +511,7 @@
 .pf-tl__now {
   position: absolute;
   top: 50%;
-  left: var(--now-eq);
+  inset-inline-start: var(--now-eq);
   width: 16px;
   height: 16px;
   translate: -50% -50%;
@@ -520,6 +521,9 @@
     0 0 0 4px rgb(var(--app-rgb) / 0.35),
     0 0 18px 4px rgb(var(--app-rgb) / 0.75);
   pointer-events: none;
+}
+html[dir='rtl'] .pf-tl__now {
+  translate: 50% -50%;
 }
 .pf-tl__now::before {
   content: '';
@@ -544,7 +548,7 @@
 }
 .pf-tl__labels {
   display: flex;
-  gap: 4px;
+  gap: 10px;
   margin: 10px 0 0;
   padding: 0;
   list-style: none;
@@ -552,6 +556,7 @@
 .pf-tl__label {
   flex: 1 1 0;
   min-width: 0;
+  padding-inline-end: 4px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -599,6 +604,14 @@
   width: 10px;
   height: 10px;
   stroke-width: 3;
+}
+@media (max-width: 1640px) {
+  .pf-quarter .pf-tl__full {
+    display: none;
+  }
+  .pf-quarter .pf-tl__short {
+    display: inline;
+  }
 }
 @media (max-width: 1280px) {
   .pf-tl__full {

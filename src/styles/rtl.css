@@ -191,3 +191,12 @@ html[dir='rtl'] .py-bonus-card__quote {
   border-left: none;
   border-right: 2.5px solid var(--app);
 }
+
+/* The DOM translator gives untranslated English text dir="ltr" (correct punctuation, times and ellipses)
+   and records which side it sat on in the RTL layout, so it stays aligned with its Arabic neighbours. */
+html[dir='rtl'] [data-nx-ltr='r'] {
+  text-align: right;
+}
+html[dir='rtl'] [data-nx-ltr='l'] {
+  text-align: left;
+}

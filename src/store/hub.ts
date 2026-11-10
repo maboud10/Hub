@@ -133,7 +133,7 @@ export interface HubActions {
 export type HubStore = HubData & HubActions;
 
 /** Immersive workspace apps whose catalog visuals always follow the seed (declared before the store hydrates). */
-const WORKSPACE_APPS = new Set(['projects', 'drive', 'chat', 'helpdesk', 'performance']);
+const WORKSPACE_APPS = new Set(['projects', 'drive', 'chat', 'helpdesk', 'performance', 'procurement', 'crm', 'analytics']);
 
 const ok = (message?: string): ActionResult => ({ ok: true, message });
 const fail = (error: string): ActionResult => ({ ok: false, error });
@@ -826,8 +826,10 @@ export const useHub = create<HubStore>()(
       migrate: (persisted, version) => {
         let s = persisted as HubData;
         if (version === DATA_VERSION) {
-          // Safety net: re-apply the latest migration if workspace-app routes went missing.
-          const missing = ['projects', 'drive', 'chat', 'helpdesk', 'performance'].some((id) => !s?.apps?.find((a) => a.id === id)?.route);
+          // Safety net: re-apply the latest migration if workspace-app routes went missing or roster is still present.
+          const missing =
+            ['projects', 'drive', 'chat', 'helpdesk', 'performance', 'procurement', 'crm', 'analytics'].some((id) => !s?.apps?.find((a) => a.id === id)?.route) ||
+            Boolean(s?.apps?.some((a) => a.id === 'roster'));
           return missing ? migrateV6toV7(s) : s;
         }
         if (version === 1) s = migrateV1toV2(s);
@@ -841,21 +843,29 @@ export const useHub = create<HubStore>()(
       merge: (persisted, current) => {
         const p = (persisted as Partial<HubData> | undefined) ?? {};
         const seedById = new Map(current.apps.map((a) => [a.id, a]));
-        const apps = (p.apps ?? current.apps).map((a) => {
-          const fresh = seedById.get(a.id);
-          if (!fresh) return a;
-          return {
-            ...a,
-            route: fresh.route ?? a.route,
-            gradient: WORKSPACE_APPS.has(a.id) ? fresh.gradient : a.gradient,
-            keywords: WORKSPACE_APPS.has(a.id) ? fresh.keywords : a.keywords,
-            quickActions: fresh.quickActions ?? a.quickActions,
-            tagline: fresh.tagline ?? a.tagline,
-            description: fresh.description ?? a.description,
-            badge: fresh.badge ?? a.badge,
-          };
+        const apps = (p.apps ?? current.apps)
+          .filter((a) => a.id !== 'roster')
+          .map((a) => {
+            const fresh = seedById.get(a.id);
+            if (!fresh) return a;
+            return {
+              ...a,
+              url: a.id === 'finance' ? fresh.url : (a.url ?? fresh.url),
+              route: fresh.route ?? a.route,
+              gradient: WORKSPACE_APPS.has(a.id) ? fresh.gradient : a.gradient,
+              keywords: WORKSPACE_APPS.has(a.id) ? fresh.keywords : a.keywords,
+              quickActions: fresh.quickActions ?? a.quickActions,
+              tagline: fresh.tagline ?? a.tagline,
+              description: fresh.description ?? a.description,
+              badge: fresh.badge ?? a.badge,
+            };
+          });
+        const roles = (p.roles ?? current.roles).map((r) => {
+          if (r.id !== 'employee') return r;
+          const cleaned = r.permissions.filter((perm) => perm !== 'app:roster');
+          return cleaned.includes('app:procurement') ? { ...r, permissions: cleaned } : { ...r, permissions: [...cleaned, 'app:procurement'] };
         });
-        return { ...current, ...p, apps };
+        return { ...current, ...p, apps, roles };
       },
     },
   ),
@@ -1023,25 +1033,30 @@ export function migrateV6toV7(s: HubData): HubData {
   const roles = s.roles.map((r) => {
     const fresh = seedRole.get(r.id);
     if (!fresh || !r.system || r.locked) return r;
-    const add = fresh.permissions.filter((p) => (p.startsWith('performance.') || p === 'app:performance') && !r.permissions.includes(p));
-    return add.length ? { ...r, permissions: [...r.permissions, ...add] } : r;
+    const basePerms = r.permissions.filter((p) => p !== 'app:roster');
+    const add = fresh.permissions.filter((p) => (p.startsWith('performance.') || p === 'app:performance' || p === 'app:procurement') && !basePerms.includes(p));
+    return { ...r, permissions: [...basePerms, ...add] };
   });
   const seedApp = new Map(seed.apps.map((a) => [a.id, a]));
-  const apps = s.apps.map((a) => {
-    const fresh = seedApp.get(a.id);
-    if (!fresh || !WORKSPACE_APPS.has(a.id)) return a;
-    return {
-      ...a,
-      route: fresh.route,
-      tagline: fresh.tagline,
-      description: fresh.description,
-      keywords: fresh.keywords,
-      gradient: fresh.gradient,
-      quickActions: fresh.quickActions,
-      badge: fresh.badge ?? a.badge,
-      notifications: fresh.notifications ?? a.notifications,
-    };
-  });
+  const apps = s.apps
+    .filter((a) => a.id !== 'roster')
+    .map((a) => {
+      const fresh = seedApp.get(a.id);
+      if (!fresh) return a;
+      if (a.id === 'finance') return { ...a, url: fresh.url };
+      if (!WORKSPACE_APPS.has(a.id)) return a;
+      return {
+        ...a,
+        route: fresh.route,
+        tagline: fresh.tagline,
+        description: fresh.description,
+        keywords: fresh.keywords,
+        gradient: fresh.gradient,
+        quickActions: fresh.quickActions,
+        badge: fresh.badge ?? a.badge,
+        notifications: fresh.notifications ?? a.notifications,
+      };
+    });
   const existingIds = new Set(s.notifications.map((n) => n.id));
   const notifications = [...performanceNotifications().filter((n) => !existingIds.has(n.id)), ...s.notifications].slice(0, 400);
   return { ...s, version: DATA_VERSION, roles, apps, notifications };

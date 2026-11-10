@@ -44,6 +44,9 @@ const APP_AREA_META: Record<
   payroll: { appId: 'payroll', label: 'Payroll Console', icon: 'Wallet', gradient: ['#4ade80', '#16a34a'] },
   helpdesk: { appId: 'helpdesk', label: 'IT Helpdesk', icon: 'LifeBuoy', gradient: ['#34d399', '#0ea5e9'] },
   performance: { appId: 'performance', label: 'Performance & OKRs', icon: 'Target', gradient: ['#f472b6', '#a855f7'] },
+  procurement: { appId: 'procurement', label: 'Procurement', icon: 'ShoppingCart', gradient: ['#fbbf24', '#10b981'] },
+  crm: { appId: 'crm', label: 'CRM', icon: 'Handshake', gradient: ['#fb923c', '#ec4899'] },
+  insights: { appId: 'analytics', label: 'Insights', icon: 'ChartPie', gradient: ['#38bdf8', '#6366f1'] },
   // The Control Center is a hub area, but it runs as an immersive NEO workspace like the apps.
   admin: { appId: 'admin', label: 'Control Center', icon: 'ShieldCheck', gradient: ['#38bdf8', '#818cf8'] },
 };

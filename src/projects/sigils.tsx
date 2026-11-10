@@ -218,6 +218,12 @@ const EMOJI_RAW: Record<string, SigilId> = {
   '👁️': 'telescope',
   '🔍': 'telescope',
   '🔎': 'telescope',
+  '☕': 'wave',
+  '🍵': 'sprout',
+  '🙌': 'handshake',
+  '🛟': 'shield-key',
+  '🌴': 'sprout',
+  '💠': 'prism',
 };
 const EMOJI = new Map<string, SigilId>(Object.entries(EMOJI_RAW).map(([k, v]) => [norm(k), v]));
 

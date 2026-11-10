@@ -268,6 +268,11 @@
   background: rgb(var(--danger-rgb) / 0.12);
   border: 1px solid rgb(var(--danger-rgb) / 0.28);
 }
+.pj-col[data-stage='todo'] .pj-blocked {
+  color: rgb(var(--pj-amber));
+  background: rgb(var(--pj-amber) / 0.1);
+  border-color: rgb(var(--pj-amber) / 0.24);
+}
 .pj-blocked svg {
   width: 11px;
   height: 11px;

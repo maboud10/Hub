@@ -123,7 +123,7 @@ export const SEED_ROLES: Role[] = [
       'app:drive',
       'app:projects',
       'app:wiki',
-      'app:roster',
+      'app:procurement',
       'app:hr',
       'app:performance',
       'app:learning',

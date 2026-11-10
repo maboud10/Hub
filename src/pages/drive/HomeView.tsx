@@ -333,7 +333,7 @@ export function HomeView() {
                 <span className="neo-avatars dv-hide-xs">
                   {pending.slice(0, 3).map((r) => {
                     const u = ctx.user.get(r.requesterId);
-                    return u ? <Avatar key={r.id} user={u} size={24} /> : null;
+                    return u ? <Avatar key={r.id} user={u} size={28} /> : null;
                   })}
                 </span>
                 <ArrowRight />

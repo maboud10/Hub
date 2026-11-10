@@ -26,6 +26,9 @@ const DrivePage = lazy(() => import('@/pages/drive/DrivePage').then((m) => ({ de
 const ChatPage = lazy(() => import('@/pages/chat/ChatPage').then((m) => ({ default: m.ChatPage })));
 const HelpdeskPage = lazy(() => import('@/pages/helpdesk/HelpdeskPage').then((m) => ({ default: m.HelpdeskPage })));
 const PerformancePage = lazy(() => import('@/pages/performance/PerformancePage').then((m) => ({ default: m.PerformancePage })));
+const ProcurementPage = lazy(() => import('@/pages/procurement/ProcurementPage').then((m) => ({ default: m.ProcurementPage })));
+const CrmPage = lazy(() => import('@/pages/crm/CrmPage').then((m) => ({ default: m.CrmPage })));
+const InsightsPage = lazy(() => import('@/pages/insights/InsightsPage').then((m) => ({ default: m.InsightsPage })));
 
 function TravelRedirect() {
   const loc = useLocation();
@@ -158,6 +161,30 @@ export default function App() {
             element={
               <RequirePermission perm="app:performance" area="Performance & OKRs">
                 <PerformancePage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="procurement/*"
+            element={
+              <RequirePermission perm="app:procurement" area="Procurement">
+                <ProcurementPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="crm/*"
+            element={
+              <RequirePermission perm="app:crm" area="CRM">
+                <CrmPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="insights/*"
+            element={
+              <RequirePermission perm="app:analytics" area="Insights">
+                <InsightsPage />
               </RequirePermission>
             }
           />

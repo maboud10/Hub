@@ -13,7 +13,7 @@ import { useUI } from '@/store/ui';
  * Performance & OKRs, Talent Hub, HR Portal, Knowledge Base, Academy,
  * Travel & Expenses, Payroll Console and the Control Center.
  */
-export const IMMERSIVE_ROUTE = /^\/(projects|drive|chat|helpdesk|performance|talent|hr|wiki|academy|expenses|travel|payroll|admin)(\/|$)/;
+export const IMMERSIVE_ROUTE = /^\/(projects|drive|chat|helpdesk|performance|talent|hr|wiki|academy|expenses|travel|payroll|procurement|crm|insights|admin)(\/|$)/;
 
 export function useSidebarState() {
   const { pathname } = useLocation();

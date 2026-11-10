@@ -14,9 +14,7 @@ import {
   FileVideo,
   FolderKanban,
   HardDrive,
-  Hash,
   LifeBuoy,
-  Lock,
   MessageCircle,
   Presentation,
   Sparkles,
@@ -31,7 +29,29 @@ import { BOTS, APP_META } from '@/chat/constants';
 import { dmId, isBotId } from '@/chat/ids';
 import { parseCached, type Block, type Inline, type ParseContext } from '@/chat/markdown';
 import type { Conversation } from '@/chat/types';
+import { ProjectSigil } from '@/projects/sigils';
 import { useNames, useParseCtx, useViewer, type Names } from './hooks';
+
+const CHANNEL_COLOR: Record<string, string> = {
+  'ch-general': '#22d3ee',
+  'ch-announcements': '#fbbf24',
+  'ch-ship-it': '#f472b6',
+  'ch-watercooler': '#fb923c',
+  'ch-kudos': '#34d399',
+  'ch-celebrations': '#e879f9',
+  'ch-design-crit': '#f472b6',
+  'ch-eng-platform': '#a78bfa',
+  'ch-it-help': '#38bdf8',
+  'ch-dubai-office': '#2dd4bf',
+  'ch-exec-sync': '#f59e0b',
+  'ch-proj-prism': '#f472b6',
+  'ch-proj-mfa': '#38bdf8',
+};
+
+function channelColor(conv: Conversation): string {
+  if (CHANNEL_COLOR[conv.id]) return CHANNEL_COLOR[conv.id];
+  return conv.visibility === 'private' ? '#fbbf24' : '#22d3ee';
+}
 
 /* ---------------------------------------------------------------- time */
 
@@ -104,10 +124,14 @@ export function AuthorAvatar({ id, size = 36, presence = false, names }: { id: s
 export function ConvIcon({ conv, viewerId, size = 22, presence = true }: { conv: Conversation; viewerId?: string; size?: number; presence?: boolean }) {
   const names = useNames();
   if (conv.kind === 'channel') {
+    const fallbackSigil = conv.visibility === 'private' ? 'lock' : 'wave';
     return (
-      <span className={cx('pc-convicon', conv.visibility === 'private' && 'is-private')} style={{ width: size, height: size, fontSize: size * 0.62 }} aria-hidden="true">
-        {conv.icon ? <span className="pc-convicon__emoji">{conv.icon}</span> : conv.visibility === 'private' ? <Lock /> : <Hash />}
-      </span>
+      <ProjectSigil
+        icon={conv.icon || conv.name || fallbackSigil}
+        color={channelColor(conv)}
+        size={size}
+        className={cx('pc-convicon', conv.visibility === 'private' && 'is-private')}
+      />
     );
   }
   if (conv.kind === 'app' && conv.botId) return <AuthorAvatar id={conv.botId} size={size} names={names} />;
