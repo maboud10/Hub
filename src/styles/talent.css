@@ -3442,6 +3442,23 @@ body[data-neo-app='hr'] > .sheet {
   }
 }
 @media (max-width: 720px) {
+  .neo[data-app='talent'] > .neo-stage,
+  .neo[data-app='talent'] .neo-body {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .neo[data-app='talent'] .neo-head__text {
+    flex: 1 1 0;
+  }
+  .neo[data-app='talent'] .neo-head__sub {
+    white-space: normal;
+  }
+  .neo[data-app='talent'] .neo-suggest {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .neo[data-app='talent'] .tl-deck-req {
     grid-template-columns: 4px minmax(0, 1fr) 50px 14px;
     grid-template-areas:
