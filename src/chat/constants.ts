@@ -61,6 +61,9 @@ export const APP_META: Record<WorkspaceAppId, { name: string; c1: string; c2: st
   chat: { name: 'Pulse Chat', c1: '#22d3ee', c2: '#d946ef' },
   helpdesk: { name: 'IT Helpdesk', c1: '#fb923c', c2: '#f43f5e' },
   performance: { name: 'Performance & OKRs', c1: '#f59e0b', c2: '#ec4899' },
+  procurement: { name: 'Procurement', c1: '#14b8a6', c2: '#06b6d4' },
+  crm: { name: 'CRM', c1: '#f97316', c2: '#facc15' },
+  insights: { name: 'Insights', c1: '#38bdf8', c2: '#8b5cf6' },
 };
 
 export const KUDOS_VALUES: { id: KudosValue; label: string; blurb: string; tone: 'cyan' | 'violet' | 'pink' | 'amber' | 'emerald' }[] = [

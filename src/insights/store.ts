@@ -233,9 +233,43 @@ export const useInsights = create<InsightsStore>()(
           experiments: [newExperiment, ...s.experiments],
         }));
 
+        try {
+          import('@/crm/store').then(({ useCrm }) => {
+            const crm = useCrm.getState();
+            const playId = `play-ins-${anom.id}`;
+            if (!crm.growthPlays.some((p) => p.id === playId)) {
+              const targetAcc = crm.accounts[0];
+              if (targetAcc) {
+                useCrm.setState((cs) => ({
+                  growthPlays: [
+                    {
+                      id: playId,
+                      title: `Insights Signal ${anom.code} · ${anom.title}`,
+                      subtitle: anom.driverAttribution,
+                      accountId: targetAcc.id,
+                      accountName: targetAcc.name,
+                      sigil: 'spark',
+                      color: anom.color,
+                      impactArr: 860_000,
+                      confidence: 96,
+                      kind: 'expansion_launch',
+                      ctaLabel: 'Execute Telemetry Play',
+                      executed: false,
+                      tags: ['Insights Bridge', anom.code, anom.segmentLabel],
+                    },
+                    ...cs.growthPlays,
+                  ],
+                }));
+              }
+            }
+          });
+        } catch {
+          // ignore bridge error in isolated tests
+        }
+
         safeToast.success(
           `Created Growth Play ${expCode}`,
-          `Added "${newExperiment.title}" to Experiment Lab`,
+          `Added "${newExperiment.title}" to Experiment Lab & Helix CRM`,
         );
         return ok(`Created Growth Play ${expCode}`);
       },

@@ -17,7 +17,7 @@ import type { Role, User } from '@/types';
 import { useHub } from '@/store/hub';
 import { effectivePermissions } from '@/lib/rbac';
 
-export type WorkspaceAppId = 'projects' | 'drive' | 'chat' | 'helpdesk' | 'performance';
+export type WorkspaceAppId = 'projects' | 'drive' | 'chat' | 'helpdesk' | 'performance' | 'procurement' | 'crm' | 'insights';
 
 /** The signed-in person on whose behalf a bridge call runs. */
 export interface BridgeViewer {
@@ -209,6 +209,9 @@ export interface BridgeMap {
   chat: ChatBridge;
   helpdesk: HelpdeskBridge;
   performance: PerformanceBridge;
+  procurement: AppPublicApi;
+  crm: AppPublicApi;
+  insights: AppPublicApi;
 }
 
 const loaders: { [K in WorkspaceAppId]: () => Promise<BridgeMap[K]> } = {
@@ -217,6 +220,9 @@ const loaders: { [K in WorkspaceAppId]: () => Promise<BridgeMap[K]> } = {
   chat: () => import('@/chat/public').then((m) => m.api),
   helpdesk: () => import('@/helpdesk/public').then((m) => m.api),
   performance: () => import('@/performance/public').then((m) => m.api),
+  procurement: () => import('@/procurement/public').then((m) => m.api),
+  crm: () => import('@/crm/public').then((m) => m.api),
+  insights: () => import('@/insights/public').then((m) => m.api),
 };
 
 /** Lazily load a workspace app's public API. */

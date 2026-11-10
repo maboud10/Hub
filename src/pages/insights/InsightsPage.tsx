@@ -15,6 +15,7 @@ import {
   FlaskConical,
   Grid,
   LineChart,
+  Orbit,
   Radar,
   RotateCcw,
   Sparkles,
@@ -169,6 +170,14 @@ export function InsightsPage() {
       className="ins-page"
       brand={{ icon: <ChartNoAxesCombined />, label: 'Helix Insights', to: '/insights' }}
       items={items}
+      footer={[
+        {
+          to: '/crm',
+          label: 'CRM',
+          icon: <Orbit />,
+          title: 'Open Helix CRM · Autonomous Revenue & Growth Orbit',
+        },
+      ]}
       head={{
         icon: section.icon,
         eyebrow: section.eyebrow,

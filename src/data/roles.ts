@@ -50,6 +50,8 @@ export const SEED_ROLES: Role[] = [
       'app:payroll',
       'app:performance',
       'app:analytics',
+      'app:crm',
+      'app:procurement',
     ],
   },
   {
@@ -94,6 +96,7 @@ export const SEED_ROLES: Role[] = [
       'app:payroll',
       'app:procurement',
       'app:analytics',
+      'app:crm',
     ],
   },
   {
@@ -103,7 +106,7 @@ export const SEED_ROLES: Role[] = [
     clearance: 2,
     color: '#fbbf24',
     system: true,
-    permissions: ['wiki.write', 'app:devhub', 'app:cloud', 'app:incidents', 'app:vault'],
+    permissions: ['wiki.write', 'app:devhub', 'app:cloud', 'app:incidents', 'app:vault', 'app:crm', 'app:analytics', 'app:procurement'],
   },
   {
     id: 'employee',
@@ -124,6 +127,7 @@ export const SEED_ROLES: Role[] = [
       'app:projects',
       'app:wiki',
       'app:procurement',
+      'app:analytics',
       'app:hr',
       'app:performance',
       'app:learning',

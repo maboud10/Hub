@@ -152,6 +152,13 @@ const seeds: Seed[] = [
         expiresAt: now + 5 * DAY,
         reason: 'Usability metrics for the onboarding redesign',
       },
+      {
+        permission: 'app:crm',
+        grantedBy: 'u-omar',
+        grantedAt: now - 1 * DAY,
+        expiresAt: now + 30 * DAY,
+        reason: 'Customer onboarding feedback & growth experiments',
+      },
     ],
   },
   {

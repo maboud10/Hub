@@ -11,6 +11,7 @@ import {
 } from 'react-router';
 import {
   Building2,
+  ChartNoAxesCombined,
   Columns3,
   Orbit,
   Plus,
@@ -201,6 +202,14 @@ export function CrmPage() {
       className="crm-page"
       brand={{ icon: <Orbit />, label: 'Helix CRM', to: '/crm' }}
       items={items}
+      footer={[
+        {
+          to: '/insights',
+          label: 'Insights',
+          icon: <ChartNoAxesCombined />,
+          title: 'Open Helix Insights · Quantum Telemetry & Growth Cortex',
+        },
+      ]}
       head={{
         icon: section.icon,
         eyebrow: section.eyebrow,

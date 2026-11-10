@@ -99,7 +99,16 @@ const BOT_ICON: Record<string, LucideIcon> = {
   'bot-helpdesk': LifeBuoy,
   'bot-nova': Sparkles,
 };
-export const APP_ICON: Record<string, LucideIcon> = { projects: FolderKanban, drive: HardDrive, helpdesk: LifeBuoy, performance: Trophy, chat: MessageCircle };
+export const APP_ICON: Record<string, LucideIcon> = {
+  projects: FolderKanban,
+  drive: HardDrive,
+  helpdesk: LifeBuoy,
+  performance: Trophy,
+  chat: MessageCircle,
+  procurement: Sparkles,
+  crm: Sparkles,
+  insights: Sparkles,
+};
 
 export function GlyphTile({ c1, c2, icon: Icon, size = 36, round }: { c1: string; c2: string; icon: LucideIcon; size?: number; round?: boolean }) {
   return (

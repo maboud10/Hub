@@ -861,11 +861,41 @@ export const useHub = create<HubStore>()(
             };
           });
         const roles = (p.roles ?? current.roles).map((r) => {
-          if (r.id !== 'employee') return r;
           const cleaned = r.permissions.filter((perm) => perm !== 'app:roster');
-          return cleaned.includes('app:procurement') ? { ...r, permissions: cleaned } : { ...r, permissions: [...cleaned, 'app:procurement'] };
+          if (r.id === 'employee') {
+            const next = [...cleaned];
+            if (!next.includes('app:procurement')) next.push('app:procurement');
+            if (!next.includes('app:analytics')) next.push('app:analytics');
+            return { ...r, permissions: next };
+          }
+          if (r.id === 'people-ops' || r.id === 'manager' || r.id === 'finance' || r.id === 'engineering') {
+            const next = [...cleaned];
+            for (const req of ['app:procurement', 'app:analytics', 'app:crm']) {
+              if (!next.includes(req)) next.push(req);
+            }
+            return { ...r, permissions: next };
+          }
+          return { ...r, permissions: cleaned };
         });
-        return { ...current, ...p, apps, roles };
+        const users = (p.users ?? current.users).map((u) => {
+          if (u.id === 'u-mei' && !u.grants.some((g) => g.permission === 'app:crm')) {
+            return {
+              ...u,
+              grants: [
+                ...u.grants,
+                {
+                  permission: 'app:crm',
+                  grantedBy: 'u-omar',
+                  grantedAt: Date.now() - 86_400_000,
+                  expiresAt: Date.now() + 30 * 86_400_000,
+                  reason: 'Customer onboarding feedback & growth experiments',
+                },
+              ],
+            };
+          }
+          return u;
+        });
+        return { ...current, ...p, apps, roles, users };
       },
     },
   ),

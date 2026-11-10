@@ -36,11 +36,11 @@ export function defaultPrefs(pinned: string[] = ['mail', 'chat', 'calendar', 'pr
 
 /** Persona-specific starting layouts so each role "feels" different out of the box. */
 const PERSONA_PINS: Record<string, string[]> = {
-  'u-layla': ['security', 'vault', 'helpdesk', 'mail', 'chat', 'incidents'],
-  'u-sara': ['hr', 'recruit', 'performance', 'mail', 'calendar', 'wiki'],
-  'u-omar': ['devhub', 'projects', 'chat', 'meet', 'analytics', 'incidents'],
-  'u-daniel': ['finance', 'payroll', 'expenses', 'procurement', 'mail', 'analytics'],
-  'u-mei': ['projects', 'drive', 'chat', 'analytics', 'learning', 'calendar'],
+  'u-layla': ['crm', 'analytics', 'procurement', 'security', 'vault', 'helpdesk'],
+  'u-sara': ['hr', 'recruit', 'performance', 'crm', 'analytics', 'procurement'],
+  'u-omar': ['devhub', 'projects', 'crm', 'analytics', 'procurement', 'incidents'],
+  'u-daniel': ['finance', 'procurement', 'crm', 'analytics', 'payroll', 'expenses'],
+  'u-mei': ['projects', 'drive', 'crm', 'analytics', 'procurement', 'chat'],
   'u-alex': ['projects', 'chat', 'wiki', 'helpdesk'],
 };
 
