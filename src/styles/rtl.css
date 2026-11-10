@@ -76,6 +76,7 @@
 html[lang='ar'] {
   --font-sans: 'IBM Plex Sans Arabic', 'Inter Variable', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: 'Readex Pro', 'IBM Plex Sans Arabic', 'Space Grotesk Variable', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'IBM Plex Sans Arabic', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 /* Positive letter-spacing breaks cursive Arabic ligatures in browsers; reset it in Arabic mode */
@@ -90,6 +91,7 @@ html[lang='ar'] .neo-hud,
 html[lang='ar'] .eyebrow,
 html[lang='ar'] .sidebar__label,
 html[lang='ar'] .neo-rail__label,
+html[lang='ar'] .neo-side__group,
 html[lang='ar'] .neo-side__group-label,
 html[lang='ar'] .neo-kpi__label,
 html[lang='ar'] .neo-head__eyebrow,
@@ -104,7 +106,10 @@ html[lang='ar'] .return-portal__hint,
 html[lang='ar'] .rp-stop__eyebrow,
 html[lang='ar'] .py-step__idx,
 html[lang='ar'] .py-stage__hud,
-html[lang='ar'] .py-status-tile__label {
+html[lang='ar'] .py-status-tile__label,
+html[lang='ar'] .stat-label,
+html[lang='ar'] .brand__sub {
+  font-family: var(--font-sans);
   text-transform: none;
 }
 
