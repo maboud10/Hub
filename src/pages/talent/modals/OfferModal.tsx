@@ -46,6 +46,7 @@ import { CandidateAvatar, Comp, OfferStatusBadge, SampleTag } from '../component
 import { fmtDay, formatMoney } from '../components/format';
 import { BandGuardrail, ExpiryPill, FirstYearBreakdown, OfferApprovalChain, OfferFigures, recordOfferResponse } from '../reqs/offer';
 import { defaultBonus, isActiveOffer, offersFor, roundTo } from '../reqs/helpers';
+import { OfferTracker, OnboardingTracker } from '../trackers';
 
 type Mode = 'auto' | 'new' | 'edit';
 
@@ -433,33 +434,6 @@ function OfferBuilder({
 // ───────────────────────── live offer ─────────────────────────
 type Pending = { kind: 'approve' | 'reject'; step: ApprovalStep } | { kind: 'rescind' } | { kind: 'decline' } | { kind: 'accept' };
 
-const TRACK: { id: Offer['status']; label: string }[] = [
-  { id: 'draft', label: 'Draft' },
-  { id: 'pending-approval', label: 'Approval' },
-  { id: 'approved', label: 'Ready' },
-  { id: 'sent', label: 'Sent' },
-  { id: 'accepted', label: 'Signed' },
-];
-
-function trackIndex(o: Offer) {
-  switch (o.status) {
-    case 'draft':
-      return 0;
-    case 'pending-approval':
-      return 1;
-    case 'approved':
-      return 2;
-    case 'sent':
-      return 3;
-    case 'accepted':
-      return 4;
-    case 'declined':
-      return 4;
-    case 'rescinded':
-      return o.sentAt ? 3 : o.approvals.every((a) => a.decision === 'approved') ? 2 : o.approvals.some((a) => a.decision !== 'pending') ? 1 : 0;
-  }
-}
-
 function OfferView({
   offer,
   offers,
@@ -490,7 +464,6 @@ function OfferView({
 
   const expectation = annualExpectation(cand);
   const terminal = offer.status === 'declined' || offer.status === 'rescinded';
-  const idx = trackIndex(offer);
   const activeExists = offers.some(isActiveOffer);
   const canRedraft = terminal && caps.manage && caps.comp && app.status === 'active' && !activeExists && (app.stage === 'offer' || (app.stage === 'final' && app.decision?.verdict === 'hire'));
   const returned = offer.status === 'draft' ? offer.approvals.find((a) => a.decision === 'rejected') : undefined;
@@ -597,19 +570,7 @@ function OfferView({
         </div>
       </div>
 
-      <ol className={cx('tl-offer-track', terminal && `is-${offer.status}`)} aria-label="Offer progress">
-        {TRACK.map((t, i) => {
-          const state = terminal && i === idx ? offer.status : i < idx || offer.status === 'accepted' ? 'done' : i === idx ? 'active' : 'idle';
-          return (
-            <li key={t.id} className={cx('tl-offer-track__step', `is-${state}`)} aria-current={state === 'active' ? 'step' : undefined}>
-              <span className="tl-offer-track__dot" aria-hidden="true">
-                {state === 'done' ? <CircleCheck /> : state === 'declined' ? <CircleX /> : state === 'rescinded' ? <Ban /> : i + 1}
-              </span>
-              <span className="tl-offer-track__label">{terminal && i === idx ? OFFER_STATUS_META[offer.status].label : t.label}</span>
-            </li>
-          );
-        })}
-      </ol>
+      <OfferTracker offer={offer} req={req} candName={cand.name} now={now} quiet={offer.status === 'accepted' || terminal || !!returned?.note} />
 
       {offer.status === 'accepted' && (
         <div className="tl-offer-banner is-success">
@@ -617,6 +578,7 @@ function OfferView({
           <div className="grow">
             <b>{cand.name.split(' ')[0]} signed! Hired on {fmtDay(offer.respondedAt ?? offer.createdAt)}.</b>
             <span className="muted text-sm">{journey ? `Onboarding is live in HR Portal · day one ${fmtDay(journey.startDate)}.` : 'Hand off to the HR Portal to start onboarding.'}</span>
+            {journey && <OnboardingTracker journey={journey} now={now} compact className="tl-offer-banner__track" />}
           </div>
           <button type="button" className="btn btn--sm" onClick={() => useTalentUI.getState().openModal({ kind: 'hired', applicationId: app.id, journeyId: journey?.id })}>
             <PartyPopper /> Celebrate

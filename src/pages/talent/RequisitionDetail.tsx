@@ -1,5 +1,5 @@
 /**
- * Requisition detail — the cockpit for one role: lifecycle rail, permission-
+ * Requisition detail — the cockpit for one role: lifecycle tracker, permission-
  * aware actions (submit, approve, hold, reopen, close, edit, source), and
  * sections for overview, ranked candidates, the decoded JD, the interview
  * loop and the activity log. Tabs on desktop, accordion on phones.
@@ -18,7 +18,6 @@ import {
   CircleCheck,
   CircleX,
   Clock,
-  FilePen,
   FileText,
   Gauge,
   Gavel,
@@ -85,7 +84,8 @@ import { CompRange, ReqApprovalFacts, ReqPipelineBar, SeatMeter } from './reqs/p
 import { InterviewPlanEditor, InterviewPlanView, PlanSummary } from './reqs/InterviewPlan';
 import { ReqEditModal } from './reqs/ReqEditModal';
 import { useNoteDialog } from './reqs/NoteDialog';
-import { avgMatch, daysOpen, isActiveOffer, planInterviewers, DAY } from './reqs/helpers';
+import { avgMatch, daysOpen, planInterviewers, DAY } from './reqs/helpers';
+import { ReqTracker } from './trackers';
 
 type SectionId = 'overview' | 'candidates' | 'jd' | 'plan' | 'activity';
 const SECTION_IDS: SectionId[] = ['overview', 'candidates', 'jd', 'plan', 'activity'];
@@ -148,7 +148,6 @@ function ReqDetailBody({ req, apps: allApps }: { req: Requisition; apps: Applica
   const canEdit = viewer ? canEditRequisition(viewer, req) : { ok: false, reason: 'Sign in first.' };
   const approval = viewer ? canApproveRequisition(viewer, req) : { ok: false, reason: 'Sign in first.' };
   const active = apps.filter((a) => a.status === 'active');
-  const activeOffer = offers.find(isActiveOffer);
   const store = useTalent.getState;
 
   const showSection = (s: SectionId) => {
@@ -420,7 +419,7 @@ function ReqDetailBody({ req, apps: allApps }: { req: Requisition; apps: Applica
             <ReqDates req={req} />
           </div>
         </div>
-        <ReqLifecycle req={req} activeOffer={activeOffer} activeCount={active.length} upcoming={interviews.filter((i) => i.status === 'scheduled' && i.scheduledAt >= now).length} canEdit={canEdit.ok} canApprove={approval.ok} />
+        <ReqTracker req={req} apps={apps} now={now} className="tl-req-hero__track" />
         {(actions.length > 0 || secondary.length > 0) && (
           <div className="tl-req-hero__actions">
             {actions}
@@ -534,77 +533,6 @@ function ReqDates({ req }: { req: Requisition }) {
           {req.status === 'filled' ? 'Filled' : 'Closed'} {fmtDay(req.closedAt)}
         </span>
       )}
-    </div>
-  );
-}
-
-// ───────────────────────── lifecycle rail ─────────────────────────
-const LIFE: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: 'draft', label: 'Drafted', icon: FilePen },
-  { id: 'approval', label: 'Headcount approval', icon: ShieldCheck },
-  { id: 'sourcing', label: 'Sourcing & interviews', icon: Radar },
-  { id: 'offer', label: 'Offer', icon: Signature },
-  { id: 'filled', label: 'Filled', icon: PartyPopper },
-];
-
-function ReqLifecycle({
-  req,
-  activeOffer,
-  activeCount,
-  upcoming,
-  canEdit,
-  canApprove,
-}: {
-  req: Requisition;
-  activeOffer?: Offer;
-  activeCount: number;
-  upcoming: number;
-  canEdit: boolean;
-  canApprove: boolean;
-}) {
-  const current =
-    req.status === 'draft' ? 0 : req.status === 'pending-approval' ? 1 : req.status === 'filled' ? 5 : req.status === 'closed' ? (req.openedAt ? 2 : 0) : activeOffer ? 3 : 2;
-  const paused = req.status === 'on-hold';
-  const closed = req.status === 'closed';
-  const hint =
-    req.status === 'draft'
-      ? canEdit
-        ? 'Next: check the details, then submit it for headcount approval.'
-        : 'The hiring manager is still drafting this requisition.'
-      : req.status === 'pending-approval'
-        ? canApprove
-          ? 'Next: you can approve this headcount. It opens straight away.'
-          : 'Waiting for a recruiter with “Run recruiting” who isn’t the hiring manager to approve the headcount.'
-        : req.status === 'open'
-          ? activeOffer
-            ? `An offer is in flight (${activeOffer.status.replace('-', ' ')}). ${activeCount} candidate${activeCount === 1 ? '' : 's'} still active.`
-            : activeCount
-              ? `${activeCount} candidate${activeCount === 1 ? '' : 's'} in flight · ${upcoming} interview${upcoming === 1 ? '' : 's'} booked.`
-              : 'Next: source candidates. Decode the JD and search LinkedIn from the sourcing studio.'
-          : req.status === 'on-hold'
-            ? 'Paused. Candidates stay where they are; reopen to continue.'
-            : req.status === 'filled'
-              ? `All ${req.headcount} seat${req.headcount === 1 ? '' : 's'} filled. Onboarding continues in HR Portal.`
-              : 'Closed. No new candidates can be added.';
-  return (
-    <div className={cx('tl-req-life', paused && 'is-paused', closed && 'is-closed')}>
-      <ol className="tl-req-life__rail" aria-label="Requisition lifecycle">
-        {LIFE.map((n, i) => {
-          const state = i < current ? 'done' : i === current ? (paused ? 'paused' : closed ? 'closed' : 'active') : 'idle';
-          const Icon = state === 'done' ? CircleCheck : state === 'closed' ? CircleX : state === 'paused' ? Pause : n.icon;
-          return (
-            <li key={n.id} className={cx('tl-req-life__node', `is-${state}`)} aria-current={state === 'active' ? 'step' : undefined} style={{ '--i': i } as CSSProperties}>
-              <span className="tl-req-life__dot">
-                <Icon aria-hidden="true" />
-              </span>
-              <span className="tl-req-life__label">{n.label}</span>
-            </li>
-          );
-        })}
-      </ol>
-      <p className="tl-req-life__hint" role="status">
-        {hint}
-      </p>
     </div>
   );
 }

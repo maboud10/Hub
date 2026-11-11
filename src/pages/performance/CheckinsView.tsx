@@ -53,6 +53,7 @@ import { dueLabel, shortDate, useMinute, usePerfCtx, useSearchFlag, type PerfCtx
 import { Seg } from './ui';
 import { DeclineModal, PeerFeedbackModal, UpwardFeedbackModal } from './checkins-modals';
 import { DAY, RatingChip, ReviewStatusChip, clamp01, cycleShort, longDate, plural, selfProgress, templateFor } from './checkins-shared';
+import { ReviewTracker } from './trackers';
 import './styles/checkins.css';
 
 const CHECKIN_KINDS = new Set<Todo['kind']>(['self', 'ack', 'peer', 'upward', 'nominations', 'manager']);
@@ -884,6 +885,9 @@ function TeamPanel({ ctx, cycle, now, team, data }: { ctx: PerfCtx; cycle: Cycle
           <span role="columnheader" className="neo-sr">
             Next step
           </span>
+          <span role="columnheader" className="neo-sr">
+            Review cycle tracker
+          </span>
         </div>
         {rows.map(({ r, active, submitted, proposed, unlocked, action }) => {
           const u = ctx.user(r.employeeId);
@@ -940,6 +944,9 @@ function TeamPanel({ ctx, cycle, now, team, data }: { ctx: PerfCtx; cycle: Cycle
                   </span>
                 )}
               </span>
+              <span role="cell" className="pf-ck-tbl__trk">
+                <ReviewTracker review={r} ctx={ctx} now={now} compact label={`${u?.name ?? 'Review'} · review cycle tracker`} />
+              </span>
             </div>
           );
         })}
@@ -955,9 +962,6 @@ function MyPacketCard({ ctx, cycle, review, tpl, about, now }: { ctx: PerfCtx; c
   const submitted = review.self.status === 'submitted';
   const value = submitted ? 1 : p.value;
   const sp = getPhase(cycle, 'self');
-  const mgrP = getPhase(cycle, 'manager');
-  const calP = getPhase(cycle, 'calibration');
-  const relP = getPhase(cycle, 'release');
   const editable = canEditSelf(cycle, review, now);
   const link = `/performance/checkins/${review.id}`;
   const mgr = review.managerId ? ctx.first(review.managerId) : null;
@@ -1042,32 +1046,11 @@ function MyPacketCard({ ctx, cycle, review, tpl, about, now }: { ctx: PerfCtx; c
           </li>
         ))}
       </ul>
-      <div className="pf-ck-next">
-        <span className="neo-hud">What happens next</span>
-        <ol>
-          {mgr && mgrP && (
-            <li>
-              <i aria-hidden="true" />
-              <span className="grow">{mgr} writes your review</span>
-              <span className="neo-mono">{shortDate(mgrP.end)}</span>
-            </li>
-          )}
-          {calP && (
-            <li>
-              <i aria-hidden="true" />
-              <span className="grow">Calibration</span>
-              <span className="neo-mono">{shortDate(calP.end)}</span>
-            </li>
-          )}
-          {relP && (
-            <li>
-              <i aria-hidden="true" />
-              <span className="grow">Shared with you · 1:1 conversation</span>
-              <span className="neo-mono">{shortDate(relP.end)}</span>
-            </li>
-          )}
-        </ol>
-      </div>
+      {review.managerId && (
+        <div className="pf-ck-trk">
+          <ReviewTracker review={review} ctx={ctx} now={now} bare hud="What happens next" />
+        </div>
+      )}
       {editable && (
         <Link to={link} className={cx('neo-btn neo-btn--sm neo-btn--block', submitted ? 'neo-btn--soft' : 'neo-btn--plasma')}>
           <NotebookPen /> {submitted ? 'Polish my reflection' : review.self.status === 'draft' ? 'Continue writing' : 'Start reflecting'}

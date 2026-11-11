@@ -36,7 +36,6 @@ import {
   NeoNovaPrompt,
   NeoPanel,
   NovaChip,
-  Orb,
   Ring,
   Spark,
 } from '@/components/neo';
@@ -53,6 +52,7 @@ import {
 } from '@/procurement/engine';
 import { CATEGORY_META, NOVA_PROMPT_SUGGESTIONS } from '@/procurement/seed';
 import { useProcurement } from '@/procurement/store';
+import { PurchaseTracker } from './PurchaseTracker';
 
 export function CommandView() {
   const navigate = useNavigate();
@@ -402,8 +402,6 @@ export function CommandView() {
               <div className="pr-req-list">
                 {activeQueue.map((req) => {
                   const approvedCount = req.stages.filter((s) => s.status === 'approved').length;
-                  const currentStage = req.stages.find((s) => s.status !== 'approved');
-                  const currentReviewer = currentStage ? userMap.get(currentStage.reviewerId) : null;
                   const savings = Math.max(0, req.quotedAnnualUsd - req.negotiatedAnnualUsd);
 
                   return (
@@ -454,41 +452,10 @@ export function CommandView() {
                         </div>
                       </div>
 
-                      {/* 5-Stage Pill Track */}
-                      <div className="pr-stage-strip" role="list" aria-label="Approval stages">
-                        {req.stages.map((st, i) => {
-                          const rev = userMap.get(st.reviewerId);
-                          return (
-                            <div
-                              key={st.id}
-                              role="listitem"
-                              className={`pr-stage-pill is-${st.status}`}
-                              title={`${st.label} · ${rev?.name ?? st.reviewerId} (${st.status})`}
-                            >
-                              <span className="pr-stage-pill__idx">{i + 1}</span>
-                              <span className="pr-stage-pill__name">{st.label}</span>
-                              {rev && <Avatar user={rev} size={18} />}
-                            </div>
-                          );
-                        })}
-                      </div>
+                      {/* Purchase tracker — every gate, who has it now and the live SLA clock */}
+                      <PurchaseTracker req={req} bare showTitle={false} />
 
                       <div className="pr-req-card__foot">
-                        <div className="pr-req-card__gate">
-                          {currentStage ? (
-                            <>
-                              <Orb tone="amber" pulse />
-                              <span>
-                                Next gate: <b>{currentStage.label}</b> ({currentReviewer?.name ?? currentStage.reviewerId} · {currentStage.slaHours}h SLA)
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <Orb tone="emerald" />
-                              <span>All 5 parallel gates signed off — cleared for PO dispatch.</span>
-                            </>
-                          )}
-                        </div>
                         <div className="pr-row-actions">
                           {req.status !== 'approved' && (
                             <>

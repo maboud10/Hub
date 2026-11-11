@@ -34,7 +34,8 @@ import {
 import { NOVA_CRM_SUGGESTIONS } from '@/crm/seed';
 import { useCrm } from '@/crm/store';
 import type { QuarterForecastPoint } from '@/crm/types';
-import { MeddpiccBar, StageBadge } from './shared';
+import { DealCloseDate, DealTrackerCompact } from './DealTracker';
+import { MeddpiccBar } from './shared';
 
 export function CommandView() {
   const navigate = useNavigate();
@@ -370,7 +371,9 @@ export function CommandView() {
                           <div className="crm-side-deal__meta">
                             <span>{formatCompactUsd(d.acv)}</span>
                             <span>·</span>
-                            <StageBadge stage={d.stage} />
+                            <span>
+                              <DealCloseDate deal={d} />
+                            </span>
                           </div>
                         </div>
                         <Ring
@@ -382,6 +385,7 @@ export function CommandView() {
                           {winProb}%
                         </Ring>
                       </div>
+                      <DealTrackerCompact deal={d} />
                       <MeddpiccBar meddpicc={d.meddpicc} compact />
                     </div>
                   );

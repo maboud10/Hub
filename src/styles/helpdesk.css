@@ -4734,3 +4734,60 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ==========================================================================
+   Journey trackers (NeoTracker) — ticket "Fix tracker" & catalog "Request
+   tracker" (pages/helpdesk/trackers.tsx). The tracker itself is styled by
+   styles/neo-tracker.css; these rules only place it inside helpdesk layouts.
+   ========================================================================== */
+.neo[data-app='helpdesk'] .hd-track .neo-tracker__msg b,
+.neo[data-app='helpdesk'] .hd-track-note__msg b {
+  font-weight: 650;
+  color: var(--text);
+}
+/* ticket detail: live strip pinned above the conversation */
+.neo[data-app='helpdesk'] .hd-fixstrip {
+  flex: none;
+  padding: 14px clamp(14px, 2vw, 28px) 2px;
+}
+.neo[data-app='helpdesk'] .hd-fixstrip > * {
+  max-width: 820px;
+  margin-inline: auto;
+}
+/* compact bar + live status line (ticket detail on phones) */
+.neo[data-app='helpdesk'] .hd-track-note {
+  display: grid;
+  gap: 8px;
+}
+.neo[data-app='helpdesk'] .hd-track-note__msg {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+/* list rows */
+.neo[data-app='helpdesk'] .hd-opentix__track {
+  margin-top: 7px;
+}
+.neo[data-app='helpdesk'] .hd-trow__track {
+  max-width: 460px;
+  margin-top: 6px;
+}
+.neo[data-app='helpdesk'] .hd-decided__row {
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 230px) minmax(84px, auto) minmax(64px, auto);
+}
+.neo[data-app='helpdesk'] .hd-decided__row > :nth-child(n + 3) {
+  justify-self: end;
+}
+@media (max-width: 720px) {
+  .neo[data-app='helpdesk'] .hd-decided__row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  .neo[data-app='helpdesk'] .hd-decided__track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .neo[data-app='helpdesk'] .hd-fixstrip {
+    padding: 10px 12px 2px;
+  }
+}

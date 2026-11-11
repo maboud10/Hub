@@ -1,6 +1,7 @@
 /**
  * Helix Procurement — Requisitions & 5-Stage Parallel Approval Constellation (`RequestsView`).
  * Includes New Purchase Request Modal with live peer benchmark & department budget check.
+ * Each request detail opens with its live "Purchase tracker" (see ./PurchaseTracker.tsx).
  */
 import { useMemo, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router';
@@ -41,6 +42,7 @@ import {
 import { CATEGORY_META } from '@/procurement/seed';
 import { useProcurement } from '@/procurement/store';
 import type { CurrencyCode, ProcurementCategory, RequisitionStatus } from '@/procurement/types';
+import { PurchaseTracker } from './PurchaseTracker';
 
 type FilterTab = 'all' | RequisitionStatus;
 
@@ -217,6 +219,9 @@ export function RequestsView() {
                     <span>{req.duplicateWarning}</span>
                   </div>
                 )}
+
+                {/* Purchase tracker — where the request is, who has it and the live SLA clock */}
+                <PurchaseTracker req={req} />
 
                 {/* 5-Stage Parallel Approval Constellation */}
                 <div className="pr-constellation-grid" role="list" aria-label="5-stage approval workflow">

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useRef, type CSS
 import { Link, useLocation } from 'react-router';
 import { PanelLeft } from 'lucide-react';
 import { cx } from '@/lib/cx';
+import { RailReturn } from '@/components/shell/RailReturn';
 
 /* ==========================================================================
    NEO workspace layout
@@ -195,13 +196,15 @@ export function NeoRail({
 }) {
   const { pathname } = useLocation();
   return (
-    <nav className="neo-plane neo-rail" aria-label={label}>
+    <nav className="neo-plane neo-rail" aria-label={label} data-dense={items.length + (footer?.length ?? 0) > 8 || undefined}>
       <Link to={brand.to} className="neo-rail__brand" title={brand.label} aria-label={`${brand.label} home`}>
         {brand.icon}
       </Link>
       {items.map((it) => (
         <RailLink key={it.to + it.label} item={it} pathname={pathname} />
       ))}
+      {/* The way back lives under the last app icon (replaces the top-bar pill on desktop). */}
+      <RailReturn />
       {footer && footer.length > 0 && (
         <>
           <div className="neo-rail__spacer" />

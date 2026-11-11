@@ -271,6 +271,345 @@ body[data-neo-app] :is(.modal, .sheet) {
   flex: 1;
   min-height: 8px;
 }
+/* apps with many destinations: tighter rhythm so the way back stays in view */
+.neo-rail[data-dense] {
+  gap: 2px;
+}
+.neo-rail[data-dense] .neo-rail__item {
+  padding: 7px 2px 6px;
+  gap: 3px;
+}
+
+/* ---------- Rail Return — the way back, under the last rail icon (shell/RailReturn) ---------- */
+.neo-rail__return {
+  --rr-a: var(--rr-c1, #6366f1);
+  --rr-b: var(--rr-c2, #22d3ee);
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 2px;
+  animation: rr-dock 0.6s 0.15s var(--ease-spring) both;
+}
+.neo-rail__tether {
+  position: relative;
+  width: 2px;
+  height: 16px;
+  margin-bottom: 3px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(to bottom, rgb(var(--app-rgb) / 0.5) 0 3px, transparent 3px 6px);
+}
+.neo-rail[data-dense] .neo-rail__tether {
+  height: 10px;
+}
+.neo-rail__tether i {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 5px;
+  height: 5px;
+  margin-left: -2.5px;
+  border-radius: 50%;
+  background: var(--rr-b);
+  box-shadow: 0 0 8px var(--rr-b);
+  animation: rr-signal 2.4s ease-in-out infinite;
+}
+.neo-rail__back {
+  position: relative;
+  width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 2px 7px;
+  border-radius: 16px;
+  color: var(--text-3);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  transition:
+    color var(--dur-fast),
+    background var(--dur-fast);
+}
+.neo-rail__back:hover,
+.neo-rail__return.is-open .neo-rail__back {
+  color: var(--text);
+  background: var(--hover-2);
+}
+.neo-rail__back:focus-visible {
+  outline: 2px solid rgb(var(--app-rgb) / 0.8);
+  outline-offset: 2px;
+}
+.neo-rail__back-orb {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background:
+    radial-gradient(circle at 32% 26%, rgb(255 255 255 / 0.35), transparent 55%),
+    linear-gradient(135deg, var(--rr-a), var(--rr-b));
+  box-shadow:
+    0 8px 20px -10px var(--rr-a),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
+  transition: transform var(--dur) var(--ease-spring);
+}
+.neo-rail__back-orb > svg {
+  width: 17px;
+  height: 17px;
+}
+.neo-rail__back-ring {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  background: conic-gradient(from 210deg, transparent 0 18%, color-mix(in srgb, var(--rr-b) 85%, #ffffff) 40%, transparent 62%);
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 64%);
+  mask: radial-gradient(circle, transparent 62%, #000 64%);
+  opacity: 0.85;
+  animation: rr-rewind 3.2s linear infinite;
+}
+.neo-rail__back-badge {
+  position: absolute;
+  inset-block-end: -3px;
+  inset-inline-end: -5px;
+  width: 17px;
+  height: 17px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--text);
+  background: var(--plane-solid);
+  box-shadow: 0 0 0 1.5px rgb(var(--app-rgb) / 0.55);
+}
+.neo-rail__back-badge svg {
+  width: 10px;
+  height: 10px;
+}
+[dir='rtl'] .neo-rail__back-badge svg {
+  transform: scaleX(-1);
+}
+.neo-rail__back:hover .neo-rail__back-orb,
+.neo-rail__back:focus-visible .neo-rail__back-orb {
+  transform: translateY(-1px) scale(1.06);
+}
+.neo-rail__back:hover .neo-rail__back-ring {
+  animation-duration: 1.1s;
+}
+@keyframes rr-rewind {
+  to {
+    rotate: -360deg;
+  }
+}
+@keyframes rr-signal {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-14px);
+    opacity: 0;
+  }
+}
+@keyframes rr-dock {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.9);
+  }
+}
+
+/* return-path card (portaled next to the rail) */
+.rr-card {
+  position: fixed;
+  z-index: 95;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  padding: 10px;
+  border-radius: 18px;
+  color: var(--text);
+  background: var(--plane-solid);
+  border: 1px solid var(--plane-border-2);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  animation: rr-card-in 0.22s var(--ease-out) both;
+}
+[dir='rtl'] .rr-card {
+  animation-name: rr-card-in-rtl;
+}
+.rr-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px 10px;
+}
+.rr-card__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.rr-card__title svg {
+  width: 13px;
+  height: 13px;
+  color: var(--rr-c2);
+}
+.rr-card__origin,
+.rr-card__stop {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  text-align: start;
+  outline: none;
+}
+.rr-card__origin {
+  gap: 11px;
+  padding: 10px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rr-c1) 18%, transparent), transparent 80%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--rr-c1) 40%, transparent);
+  transition: background var(--dur-fast);
+}
+.rr-card__origin:hover,
+.rr-card__origin:focus-visible {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rr-c1) 30%, transparent), transparent 85%);
+}
+.rr-card__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.rr-card__text b {
+  font-size: 13.5px;
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rr-card__eyebrow,
+.rr-card__label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.rr-card__sub {
+  font-size: 12px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rr-card__go {
+  flex: none;
+  height: 24px;
+  padding: 0 10px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #fff;
+  background: linear-gradient(135deg, var(--rr-c1), var(--rr-c2));
+}
+.rr-card__label {
+  padding: 12px 8px 6px;
+}
+.rr-card__stops {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rr-card__stop {
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 11px;
+  color: var(--text-2);
+}
+.rr-card__stop:hover,
+.rr-card__stop:focus-visible {
+  color: var(--text);
+  background: var(--hover-2);
+}
+.rr-card__stop .rr-card__text b {
+  font-size: 13px;
+  font-weight: 600;
+}
+.rr-card__time {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-3);
+}
+.rr-card__foot {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 10px 2px 2px;
+  border-top: 1px solid var(--plane-border);
+}
+.rr-card__chip {
+  flex: 1;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--hover);
+  box-shadow: inset 0 0 0 1px var(--plane-border);
+  outline: none;
+}
+.rr-card__chip:hover,
+.rr-card__chip:focus-visible {
+  color: var(--text);
+  background: var(--hover-2);
+}
+.rr-card__chip svg {
+  width: 14px;
+  height: 14px;
+}
+@keyframes rr-card-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px) scale(0.98);
+  }
+}
+@keyframes rr-card-in-rtl {
+  from {
+    opacity: 0;
+    transform: translateX(8px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .neo-rail__return,
+  .neo-rail__return *,
+  .rr-card {
+    animation: none !important;
+  }
+}
+[data-motion='reduced'] :is(.neo-rail__return, .neo-rail__return *, .rr-card) {
+  animation: none !important;
+}
 
 /* ---------- Side panel (secondary navigation / lists) ---------- */
 .neo-side {
@@ -1781,7 +2120,8 @@ a.neo-card {
   }
   .neo-rail__brand,
   .neo-rail__sep,
-  .neo-rail__spacer {
+  .neo-rail__spacer,
+  .neo-rail__return {
     display: none;
   }
   .neo-rail__item {
@@ -2124,6 +2464,36 @@ button.neo-banner:hover {
 }
 [data-theme='light'] .neo-banner__icon {
   color: color-mix(in oklab, rgb(var(--tone)) 70%, #0b1020);
+}
+.neo-banner__action {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+}
+/* Clickable banner + inline action: stretched hit target, action floats above */
+.neo-banner--split {
+  position: relative;
+}
+.neo-banner--split > :not(.neo-banner__hit) {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+.neo-banner--split > .neo-banner__action {
+  pointer-events: auto;
+}
+.neo-banner__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+}
+.neo-banner__hit:focus-visible {
+  outline: 2px solid rgb(var(--tone) / 0.8);
+  outline-offset: 2px;
+}
+.neo-banner--split:hover {
+  box-shadow: inset 0 0 0 1px rgb(var(--tone) / 0.55);
 }
 
 /* ---------- KPI ribbon ---------- */

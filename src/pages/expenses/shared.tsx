@@ -272,22 +272,12 @@ export const STAGE_WORKSPACE_META: Record<
   },
 };
 
-/** 1..7 segmented progress bar for a single journey. */
-export function JourneyProgress({ stage }: { stage: SpendFlowStage }) {
-  return (
-    <div className="ex-jprog" role="img" aria-label={`Stage ${stage} of 7`}>
-      {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-        <i key={n} className={cx(n < stage && 'is-done', n === stage && 'is-current')} />
-      ))}
-    </div>
-  );
-}
-
 /**
  * Interactive 7-stage trip-to-paycheck flow (`FLOW_STEPS`).
  * Clicking a stage filters journeys (when `onSelectStage` is provided) and
  * reveals a one-click jump into that stage's workspace; without
- * `onSelectStage` it navigates straight away.
+ * `onSelectStage` it navigates straight away. The segmented bar mirrors
+ * NeoTracker: stages holding journeys glow, the selected stage streams.
  */
 export function ProcessFlowRail({
   selectedStage,
@@ -317,16 +307,19 @@ export function ProcessFlowRail({
     selectedStage === 5 && canApproveOrAudit
       ? '/expenses/approvals'
       : activeMeta?.to ?? '/expenses';
-  const furthest = Math.max(0, ...FLOW_STEPS.filter((s) => (stageCounts?.[s.step as SpendFlowStage] ?? 0) > 0).map((s) => s.step));
 
   return (
     <div className="ex-flow">
       <div className="ex-flow__scroll">
-        <ol
-          className="ex-flow__track"
-          aria-label="Trip-to-paycheck stages"
-          style={{ '--ex-flow-fill': furthest > 1 ? `${((furthest - 1) / 6) * 100}%` : '0%' } as CSSProperties}
-        >
+        <div className="ex-flow__bar" aria-hidden="true">
+          {FLOW_STEPS.map((s) => (
+            <i
+              key={s.step}
+              data-s={selectedStage === s.step ? 'sel' : (stageCounts?.[s.step as SpendFlowStage] ?? 0) > 0 ? 'busy' : 'idle'}
+            />
+          ))}
+        </div>
+        <ol className="ex-flow__track" aria-label="Trip-to-paycheck stages">
           {FLOW_STEPS.map((s) => {
             const step = s.step as SpendFlowStage;
             const count = stageCounts?.[step] ?? 0;

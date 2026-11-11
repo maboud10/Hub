@@ -27,17 +27,32 @@ import {
 } from '@/crm/engine';
 import { CRM_MODULES, CRM_REGIONS } from '@/crm/seed';
 import { useCrm } from '@/crm/store';
-import type { CrmModuleId, CrmRegion } from '@/crm/types';
+import type { CrmDeal, CrmModuleId, CrmRegion } from '@/crm/types';
+import { DealTrackerCompact } from './DealTracker';
 import { useCrmUsersMap } from './shared';
 
 export function AccountsView() {
   const accounts = useCrm((s) => s.accounts);
+  const deals = useCrm((s) => s.deals);
   const launchAccountExpansion = useCrm((s) => s.launchAccountExpansion);
   const setSelectedDealId = useCrm((s) => s.setSelectedDealId);
   const usersMap = useCrmUsersMap();
 
   const [regionFilter, setRegionFilter] = useState<'All' | CrmRegion>('All');
   const [query, setQuery] = useState('');
+
+  /** Deals per account (open first, soonest close first; then won). A couple of seed deals reuse another
+   *  account's id, so a deal only counts when its account name matches too. */
+  const dealsByAccount = useMemo(() => {
+    const map = new Map<string, CrmDeal[]>();
+    for (const acc of accounts) {
+      const list = deals
+        .filter((d) => d.accountId === acc.id && d.accountName === acc.name)
+        .sort((a, b) => Number(a.stage === 'won') - Number(b.stage === 'won') || a.closeDate.localeCompare(b.closeDate));
+      if (list.length) map.set(acc.id, list);
+    }
+    return map;
+  }, [accounts, deals]);
 
   const filteredAccounts = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -154,6 +169,7 @@ export function AccountsView() {
             const owner = usersMap.get(acc.ownerId) ?? SEED_USERS[0];
             const csm = usersMap.get(acc.csmId) ?? SEED_USERS[1];
             const topModule = ws.openModules[0];
+            const accDeals = dealsByAccount.get(acc.id) ?? [];
 
             return (
               <article key={acc.id} className="crm-account-card neo-spot">
@@ -274,6 +290,34 @@ export function AccountsView() {
                   <Sparkles className="crm-account-signal__ico" />
                   <span>{acc.expansionSignal}</span>
                 </div>
+
+                {/* Deal journeys: where this account's deals sit in the pipeline */}
+                {accDeals.length > 0 && (
+                  <div className="crm-acc-deals">
+                    <div className="crm-acc-deals__head">
+                      <span className="neo-hud">Deal journeys</span>
+                      <span className="neo-count">{accDeals.length}</span>
+                    </div>
+                    {accDeals.slice(0, 3).map((d) => (
+                      <div key={d.id} className="crm-acc-deal" onClick={() => setSelectedDealId(d.id)}>
+                        <div className="crm-acc-deal__top">
+                          <button
+                            type="button"
+                            className="crm-acc-deal__title"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDealId(d.id);
+                            }}
+                          >
+                            {d.title.startsWith(`${acc.name} · `) ? d.title.slice(acc.name.length + 3) : d.title}
+                          </button>
+                          <span className="crm-acc-deal__acv">{formatCompactUsd(d.acv)}</span>
+                        </div>
+                        <DealTrackerCompact deal={d} />
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Card Footer: Pod Owners + 1-Click Launch Expansion Deal */}
                 <footer className="crm-account-card__foot">

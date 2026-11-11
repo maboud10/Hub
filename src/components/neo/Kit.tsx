@@ -224,10 +224,26 @@ export function NeoBanner({
         {children && <span>{children}</span>}
       </span>
       {meta && <span className="neo-banner__meta">{meta}</span>}
-      {action}
+      {action && <span className="neo-banner__action">{action}</span>}
       {(to || onClick) && <ChevronRight className="neo-banner__chev" aria-hidden="true" />}
     </>
   );
+  // A clickable banner with its own inline action can't nest one interactive
+  // element inside another: the whole banner gets a stretched hit target and
+  // the action floats above it.
+  if ((to || onClick) && action) {
+    const hitLabel = typeof title === 'string' ? title : undefined;
+    return (
+      <div className="neo-banner neo-banner--split" data-tone={tone}>
+        {to ? (
+          <Link to={to} className="neo-banner__hit" aria-label={hitLabel} />
+        ) : (
+          <button type="button" className="neo-banner__hit" onClick={onClick} aria-label={hitLabel} />
+        )}
+        {inner}
+      </div>
+    );
+  }
   if (to)
     return (
       <Link to={to} className="neo-banner" data-tone={tone}>

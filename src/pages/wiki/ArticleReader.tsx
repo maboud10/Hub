@@ -47,6 +47,7 @@ import { computeFreshness } from '@/wiki/constants';
 import { useMyWikiState, useWikiCaps, useWikiViewer } from '@/wiki/selectors';
 import { useWiki } from '@/wiki/store';
 import type { ArticleVersion, WikiComment } from '@/wiki/types';
+import { FreshnessTracker, ProposalTracker, publishedVersionOf, useMyArticleProposals } from './wikiTrackers';
 import {
   DocSection,
   FreshnessPill,
@@ -253,6 +254,9 @@ export function ArticleReader() {
     if (!article) return [];
     return proposals.filter((p) => p.articleId === article.id && p.status === 'pending');
   }, [article, proposals]);
+
+  /** Your own proposals on this page: live journeys + recent outcomes (the decision notification links here). */
+  const myProposals = useMyArticleProposals(article?.id);
 
   if (!article) {
     return (
@@ -464,6 +468,42 @@ export function ArticleReader() {
             )}
           </header>
 
+          {/* Your change proposals on this page — live four-eyes journey or its recent outcome */}
+          {myProposals.map((p) => {
+            const version = publishedVersionOf(p, article);
+            return (
+              <ProposalTracker
+                key={p.id}
+                proposal={p}
+                article={article}
+                space={space}
+                title={p.summary}
+                actions={
+                  p.status === 'pending' ? (
+                    <Link to={`/wiki/governance?proposal=${p.id}`} className="neo-btn neo-btn--ghost neo-btn--sm">
+                      Open in Governance <ArrowRight />
+                    </Link>
+                  ) : p.status === 'approved' && version ? (
+                    <button
+                      type="button"
+                      className="neo-btn neo-btn--soft neo-btn--sm"
+                      onClick={() => {
+                        setSelectedVerNum(version);
+                        setHistoryOpen(true);
+                      }}
+                    >
+                      <History /> View version
+                    </button>
+                  ) : p.status === 'declined' && proposeEditAllowed ? (
+                    <Link to={`/wiki/edit/${article.slug}?propose=1`} className="neo-btn neo-btn--soft neo-btn--sm">
+                      <GitPullRequest /> Propose again
+                    </Link>
+                  ) : undefined
+                }
+              />
+            );
+          })}
+
           {/* Freshness Trust Banner */}
           <div className="wk-trust" data-state={freshness.state}>
             <UserBadge userId={article.ownerId} size={30} subtitle="Page owner" />
@@ -486,6 +526,9 @@ export function ArticleReader() {
                 </button>
               )}
             </div>
+
+            {/* Verification cycle: Verified → Review due (or Flagged) → Overdue */}
+            <FreshnessTracker article={article} />
 
             {article.flaggedStale && (
               <div className="wk-flag">
@@ -757,6 +800,16 @@ export function ArticleReader() {
                 {pendingProposalsForArticle.length > 1 ? 's' : ''}
                 <ArrowRight aria-hidden="true" />
               </Link>
+            )}
+            {pendingProposalsForArticle.length > 0 && (
+              <div className="wk-rail-props">
+                {pendingProposalsForArticle.map((p) => (
+                  <Link key={p.id} to={`/wiki/governance?proposal=${p.id}`} className="wk-rail-prop">
+                    <span className="wk-rail-prop__sum">{p.summary}</span>
+                    <ProposalTracker proposal={p} article={article} space={space} variant="compact" />
+                  </Link>
+                ))}
+              </div>
             )}
             <div className="wk-lineage__acts">
               <button type="button" className="neo-btn neo-btn--soft neo-btn--sm neo-btn--block" onClick={openHistory}>

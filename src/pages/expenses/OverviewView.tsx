@@ -23,7 +23,7 @@ import {
   Wallet,
   WandSparkles,
 } from 'lucide-react';
-import { Bar, Chip, NeoBanner, NeoBanners, NeoEmpty, NeoHome, NeoKpi, NeoKpis, NeoNovaPrompt, NeoPanel, Ring } from '@/components/neo';
+import { Bar, Chip, NeoBanner, NeoBanners, NeoEmpty, NeoHome, NeoKpi, NeoKpis, NeoNovaPrompt, NeoPanel, NeoTracker, Ring } from '@/components/neo';
 import { relativeTime } from '@/lib/format';
 import { daysBetween, formatDay, formatRange, todayISO } from '@/hr/calendar';
 import { CATEGORY_META, FLOW_STEPS, TRIP_PURPOSE_META } from '@/expenses/constants';
@@ -43,13 +43,13 @@ import {
   compactAed,
   formatAed,
   formatOrigCurrency,
-  JourneyProgress,
   ProcessFlowRail,
   ReportStatusBadge,
   TripStatusBadge,
   useActivePaydayInfo,
   VirtualCorporateCard,
 } from './shared';
+import { journeyTrack, pickLeadClaim, reportTrack, useSpendTrackCtx } from './trackers';
 
 interface JourneyItem {
   id: string;
@@ -75,6 +75,7 @@ export function OverviewView() {
   const summary = useMySpendSummary();
   const approvals = useSpendApprovals();
   const payday = useActivePaydayInfo();
+  const trackCtx = useSpendTrackCtx();
   const generateTripPerDiemReceipt = useExpenses((s) => s.generateTripPerDiemReceipt);
 
   const [stageFilter, setStageFilter] = useState<SpendFlowStage | null>(null);
@@ -392,13 +393,13 @@ export function OverviewView() {
         ) : (
           <ul className="ex-jrnys neo-stagger">
             {visibleJourneys.map((j, i) => {
-              const stepMeta = FLOW_STEPS.find((s) => s.step === j.stage) ?? FLOW_STEPS[0];
               const { trip, report } = j;
               const title = trip
                 ? `${trip.originCity} → ${trip.destinationCity} · ${trip.title}`
                 : report
                   ? report.title
                   : `${j.unbundledForTripCount} receipt${j.unbundledForTripCount === 1 ? '' : 's'} not on a report yet`;
+              const ref = report?.reference ?? trip?.reference ?? 'VAULT';
               return (
                 <li key={j.id} className="ex-jrny" style={{ ['--i' as string]: i }}>
                   <span className="ex-jrny__icon" data-kind={trip ? 'trip' : report ? 'report' : 'vault'} aria-hidden="true">
@@ -407,7 +408,7 @@ export function OverviewView() {
                   <div className="ex-jrny__body">
                     <div className="ex-jrny__top">
                       <span className="ex-jrny__title">{title}</span>
-                      <span className="ex-jrny__ref neo-mono">{report?.reference ?? trip?.reference ?? 'VAULT'}</span>
+                      <span className="ex-jrny__ref neo-mono">{ref}</span>
                     </div>
                     <div className="ex-jrny__meta">
                       {trip && (
@@ -426,19 +427,18 @@ export function OverviewView() {
                       {!trip && !report && <>Ready to bundle · {formatAed(summary.unsubmittedVaultAed, true)} out of pocket</>}
                       {trip && !report && j.unbundledForTripCount > 0 && <> · {j.unbundledForTripCount} receipt{j.unbundledForTripCount === 1 ? '' : 's'} to attach</>}
                     </div>
-                    <div className="ex-jrny__chips">
-                      <Chip size="sm" tone="app">
-                        Stage {j.stage}/7 · {stepMeta.title}
-                      </Chip>
-                      {trip && <TripStatusBadge status={trip.status} size="sm" />}
-                      {report && <ReportStatusBadge status={report.status} size="sm" />}
-                      {trip?.virtualCard && !report && (
-                        <Chip size="sm" icon={<CreditCard />}>
-                          •••• {trip.virtualCard.last4}
-                        </Chip>
-                      )}
-                    </div>
-                    <JourneyProgress stage={j.stage} />
+                    {(trip || report) && (
+                      <div className="ex-jrny__chips">
+                        {trip && <TripStatusBadge status={trip.status} size="sm" />}
+                        {report && <ReportStatusBadge status={report.status} size="sm" />}
+                        {trip?.virtualCard && !report && (
+                          <Chip size="sm" icon={<CreditCard />}>
+                            •••• {trip.virtualCard.last4}
+                          </Chip>
+                        )}
+                      </div>
+                    )}
+                    <NeoTracker {...journeyTrack(j.stage, trip, report, trackCtx)} compact label={`${ref} · Trip-to-paycheck progress`} />
                   </div>
                   <div className="ex-jrny__act">{renderNextAction(j)}</div>
                 </li>
@@ -560,6 +560,8 @@ function CardPanel() {
 function PaydayPanel({ inReviewAed }: { inReviewAed: number }) {
   const summary = useMySpendSummary();
   const payday = useActivePaydayInfo();
+  const trackCtx = useSpendTrackCtx();
+  const lead = useMemo(() => pickLeadClaim(summary.myReports), [summary.myReports]);
   const daysLeft = Math.max(0, daysBetween(todayISO(), payday.payDate));
 
   return (
@@ -572,19 +574,36 @@ function PaydayPanel({ inReviewAed }: { inReviewAed: number }) {
         </Link>
       }
     >
-      <div className="ex-payday">
-        <Ring value={1 - Math.min(daysLeft, 30) / 30} size={64} stroke={6} label={`${daysLeft} days to payday`}>
-          {daysLeft === 0 ? 'Today' : `${daysLeft}d`}
-        </Ring>
-        <div className="ex-payday__info">
-          <span className="neo-hud">Next payday · {payday.period}</span>
-          <b className="ex-payday__date">{formatDay(payday.payDate, { weekday: 'short', day: 'numeric', month: 'short' })}</b>
-          <Chip size="sm" tone="cyan">
-            {payday.statusLabel}
-          </Chip>
+      {lead ? (
+        <NeoTracker
+          {...reportTrack(lead, trackCtx)}
+          bare
+          hud={lead.reference}
+          title={lead.title}
+          label={`${lead.reference} · Reimbursement tracker`}
+          className="ex-payday-track"
+        />
+      ) : (
+        <div className="ex-payday">
+          <Ring value={1 - Math.min(daysLeft, 30) / 30} size={64} stroke={6} label={`${daysLeft} days to payday`}>
+            {daysLeft === 0 ? 'Today' : `${daysLeft}d`}
+          </Ring>
+          <div className="ex-payday__info">
+            <span className="neo-hud">Next payday · {payday.period}</span>
+            <b className="ex-payday__date">{formatDay(payday.payDate, { weekday: 'short', day: 'numeric', month: 'short' })}</b>
+            <Chip size="sm" tone="cyan">
+              {payday.statusLabel}
+            </Chip>
+          </div>
         </div>
-      </div>
+      )}
       <dl className="ex-rows">
+        {lead && (
+          <div>
+            <dt>{`Next payday · ${payday.statusLabel}`}</dt>
+            <dd>{formatDay(payday.payDate, { day: 'numeric', month: 'short' })}</dd>
+          </div>
+        )}
         <div>
           <dt>In review</dt>
           <dd>{formatAed(inReviewAed)}</dd>

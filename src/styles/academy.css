@@ -1779,6 +1779,61 @@
   gap: 12px;
 }
 
+/* ---------- Journey Trackers (`trackers.tsx` · NeoTracker placements) ---------- */
+/* Dynamic values (names, counts, titles) inside status lines */
+.neo[data-app='academy'] :is(.ac-trk-msg, .ac-trk-line) b {
+  color: var(--text);
+  font-weight: 650;
+}
+
+/* My learning rows: compact tracker + live status line */
+.neo[data-app='academy'] .ac-trk-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.neo[data-app='academy'] .ac-trk-line {
+  margin: 0;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neo[data-app='academy'] .ac-trk-line[data-state='blocked'] {
+  color: var(--warning);
+}
+
+/* Onboarding bridge: bare tracker between the lead and the checklist */
+.neo[data-app='academy'] .ac-onb-trk {
+  margin-top: 14px;
+}
+
+/* Learning path side rows: tracker spans the full row under ring + title */
+.neo[data-app='academy'] .ac-side-row--path {
+  flex-wrap: wrap;
+  row-gap: 9px;
+}
+
+.neo[data-app='academy'] .ac-side-row--path > .ac-side-row__body {
+  flex: 1 1 0;
+}
+
+.neo[data-app='academy'] .ac-side-row__trk {
+  flex: 1 0 100%;
+}
+
+/* Credential cards: tracker anchored above the footer */
+.neo[data-app='academy'] .ac-cert-card__trk {
+  margin-top: auto;
+}
+
 /* ---------- Responsive Breakpoints (<900px & <560px) ---------- */
 @media (max-width: 900px) {
   .ac-player-layout {

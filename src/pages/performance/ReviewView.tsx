@@ -149,6 +149,7 @@ import {
   buildDraftContext,
 } from './review-shared';
 import { Trajectory } from './Trajectory';
+import { PeerTracker, ReviewTracker, isComplete } from './trackers';
 import { NovaBox, NovaThinking, OkrRing, StatusChip, Who } from './ui';
 import { useEvidence } from './useEvidence';
 import './styles/review.css';
@@ -676,6 +677,16 @@ export function ReviewView() {
             )}
           </div>
         </div>
+
+        {/* Where this packet is right now — worded for whoever is looking. */}
+        <ReviewTracker
+          review={review}
+          ctx={ctx}
+          now={now}
+          hud="Review cycle tracker"
+          title={(j) => (isSelf ? (isComplete(j) ? 'Your review is complete' : 'Your review is on its way') : undefined)}
+          className="pf-rv-trk"
+        />
 
         {activeTab === 'self' && (
           <SelfTab
@@ -2166,34 +2177,43 @@ function PeersTab({
               title="Peer feedback is being collected"
               icon={<Users />}
             >
-              <div className="pf-rv-peer-wait">
-                <Ring
-                  value={
-                    peerItems.filter((f) => f.status !== 'declined').length
-                      ? submittedPeers.length / peerItems.filter((f) => f.status !== 'declined').length
-                      : 0
-                  }
-                  size={78}
-                  stroke={7}
-                  label={`${submittedPeers.length} peer responses in`}
-                >
-                  <span className="pf-rv-prog__pct">
-                    {submittedPeers.length}/{peerItems.filter((f) => f.status !== 'declined').length}
-                  </span>
-                </Ring>
-                <div className="pf-rv-peer-wait__text">
-                  <b>
-                    {submittedPeers.length
-                      ? `${plural(submittedPeers.length, 'peer')} ${submittedPeers.length === 1 ? 'has' : 'have'} shared feedback so far`
-                      : peerItems.length
-                        ? 'Your nominated peers have been invited'
-                        : 'Nominate 2–4 colleagues who worked closely with you this quarter'}
-                  </b>
+              {review.managerId ? (
+                <div className="pf-rv-peer-trk">
+                  <PeerTracker review={review} cycle={cycle} peers={peerItems} ctx={ctx} now={now} bare label="360 tracker" />
                   <p className="pf-muted text-sm">
                     To keep feedback candid and constructive, Nova’s synthesized themes and peer comments unlock together when your manager shares your completed review packet.
                   </p>
                 </div>
-              </div>
+              ) : (
+                <div className="pf-rv-peer-wait">
+                  <Ring
+                    value={
+                      peerItems.filter((f) => f.status !== 'declined').length
+                        ? submittedPeers.length / peerItems.filter((f) => f.status !== 'declined').length
+                        : 0
+                    }
+                    size={78}
+                    stroke={7}
+                    label={`${submittedPeers.length} peer responses in`}
+                  >
+                    <span className="pf-rv-prog__pct">
+                      {submittedPeers.length}/{peerItems.filter((f) => f.status !== 'declined').length}
+                    </span>
+                  </Ring>
+                  <div className="pf-rv-peer-wait__text">
+                    <b>
+                      {submittedPeers.length
+                        ? `${plural(submittedPeers.length, 'peer')} ${submittedPeers.length === 1 ? 'has' : 'have'} shared feedback so far`
+                        : peerItems.length
+                          ? 'Your nominated peers have been invited'
+                          : 'Nominate 2–4 colleagues who worked closely with you this quarter'}
+                    </b>
+                    <p className="pf-muted text-sm">
+                      To keep feedback candid and constructive, Nova’s synthesized themes and peer comments unlock together when your manager shares your completed review packet.
+                    </p>
+                  </div>
+                </div>
+              )}
             </NeoPanel>
           ) : (
             <>

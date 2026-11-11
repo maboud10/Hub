@@ -43,7 +43,7 @@ export function AppIcon({
   locked = false,
   className,
 }: {
-  app: Pick<HubApp, 'icon' | 'gradient'>;
+  app: Pick<HubApp, 'icon' | 'gradient'> & { id?: string };
   size?: number;
   locked?: boolean;
   className?: string;
@@ -53,6 +53,7 @@ export function AppIcon({
     <span
       className={cx('app-icon', locked && 'is-locked', className)}
       style={{ '--size': `${size}px`, '--c1': app.gradient[0], '--c2': app.gradient[1] } as CSSProperties}
+      data-app-icon={app.id}
       aria-hidden="true"
     >
       <Icon strokeWidth={1.75} />

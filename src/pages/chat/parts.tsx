@@ -108,6 +108,8 @@ export const APP_ICON: Record<string, LucideIcon> = {
   procurement: Sparkles,
   crm: Sparkles,
   insights: Sparkles,
+  meet: Sparkles,
+  calendar: Sparkles,
 };
 
 export function GlyphTile({ c1, c2, icon: Icon, size = 36, round }: { c1: string; c2: string; icon: LucideIcon; size?: number; round?: boolean }) {

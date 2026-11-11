@@ -631,6 +631,42 @@ html[dir='rtl'] .pf-tl__now {
 }
 
 /* ==========================================================================
+   Journey trackers (NeoTracker via pages/performance/trackers.tsx)
+   Placement only — the tracker paints itself from the app plasma.
+   ========================================================================== */
+.neo[data-app='performance'] .pf-trk__sep,
+body[data-neo-app='performance'] .neo-portal .pf-trk__sep {
+  color: var(--text-3);
+}
+/* Review packet: between the identity ribbon and the tab content */
+.neo[data-app='performance'] .pf-rv-trk {
+  margin-bottom: 18px;
+}
+/* Check-ins · packet card "What happens next" (vertical in the side column) */
+.neo[data-app='performance'] .pf-ck-trk {
+  margin-bottom: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--plane-border);
+}
+/* Check-ins · direct reports' table: a slim journey under the status columns */
+.neo[data-app='performance'] .pf-ck-tbl__trk {
+  grid-column: 2 / -1;
+  min-width: 0;
+  margin-top: -4px;
+}
+@media (max-width: 860px) {
+  .neo[data-app='performance'] .pf-ck-tbl__trk {
+    grid-column: 1 / -1;
+    margin-top: 0;
+  }
+}
+/* Review packet · 360 tracker + its privacy note */
+.neo[data-app='performance'] .pf-rv-peer-trk {
+  display: grid;
+  gap: 12px;
+}
+
+/* ==========================================================================
    Home
    ========================================================================== */
 .pf-home {

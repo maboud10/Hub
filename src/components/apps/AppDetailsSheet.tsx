@@ -13,6 +13,8 @@ import { Sheet } from '@/components/ui/Sheet';
 import { AppIcon, RoleChip, Segmented } from '@/components/ui/primitives';
 import { useLaunchApp } from './useLaunchApp';
 import { STATUS_LABEL } from './AppTile';
+import { AccessTrack, useAccessTracker } from './AccessTracker';
+import { latestTrackedRequest } from './accessJourney';
 import { cx } from '@/lib/cx';
 
 const DURATIONS: GrantDuration[] = ['7d', '30d', '90d', 'permanent'];
@@ -53,6 +55,10 @@ export function AppDetailsSheet() {
     });
   }, [app, user, users, roles]);
 
+  // Pizza tracker: the pending request, or a decision that landed this week.
+  const tracked = useMemo(() => (shownId && user ? latestTrackedRequest(requests, user.id, shownId, Date.now()) : undefined), [requests, user, shownId]);
+  const tracker = useAccessTracker(tracked, { id: user?.id });
+
   if (!item || !app || !user) return null;
 
   const perm = appPermissionId(app.id);
@@ -63,6 +69,18 @@ export function AppDetailsSheet() {
   const opened = prefs.launchCounts[app.id] ?? 0;
   const lastUsed = prefs.recents.find((r) => r.appId === app.id)?.at;
   const granting = rolesGranting(roles, perm).filter((r) => !r.locked);
+  const tint = { c1: app.gradient[0], c2: app.gradient[1] };
+  // Only show a journey that matches what the person can do right now.
+  const journey =
+    tracker && tracked
+      ? item.access === 'pending' && tracked.status === 'pending'
+        ? 'pending'
+        : item.access === 'locked' && tracked.status === 'denied'
+          ? 'declined'
+          : item.access === 'granted' && tracked.status === 'approved'
+            ? 'granted'
+            : null
+      : null;
 
   const submit = () => {
     if (toast.result(requestAccess(app.id, reason, duration))) setReason('');
@@ -138,6 +156,7 @@ export function AppDetailsSheet() {
                   </span>
                 )}
               </div>
+              {journey === 'granted' && tracker && <AccessTrack view={tracker} compact tint={tint} className="appsheet__track-done" />}
             </div>
           </div>
 
@@ -187,24 +206,28 @@ export function AppDetailsSheet() {
       )}
 
       {item.access === 'pending' && pending && (
-        <div className="appsheet__access appsheet__access--pending">
-          <Clock />
-          <div className="grow">
-            <div className="appsheet__access-title">Request pending review</div>
-            <div className="text-sm muted">
-              Sent {relativeTime(pending.createdAt)} · {DURATION_LABEL[pending.duration]} requested
-            </div>
-            <blockquote className="appsheet__quote">“{pending.reason}”</blockquote>
-            <div className="text-xs faint">
-              <Users size={12} style={{ display: 'inline', verticalAlign: '-2px' }} /> {reviewers.length} eligible reviewer
-              {reviewers.length === 1 ? '' : 's'} notified
+        <>
+          {journey === 'pending' && tracker && <AccessTrack view={tracker} tint={tint} className="appsheet__tracker" />}
+          <div className="appsheet__access appsheet__access--pending">
+            <Clock />
+            <div className="grow">
+              <div className="appsheet__access-title">Request pending review</div>
+              <div className="text-sm muted">
+                Sent {relativeTime(pending.createdAt)} · {DURATION_LABEL[pending.duration]} requested
+              </div>
+              <blockquote className="appsheet__quote">“{pending.reason}”</blockquote>
+              <div className="text-xs faint">
+                <Users size={12} style={{ display: 'inline', verticalAlign: '-2px' }} /> {reviewers.length} eligible reviewer
+                {reviewers.length === 1 ? '' : 's'} notified
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {item.access === 'locked' && (
         <>
+          {journey === 'declined' && tracker && <AccessTrack view={tracker} tint={tint} className="appsheet__tracker" />}
           <div className="appsheet__access appsheet__access--locked">
             <LockKeyhole />
             <div className="grow">

@@ -64,6 +64,8 @@ export const APP_META: Record<WorkspaceAppId, { name: string; c1: string; c2: st
   procurement: { name: 'Procurement', c1: '#14b8a6', c2: '#06b6d4' },
   crm: { name: 'CRM', c1: '#f97316', c2: '#facc15' },
   insights: { name: 'Insights', c1: '#38bdf8', c2: '#8b5cf6' },
+  meet: { name: 'Helix Meet', c1: '#34d399', c2: '#06b6d4' },
+  calendar: { name: 'Helix Calendar', c1: '#f472b6', c2: '#8b5cf6' },
 };
 
 export const KUDOS_VALUES: { id: KudosValue; label: string; blurb: string; tone: 'cyan' | 'violet' | 'pink' | 'amber' | 'emerald' }[] = [

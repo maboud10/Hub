@@ -16,6 +16,7 @@ import { useTalentCaps, useTalentLookups, useTalentScope } from '@/talent/select
 import { stageIndex } from '@/talent/constants';
 import type { Application } from '@/talent/types';
 import { toast } from '@/store/toast';
+import { useNow } from '@/hooks/useNow';
 import { cx } from '@/lib/cx';
 import { CandidateAvatar, SampleTag, SourceBadge } from './components/shared';
 import { copyText } from './components/format';
@@ -23,6 +24,7 @@ import { ConsentBadge } from './pipeline/ConsentBadge';
 import { SheetOverview } from './pipeline/SheetOverview';
 import { SheetPipeline } from './pipeline/SheetPipeline';
 import { SheetActivity, SheetNotes } from './pipeline/SheetTimeline';
+import { CandidateJourneyTracker } from './trackers';
 
 type SheetTab = 'overview' | 'pipeline' | 'activity' | 'notes';
 
@@ -34,6 +36,12 @@ const TABS: { id: SheetTab; label: string; icon: typeof IdCard }[] = [
 ];
 
 const appRank = (a: Application) => (a.status === 'active' ? 0 : a.status === 'hired' ? 1 : 2);
+
+/** The primary application's journey — ticks once a minute, only while the Overview tab is shown. */
+function PrimaryJourney({ app }: { app: Application }) {
+  const now = useNow(60_000);
+  return <CandidateJourneyTracker app={app} now={now} className="tl-sheet-journey" />;
+}
 
 export function CandidateSheet() {
   const id = useTalentUI((s) => s.candidateId);
@@ -253,7 +261,9 @@ export function CandidateSheet() {
         </EmptyState>
       ) : (
         <div role="tabpanel" id={`tl-sheet-panel-${tab}`} aria-labelledby={`tl-sheet-tab-${tab}`} className="tl-sheet-panel" key={`${cand.id}-${tab}`}>
-          {tab === 'overview' && <SheetOverview cand={cand} match={primary?.match ?? null} matchFor={primaryReq?.title} />}
+          {tab === 'overview' && (
+            <SheetOverview cand={cand} match={primary?.match ?? null} matchFor={primaryReq?.title} journey={primary ? <PrimaryJourney app={primary} /> : undefined} />
+          )}
           {tab === 'pipeline' && <SheetPipeline cand={cand} apps={apps} />}
           {tab === 'activity' && <SheetActivity cand={cand} apps={apps} />}
           {tab === 'notes' && <SheetNotes cand={cand} apps={apps} />}

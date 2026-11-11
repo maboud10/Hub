@@ -38,6 +38,7 @@ import {
 } from '@/wiki/selectors';
 import { useWiki } from '@/wiki/store';
 import type { WikiArticle } from '@/wiki/types';
+import { FreshnessTracker, ProposalTracker } from './wikiTrackers';
 import { FreshDot, FreshnessPill, RoleAudienceChips, SpaceIcon, UserBadge, useCortex } from './wikiUi';
 
 const DAY = 86_400_000;
@@ -468,21 +469,35 @@ function BookmarksPanel({ bookmarked }: { bookmarked: WikiArticle[] }) {
 function GovernancePanel() {
   const gov = useGovernanceQueue();
   const visibleArticles = useVisibleArticles();
+  const spaces = useWiki((s) => s.spaces);
   const byId = useMemo(() => new Map(visibleArticles.map((a) => [a.id, a])), [visibleArticles]);
   const queue = [
-    ...gov.pendingProposals.slice(0, 2).map((p) => ({
-      key: p.id,
-      to: '/wiki/governance',
-      icon: <GitPullRequest className="wk-mini__icon" data-tone="warning" aria-hidden="true" />,
-      title: byId.get(p.articleId)?.title ?? p.proposedTitle,
-      meta: `Change proposal · ${relativeTime(p.createdAt)}`,
-    })),
+    ...gov.pendingProposals.slice(0, 2).map((p) => {
+      const article = byId.get(p.articleId);
+      return {
+        key: p.id,
+        to: `/wiki/governance?proposal=${p.id}`,
+        icon: <GitPullRequest className="wk-mini__icon" data-tone="warning" aria-hidden="true" />,
+        title: article?.title ?? p.proposedTitle,
+        meta: `Change proposal · ${relativeTime(p.createdAt)}`,
+        track: (
+          <ProposalTracker
+            proposal={p}
+            article={article}
+            space={spaces.find((s) => s.id === article?.spaceId)}
+            variant="compact"
+            className="wk-mini__track"
+          />
+        ),
+      };
+    }),
     ...gov.attentionArticles.slice(0, 2).map(({ article, freshness }) => ({
       key: article.id,
       to: `/wiki/doc/${article.slug}`,
       icon: <FreshDot article={article} />,
       title: article.title,
       meta: freshness.label,
+      track: <FreshnessTracker article={article} variant="compact" className="wk-mini__track" />,
     })),
   ].slice(0, 3);
 
@@ -521,6 +536,7 @@ function GovernancePanel() {
               <span className="wk-mini__text">
                 <span className="wk-mini__title">{q.title}</span>
                 <span className="wk-mini__meta">{q.meta}</span>
+                {q.track}
               </span>
             </Link>
           ))}

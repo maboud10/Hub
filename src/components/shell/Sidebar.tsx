@@ -41,7 +41,7 @@ export function Sidebar() {
   const location = useLocation();
   const allowed = useNavAllowed();
   const prefs = usePrefs();
-  const { collapsed, toggle } = useSidebarState();
+  const { collapsed, immersive, toggle } = useSidebarState();
   const reviewable = useReviewableRequests();
   const accessMap = useAppAccessMap();
   const launch = useLaunchApp();
@@ -72,7 +72,7 @@ export function Sidebar() {
   const system = NAV_ITEMS.filter((i) => i.group === 'system' && allowed(i));
 
   return (
-    <aside className="sidebar" aria-label="Primary">
+    <aside className="sidebar" id="hub-sidebar" aria-label="Primary">
       <div className="sidebar__brand">
         <NavLink to="/" aria-label="NEXUS home">
           <BrandMark />
@@ -115,8 +115,8 @@ export function Sidebar() {
         <button
           className="icon-btn icon-btn--sm collapse-btn"
           onClick={toggle}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          data-tip={collapsed ? 'Expand' : 'Collapse'}
+          aria-label={immersive ? 'Close hub menu' : collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          data-tip={immersive ? 'Close' : collapsed ? 'Expand' : 'Collapse'}
           data-tip-pos="right"
         >
           {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}

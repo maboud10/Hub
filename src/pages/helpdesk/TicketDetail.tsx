@@ -1,22 +1,25 @@
 /**
- * Ticket detail — header with live SLA rings, conversation timeline,
- * composer, requester/agent actions and a details inspector.
+ * Ticket detail — header with live SLA rings, the live "Fix tracker",
+ * conversation timeline, composer, requester/agent actions and a details
+ * inspector.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
-import { ArrowLeft, CheckCircle2, Copy, Lock, MessageSquareText, MoreHorizontal, PanelRight, RotateCcw, ShieldAlert, Link2, TicketX, UserCheck, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Copy, Lock, MessageSquareText, MoreHorizontal, PanelRight, Reply, RotateCcw, ShieldAlert, Link2, TicketX, UserCheck, X } from 'lucide-react';
 import { NeoEmpty, NeoHead, NeoMenu, NeoStage, Typing, type MenuEntry } from '@/components/neo';
 import { relativeTime } from '@/lib/format';
 import { burstConfetti } from '@/lib/confetti';
 import { cx } from '@/lib/cx';
 import { toast } from '@/store/toast';
 import { useHotkeys } from '@/hooks/useHotkeys';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useHub } from '@/store/hub';
 import { useHelpdesk } from '@/helpdesk/store';
 import { canViewTicket, canWorkTicket } from '@/helpdesk/access';
 import { CATEGORY_LABEL } from '@/helpdesk/meta';
 import { firstNameOf } from '@/helpdesk/util';
 import { CsatCard, Composer, ResolveModal, TicketFacts, Timeline, useTicketBridges } from './Conversation';
+import { FixTracker } from './trackers';
 import { SlaPair, StatusPill, useViewer } from './ui';
 
 const wide = () => typeof window !== 'undefined' && window.innerWidth > 1100;
@@ -30,6 +33,7 @@ export function TicketDetailView() {
   const bridges = useTicketBridges();
   const [inspector, setInspector] = useState(wide);
   const [resolveOpen, setResolveOpen] = useState(false);
+  const mobile = useIsMobile();
   const scroller = useRef<HTMLDivElement>(null);
   const eventsCount = ticket?.events.length ?? 0;
 
@@ -193,6 +197,21 @@ export function TicketDetailView() {
       />
       <div className={cx('neo-split hd-fill hd-tsplit', !inspector && 'is-solo')}>
         <div className="hd-convo">
+          <div className="hd-fixstrip">
+            <FixTracker
+              ticket={ticket}
+              requester={isRequester}
+              compact={mobile}
+              note={mobile}
+              actions={
+                isRequester && ticket.status === 'waiting' ? (
+                  <button type="button" className="neo-btn neo-btn--soft neo-btn--sm" onClick={() => document.querySelector<HTMLTextAreaElement>('[data-qa="composer"]')?.focus()} data-qa="tracker-reply">
+                    <Reply /> <span className="neo-btn__label">Reply now</span>
+                  </button>
+                ) : undefined
+              }
+            />
+          </div>
           <div className="neo-body hd-convo__scroll" ref={scroller}>
             <div className="hd-convo__inner">
               <Timeline ticket={ticket} viewer={viewer} />

@@ -56,7 +56,11 @@ export function HomePage() {
   const [filter, setFilter] = useState<HomeFilter>('all');
 
   const granted = useMemo(() => apps.filter((a) => a.access === 'granted'), [apps]);
-  const discover = useMemo(() => apps.filter((a) => a.access === 'locked' || a.access === 'pending'), [apps]);
+  // In-flight requests lead Discover so their live trackers always make the visible slice.
+  const discover = useMemo(
+    () => apps.filter((a) => a.access === 'locked' || a.access === 'pending').sort((a, b) => Number(b.access === 'pending') - Number(a.access === 'pending')),
+    [apps],
+  );
   const categories = APP_CATEGORIES.filter((c) => granted.some((g) => g.app.category === c));
   const pinnedCount = prefs.pinned.filter((id) => granted.some((g) => g.app.id === id)).length;
 

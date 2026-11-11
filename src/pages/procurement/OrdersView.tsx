@@ -34,6 +34,7 @@ import { useHub } from '@/store/hub';
 import { formatAed, formatUsd } from '@/procurement/engine';
 import { useProcurement } from '@/procurement/store';
 import type { ThreeWayMatchStatus } from '@/procurement/types';
+import { PoTracker } from './PurchaseTracker';
 
 type MatchFilter = 'all' | ThreeWayMatchStatus;
 
@@ -246,6 +247,8 @@ export function OrdersView() {
                   <div className="pr-constellation-subamount">
                     {formatAed(po.poAmountUsd)} · {po.orderedUnits} {po.unitLabel}
                   </div>
+                  {/* PO journey: issued → receipt → invoice → 3-way match → ledger */}
+                  <PoTracker po={po} />
                 </div>
               </div>
 

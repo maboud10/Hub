@@ -1,12 +1,13 @@
 /**
  * Bonuses & spot awards — variable-pay HUD ribbon, four-eyes approval queue,
- * department pool burn, award mix and the full variable-pay ledger.
+ * department pool burn, award mix and the full variable-pay ledger (each award
+ * with a compact bonus tracker).
  */
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Award, CheckCircle2, Clock, Plus, Search, ShieldAlert, ShieldCheck, Sparkles, TrendingUp, XCircle } from 'lucide-react';
 import { canDecideBonus } from '@/payroll/access';
 import { BONUS_KIND_META, formatPeriodLabel, periodFromTimestamp } from '@/payroll/engine';
-import { useCompReport, usePayrollCaps } from '@/payroll/selectors';
+import { useCompReport, useLivePayrollRuns, usePayrollCaps } from '@/payroll/selectors';
 import { usePayroll } from '@/payroll/store';
 import type { BonusAward, BonusKind, BonusStatus } from '@/payroll/types';
 import { useHub } from '@/store/hub';
@@ -14,7 +15,8 @@ import { toast } from '@/store/toast';
 import { pluralize, relativeTime } from '@/lib/format';
 import { Avatar } from '@/components/ui/primitives';
 import { Bar, Chip, NeoEmpty, NeoHome, NeoKpi, NeoKpis, NeoPanel, NeoSearch, NeoTabs } from '@/components/neo';
-import { BONUS_STATUS_META, compactAed, formatAed, KindChip, NominateBonusModal } from './shared';
+import { compactAed, formatAed, KindChip, NominateBonusModal } from './shared';
+import { BonusTracker } from './trackers';
 
 const KINDS: BonusKind[] = ['performance', 'spot', 'signing', 'milestone', 'retention'];
 
@@ -45,6 +47,8 @@ export function BonusesView() {
   const [showAllBurn, setShowAllBurn] = useState(false);
 
   const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+  const runs = useLivePayrollRuns();
+  const runByPeriod = useMemo(() => new Map(runs.map((r) => [r.period, r])), [runs]);
   const pCurrent = useMemo(() => periodFromTimestamp(Date.now(), 0), []);
   const pNext = useMemo(() => periodFromTimestamp(Date.now(), 1), []);
   const currentYearPrefix = String(new Date().getFullYear());
@@ -414,7 +418,6 @@ export function BonusesView() {
                   const recipient = userById.get(b.userId);
                   const nominator = userById.get(b.nominatedBy);
                   const decider = b.decidedBy ? userById.get(b.decidedBy) : undefined;
-                  const statusMeta = BONUS_STATUS_META[b.status];
                   return (
                     <tr key={b.id}>
                       <td>
@@ -453,9 +456,7 @@ export function BonusesView() {
                         <span className="py-amt py-amt--net">{formatAed(b.amountAed)}</span>
                       </td>
                       <td>
-                        <Chip size="sm" tone={statusMeta.tone}>
-                          {statusMeta.label}
-                        </Chip>
+                        <BonusTracker bonus={b} run={runByPeriod.get(b.payrollPeriod)} />
                       </td>
                     </tr>
                   );

@@ -29,6 +29,8 @@ const PerformancePage = lazy(() => import('@/pages/performance/PerformancePage')
 const ProcurementPage = lazy(() => import('@/pages/procurement/ProcurementPage').then((m) => ({ default: m.ProcurementPage })));
 const CrmPage = lazy(() => import('@/pages/crm/CrmPage').then((m) => ({ default: m.CrmPage })));
 const InsightsPage = lazy(() => import('@/pages/insights/InsightsPage').then((m) => ({ default: m.InsightsPage })));
+const MeetPage = lazy(() => import('@/pages/meet/MeetPage').then((m) => ({ default: m.MeetPage })));
+const CalendarPage = lazy(() => import('@/pages/calendar/CalendarPage').then((m) => ({ default: m.CalendarPage })));
 
 function TravelRedirect() {
   const loc = useLocation();
@@ -185,6 +187,22 @@ export default function App() {
             element={
               <RequirePermission perm="app:analytics" area="Insights">
                 <InsightsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="meet/*"
+            element={
+              <RequirePermission perm="app:meet" area="Helix Meet">
+                <MeetPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="calendar/*"
+            element={
+              <RequirePermission perm="app:calendar" area="Helix Calendar">
+                <CalendarPage />
               </RequirePermission>
             }
           />

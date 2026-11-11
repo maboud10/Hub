@@ -1,0 +1,974 @@
+/**
+ * Helix Calendar — "Chronos · Neural Time & Spatial Scheduling Orbit"
+ * Glassmorphic NEO Support Deck styles with logical RTL support.
+ *
+ * NEO type scale (px, same as every other app): section titles come from
+ * <NeoPanel> (Space Grotesk 15.5 / 650) with a .neo-hud eyebrow; card titles
+ * are h3 14 / 650; body 13; small 12; meta 11.5; HUD 10.5 mono caps.
+ * Radii: 18px panels & KPI cards, 14px inner cards, 12px nested boxes.
+ * Gaps: 16–18px between sections, 8–14px inside cards.
+ *
+ * Also loaded by Helix Meet (KPI, allocation and audit cards are shared), so
+ * colours come from NEO tokens and the active app plasma (--app-rgb /
+ * --app-rgb-2) instead of hard-coded hex — both themes, both apps.
+ */
+
+/* ---------- Shared accents (Calendar + Meet) ---------- */
+:is(.cal-page, .meet-page) {
+  --cal-link: #38bdf8;
+  --cal-link-rgb: 56 189 248;
+  --cal-ok: #34d399;
+  --cal-ok-rgb: 52 211 153;
+}
+
+[data-theme='light'] :is(.cal-page, .meet-page) {
+  --cal-link: #0369a1;
+  --cal-ok: #047857;
+}
+
+.cal-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Chips inside flex-column stacks keep their pill width. */
+:is(.cal-inspector__linked, .cal-inspector__section, .cal-weaver-field) > :is(.neo-chip, .neo-nova-chip) {
+  align-self: flex-start;
+}
+
+/* ---------- KPI cards (NeoKpi metrics) ---------- */
+.cal-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1100px) {
+  .cal-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .cal-kpi-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cal-kpi-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding: 14px 16px 15px;
+  border-radius: 18px;
+  background: var(--plane-2);
+  border: 1px solid var(--plane-border);
+  box-shadow: var(--plane-inset);
+}
+
+.cal-kpi-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cal-kpi-card__val {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2vw, 28px);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.cal-kpi-card__sub {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+
+/* ---------- Nova Chronos composer ---------- */
+.cal-nova-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cal-nova-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cal-nova-input {
+  flex: 1 1 240px;
+  width: auto;
+}
+
+.cal-nova-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cal-nova-chips .neo-suggest {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+
+.cal-nova-chips .neo-suggest svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--app-ink);
+}
+
+.cal-nova-chips .neo-suggest span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Chronos booking tracker (draft waiting for confirmation / booked) */
+.cal-nova-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgb(var(--app-rgb) / 0.11), rgb(var(--app-rgb-2) / 0.09));
+  border: 1px solid rgb(var(--app-rgb) / 0.32);
+}
+
+.cal-nova-draft.is-booked {
+  background: linear-gradient(135deg, rgb(var(--cal-ok-rgb) / 0.1), rgb(var(--app-rgb-2) / 0.07));
+  border-color: rgb(var(--cal-ok-rgb) / 0.34);
+}
+
+.cal-nova-draft__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--plane-border);
+}
+
+.cal-nova-draft__why {
+  flex: 1 1 280px;
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.cal-nova-draft__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Main split ---------- */
+.cal-main-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 1180px) {
+  .cal-main-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cal-timeline-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.cal-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ---------- Event timeline cards ---------- */
+.cal-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cal-event-card {
+  display: grid;
+  grid-template-columns: 112px auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--hover);
+  border: 1px solid var(--plane-border);
+  cursor: pointer;
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast),
+    box-shadow var(--dur);
+}
+
+.cal-event-card:hover {
+  background: var(--hover-2);
+  border-color: rgb(var(--app-rgb) / 0.35);
+}
+
+.cal-event-card.is-selected {
+  border-color: rgb(var(--app-rgb) / 0.6);
+  background: linear-gradient(135deg, rgb(var(--app-rgb) / 0.12), rgb(var(--app-rgb-2) / 0.08));
+  box-shadow:
+    0 0 0 3px rgb(var(--app-rgb) / 0.12),
+    var(--plane-inset);
+}
+
+.cal-event-card__time {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cal-event-card__hour {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cal-event-card__dur {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.cal-event-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.cal-event-card__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cal-linked-badge {
+  max-width: 100%;
+}
+
+.cal-linked-badge span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-signal-pill {
+  margin-inline-start: auto;
+  font-size: 11.5px;
+  color: var(--cal-ok);
+}
+
+.cal-event-card__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.cal-event-card__desc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.cal-event-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.cal-event-card__room {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.cal-event-card__room svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--app-ink);
+}
+
+@media (max-width: 720px) {
+  .cal-event-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .cal-event-card__time {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .cal-event-card__cta {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------- Inspector dossier ---------- */
+.cal-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cal-inspector__hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cal-inspector__time {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-ink);
+}
+
+.cal-inspector__room {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.cal-inspector__brief {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgb(var(--app-rgb-2) / 0.1);
+  border: 1px solid rgb(var(--app-rgb-2) / 0.3);
+}
+
+.cal-inspector__brief-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cal-inspector__brief-head .neo-mono {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.cal-inspector__brief p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.cal-inspector__linked,
+.cal-inspector__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cal-inspector__linked-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgb(var(--cal-link-rgb) / 0.1);
+  border: 1px solid rgb(var(--cal-link-rgb) / 0.3);
+  color: var(--text);
+  text-align: start;
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast);
+}
+
+.cal-inspector__linked-btn:hover {
+  background: rgb(var(--cal-link-rgb) / 0.16);
+  border-color: rgb(var(--cal-link-rgb) / 0.45);
+}
+
+.cal-inspector__linked-btn > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--cal-link);
+}
+
+.cal-inspector__linked-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cal-inspector__linked-text strong {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.cal-inspector__linked-text span {
+  font-size: 11.5px;
+  color: var(--cal-link);
+}
+
+.cal-inspector__agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-inline-start: 18px;
+  list-style: disc;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.cal-inspector__agenda li::marker {
+  color: var(--app-ink);
+}
+
+.cal-inspector__people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cal-person-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: var(--hover);
+  border: 1px solid var(--plane-border);
+}
+
+.cal-person-chip__name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cal-person-chip__tz {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.cal-shift-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cal-inspector__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+/* ---------- Global time-zone weaver ---------- */
+.cal-weaver-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 760px) {
+  .cal-weaver-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cal-weaver-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cal-hub-toggles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 960px) {
+  .cal-hub-toggles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.cal-hub-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--hover);
+  border: 1px solid var(--plane-border);
+  color: inherit;
+  text-align: start;
+  transition:
+    background var(--dur-fast),
+    border-color var(--dur-fast),
+    box-shadow var(--dur-fast);
+}
+
+.cal-hub-card:hover {
+  background: var(--hover-2);
+  border-color: var(--plane-border-2);
+}
+
+.cal-hub-card.is-active {
+  border-color: rgb(var(--app-rgb) / 0.6);
+  background: rgb(var(--app-rgb) / 0.12);
+  box-shadow: 0 0 0 3px rgb(var(--app-rgb) / 0.1);
+}
+
+.cal-hub-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 2px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.cal-hub-card__top svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+
+.cal-hub-card__check {
+  color: var(--app-ink);
+}
+
+.cal-hub-card__title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.cal-hub-card__lead {
+  display: block;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.cal-matrix-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-x: auto;
+}
+
+.cal-matrix-head,
+.cal-matrix-row {
+  display: grid;
+  grid-template-columns: repeat(4, 104px) minmax(220px, 1fr) 168px;
+  align-items: center;
+  gap: 12px;
+  min-width: 860px;
+  padding: 10px 14px;
+  border-radius: 12px;
+}
+
+.cal-matrix-head {
+  padding-block: 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.cal-matrix-row {
+  background: var(--hover);
+  border: 1px solid var(--plane-border);
+}
+
+.cal-matrix-row.is-golden {
+  background: linear-gradient(90deg, rgb(var(--cal-ok-rgb) / 0.13), rgb(var(--cal-link-rgb) / 0.06));
+  border-color: rgb(var(--cal-ok-rgb) / 0.36);
+}
+
+.cal-matrix-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.cal-sun-icon {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: #fbbf24;
+}
+
+.cal-matrix-harmony {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.cal-matrix-note {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+
+.cal-matrix-cta {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---------- Smart rooms & booking links ---------- */
+.cal-rooms-grid,
+.cal-links-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width: 1050px) {
+  .cal-rooms-grid,
+  .cal-links-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cal-room-card,
+.cal-link-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--hover);
+  border: 1px solid var(--plane-border);
+  transition: border-color var(--dur-fast);
+}
+
+.cal-room-card:hover,
+.cal-link-card:hover {
+  border-color: var(--plane-border-2);
+}
+
+.cal-room-card__head,
+.cal-link-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cal-room-card__title-wrap,
+.cal-link-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.cal-room-card__badges,
+.cal-link-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.cal-room-card__badges .neo-mono {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.cal-room-card__title,
+.cal-link-card__title {
+  margin: 0 0 3px;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.cal-room-card__meta,
+.cal-link-card__sub {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+
+.cal-inline-icon {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  vertical-align: -2px;
+}
+
+.cal-room-telemetry {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (max-width: 560px) {
+  .cal-room-telemetry {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.cal-telemetry-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--hover);
+  border: 1px solid var(--plane-border);
+}
+
+.cal-telemetry-item svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--app-ink);
+}
+
+.cal-telemetry-item div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cal-telemetry-item span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cal-telemetry-item small {
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--text-3);
+}
+
+.cal-room-equip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cal-room-card__foot,
+.cal-link-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--plane-border);
+}
+
+.cal-room-card__actions,
+.cal-link-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cal-link-slug {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--cal-link);
+}
+
+.cal-link-slug svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+
+.cal-link-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--hover);
+  border: 1px solid var(--plane-border);
+}
+
+.cal-link-metrics div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cal-link-metrics strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cal-link-hosts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ---------- Analytics & audit ---------- */
+.cal-alloc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cal-alloc-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cal-alloc-row__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.cal-alloc-row__head strong {
+  min-width: 0;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cal-alloc-row__head span:last-child {
+  margin-inline-start: auto;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+
+.cal-alloc-dot {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.cal-audit-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cal-audit-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--hover);
+  border: 1px solid var(--plane-border);
+}
+
+.cal-audit-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cal-audit-card__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.cal-audit-card p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.cal-audit-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}

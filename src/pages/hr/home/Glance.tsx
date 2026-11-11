@@ -1,8 +1,9 @@
 /**
  * HR Home · at-a-glance widgets: time-off snapshot (annual + work-from-anywhere
- * rings and your next break), next payday + latest net pay (masked until you
- * choose to show it), benefits status, upcoming public holidays with a
- * long-break idea, and who's away on your team this week.
+ * rings, your next break and a compact tracker for the request you're waiting
+ * on), next payday + latest net pay (masked until you choose to show it),
+ * benefits status (tracked while People Ops confirms it), upcoming public
+ * holidays with a long-break idea, and who's away on your team this week.
  */
 import { useMemo, useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from 'react-router';
@@ -13,12 +14,14 @@ import { COMPANY_PREMIUM, nextPayDate } from '@/hr/engine';
 import { addDaysISO, daysBetween, eachDay, formatDay, holidaySet, isWeekend, parseISODate, startOfWeek, todayISO } from '@/hr/calendar';
 import { useHr } from '@/hr/store';
 import { useAbsences, useAllowanceUsage, useBalances, useHolidays, usePayslips, type Absence } from '@/hr/selectors';
+import { electionTrack, leaveTrack } from '@/hr/trackers';
 import { useSessionUser, useUserById } from '@/store/selectors';
 import { useNow } from '@/hooks/useNow';
 import { Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/cx';
 import { formatMoney } from '@/pages/talent/components/format';
 import { AllLink, BalanceRing, HrPanel, LeaveTypeBadge, ToneBadge } from '../components/shared';
+import { HrTracker, useTrackContext } from '../components/trackers';
 import { fmtRange } from './format';
 
 const inDays = (n: number) => (n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`);
@@ -49,13 +52,15 @@ export function TimeOffWidget() {
   const balances = useBalances();
   const leave = useHr((s) => s.leave);
   const now = useNow(60_000);
+  const trackCtx = useTrackContext();
   const today = todayISO(now);
   const annual = balances.find((b) => b.type === 'annual');
   const wfa = balances.find((b) => b.type === 'wfa');
-  const { next, pending } = useMemo(() => {
+  const { next, pending, waiting } = useMemo(() => {
     const mine = me ? leave.filter((r) => r.userId === me.id && r.end >= today) : [];
     const approved: LeaveRequest[] = mine.filter((r) => r.status === 'approved').sort((a, b) => a.start.localeCompare(b.start));
-    return { next: approved[0], pending: mine.filter((r) => r.status === 'pending').length };
+    const open = mine.filter((r) => r.status === 'pending').sort((a, b) => a.start.localeCompare(b.start));
+    return { next: approved[0], pending: open.length, waiting: open[0] };
   }, [leave, me, today]);
   const prorated = !!annual && annual.allowance !== null && annual.allowance < 25;
 
@@ -95,9 +100,12 @@ export function TimeOffWidget() {
             )}
           </div>
           {pending > 0 && (
-            <span className="hr-home-to__pending">
-              {pending} request{pending === 1 ? '' : 's'} awaiting approval
-            </span>
+            <div className="hr-trk-slot is-compact hr-home-to__track">
+              {waiting && <HrTracker track={leaveTrack(waiting, trackCtx)} variant="compact" />}
+              <span className="hr-home-to__pending">
+                {pending} request{pending === 1 ? '' : 's'} awaiting approval
+              </span>
+            </div>
           )}
           <button type="button" className="btn btn--primary btn--sm" onClick={() => navigate('/hr/time-off?new=1')}>
             <Plane /> Request time off
@@ -188,6 +196,7 @@ export function BenefitsWidget() {
   const navigate = useNavigate();
   const me = useSessionUser();
   const now = useNow(60_000);
+  const trackCtx = useTrackContext();
   const year = new Date(now).getFullYear();
   const election = useHr((s) => (me ? s.elections.find((e) => e.userId === me.id && e.year === year) : undefined));
   const usage = useAllowanceUsage();
@@ -235,6 +244,11 @@ export function BenefitsWidget() {
             </ToneBadge>
             {status === 'submitted' && <span className="text-xs faint">Usually confirmed within a day.</span>}
           </span>
+          {status === 'submitted' && election && (
+            <div className="hr-trk-slot is-compact">
+              <HrTracker track={electionTrack(election, trackCtx)} variant="compact" />
+            </div>
+          )}
         </div>
       )}
       <Link to="/hr/benefits?claim=1" className="hr-home-ben__allow">

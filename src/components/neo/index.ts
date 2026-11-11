@@ -8,3 +8,4 @@ export * from './Workspace';
 export * from './Controls';
 export * from './Bits';
 export * from './Kit';
+export * from './Tracker';

@@ -28,7 +28,8 @@ import { canDirectEdit, canProposeEdit, canReadArticle, canReadSpace } from '@/w
 import { ARTICLE_TEMPLATES } from '@/wiki/constants';
 import { useWikiCaps, useWikiViewer } from '@/wiki/selectors';
 import { useWiki } from '@/wiki/store';
-import type { ArticleSection, SpaceId } from '@/wiki/types';
+import type { ArticleSection, ChangeProposal, SpaceId } from '@/wiki/types';
+import { ProposalTracker, useMyArticleProposals } from './wikiTrackers';
 import { DocSection, SpaceBoundaryCard, SpacePill, WikiHeadActions } from './wikiUi';
 
 interface EditableSection {
@@ -177,6 +178,12 @@ export function ArticleEditor({ mode }: { mode: 'create' | 'edit' }) {
     }
   }, [mode, existingArticle, directAllowed, searchParams]);
 
+  /** Your latest proposal on this page (pending, or decided in the last 14 days) — shown in the mode banner. */
+  const myLatestProposal: ChangeProposal | undefined = useMyArticleProposals(
+    mode === 'edit' ? existingArticle?.id : undefined,
+    1,
+  )[0];
+
   // Contractor / Read-only gate
   if (!caps.canWrite) {
     return (
@@ -305,7 +312,7 @@ export function ArticleEditor({ mode }: { mode: 'create' | 'edit' }) {
         proposedSections: builtSections,
       });
       if (toast.result(res)) {
-        navigate('/wiki/governance');
+        navigate(res.proposalId ? `/wiki/governance?proposal=${res.proposalId}` : '/wiki/governance');
       }
       return;
     }
@@ -379,6 +386,17 @@ export function ArticleEditor({ mode }: { mode: 'create' | 'edit' }) {
                 label="Submit as Change Proposal for four-eyes review"
               />
             </label>
+          )}
+
+          {/* Your proposal already in flight on this page (or its recent outcome) */}
+          {myLatestProposal && (
+            <ProposalTracker
+              proposal={myLatestProposal}
+              article={existingArticle}
+              space={existingSpace}
+              variant="bare"
+              title={myLatestProposal.summary}
+            />
           )}
         </div>
       )}

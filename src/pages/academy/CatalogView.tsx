@@ -17,6 +17,7 @@ import { useHub } from '@/store/hub';
 import { useHotkeys } from '@/hooks/useHotkeys';
 import { cx } from '@/lib/cx';
 import { CourseCard, ProgressRing, TrackBadge, usePatchParams, useParamText } from './shared';
+import { PathTrackerCompact } from './trackers';
 
 const LEVEL_OPTIONS: { id: 'all' | CourseLevel; label: string }[] = [
   { id: 'all', label: 'All levels' },
@@ -262,6 +263,8 @@ export function CatalogView() {
                     </span>
                     <span>· {totalMins} mins total</span>
                   </div>
+
+                  <PathTrackerCompact items={items} label={path.title} />
 
                   <ol className="ac-steps">
                     {items.map((step, idx) => {

@@ -1,7 +1,7 @@
 /**
- * Requests — my requests with live approval steppers, manager/IT/Security
- * approvals (`?tab=approvals`) and IT fulfilment (`?tab=fulfil`).
- * `?r=REQ-…` deep links highlight a request.
+ * Requests — my requests with live request trackers (approvals → fulfilment →
+ * delivery), manager/IT/Security approvals (`?tab=approvals`) and IT
+ * fulfilment (`?tab=fulfil`). `?r=REQ-…` deep links highlight a request.
  */
 import { useEffect, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -13,9 +13,10 @@ import { cx } from '@/lib/cx';
 import { useHub } from '@/store/hub';
 import { useHelpdesk } from '@/helpdesk/store';
 import type { CatalogItem, CatalogRequest, RequestStatus } from '@/helpdesk/types';
-import { fulfilmentQueue, requestsAwaiting, waitingOn } from '@/helpdesk/queries';
-import { ApprovalStepper, ItemVisual, priceLabel } from './catalogParts';
+import { fulfilmentQueue, requestsAwaiting } from '@/helpdesk/queries';
+import { ItemVisual, priceLabel } from './catalogParts';
 import { ApprovalCard, FulfilCard, OptionChips } from './requestCards';
+import { RequestTracker } from './trackers';
 import { Person, plural, useViewer } from './ui';
 
 type Tab = 'mine' | 'approvals' | 'fulfil';
@@ -91,7 +92,7 @@ export function RequestsView() {
             <div className="hd-reqlist neo-stagger">
               {mine.map((r, i) => {
                 const item = itemOf(r);
-                return item ? <MyRequest key={r.id} r={r} item={item} i={i} highlight={r.id === highlight} waiting={waitingOn(r, users)} /> : null;
+                return item ? <MyRequest key={r.id} r={r} item={item} i={i} highlight={r.id === highlight} /> : null;
               })}
             </div>
           ))}
@@ -120,6 +121,7 @@ export function RequestsView() {
                   return (
                     <div key={r.id} className="hd-decided__row">
                       <Person userId={r.requesterId} size={26} sub={item?.name} />
+                      {item ? <RequestTracker r={r} item={item} requester={false} compact className="hd-decided__track" /> : <span className="hd-decided__track" />}
                       <span className="hd-reqstatus" data-s={mineStep?.state === 'denied' ? 'denied' : 'approved'}>
                         {mineStep?.state === 'denied' ? 'Declined' : 'Approved'}
                       </span>
@@ -151,7 +153,7 @@ export function RequestsView() {
 
 const isLive = (r: CatalogRequest) => r.status === 'pending' || r.status === 'approved';
 
-function MyRequest({ r, item, i, highlight, waiting }: { r: CatalogRequest; item: CatalogItem; i: number; highlight: boolean; waiting: string }) {
+function MyRequest({ r, item, i, highlight }: { r: CatalogRequest; item: CatalogItem; i: number; highlight: boolean }) {
   const denied = r.steps.find((s) => s.state === 'denied');
   const cancel = () => {
     const res = useHelpdesk.getState().cancelRequest(r.id);
@@ -174,11 +176,10 @@ function MyRequest({ r, item, i, highlight, waiting }: { r: CatalogRequest; item
           {STATUS_TEXT[r.status]}
         </span>
       </header>
-      <ApprovalStepper steps={r.steps} status={r.status} createdAt={r.createdAt} fulfilledAt={r.fulfilment?.at} />
+      <RequestTracker r={r} item={item} bare />
       <footer className="hd-req__foot">
         <div className="hd-req__info">
           <OptionChips r={r} />
-          {r.status === 'pending' && waiting && <span className="hd-req__wait">Waiting on {waiting}</span>}
           {denied?.note && <span className="hd-req__note">“{denied.note}”</span>}
           {r.fulfilment && (
             <span className="hd-req__done">

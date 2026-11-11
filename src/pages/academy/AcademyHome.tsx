@@ -29,9 +29,11 @@ import {
 } from '@/components/neo';
 import { TRACK_META } from '@/academy/constants';
 import { useAcademyCaps, useMyLearning, useTeamCompliance } from '@/academy/selectors';
+import { useAcademy } from '@/academy/store';
 import { useHub } from '@/store/hub';
 import { useSessionUser } from '@/store/selectors';
 import { useTalent } from '@/talent/store';
+import { addDaysISO } from '@/hr/calendar';
 import { firstName, formatDate } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import {
@@ -47,15 +49,16 @@ import {
   useCertParam,
   useNovaPick,
 } from './shared';
+import {
+  CourseTrackerCompact,
+  ONBOARDING_PHASE_LABEL,
+  OnboardingTracker,
+  PathTrackerCompact,
+  onboardingPhaseRank,
+  type OnboardingMilestone,
+} from './trackers';
 
-const PHASE_LABEL: Record<string, string> = {
-  'pre-boarding': 'Pre-boarding',
-  'day-1': 'Day 1',
-  'week-1': 'Week 1',
-  'day-30': 'Day 30',
-  'day-60': 'Day 60',
-  'day-90': 'Day 90',
-};
+const PHASE_LABEL = ONBOARDING_PHASE_LABEL;
 
 const NOVA_SUGGESTIONS = [
   'Passkeys & zero-trust',
@@ -68,6 +71,7 @@ export function AcademyHome() {
   const me = useSessionUser();
   const users = useHub((s) => s.users);
   const journeys = useTalent((s) => s.onboarding);
+  const rules = useAcademy((s) => s.rules);
   const navigate = useNavigate();
   const caps = useAcademyCaps();
   const { all, active, requiredOpen, certificates, totalXp, rank, radar, paths } = useMyLearning();
@@ -96,7 +100,7 @@ export function AcademyHome() {
     if (!journey && onboardingEnrollments.length === 0) return null;
 
     // Build Day-1 -> Day-30 training checklist items
-    const checklist = journey
+    const checklist: (OnboardingMilestone & { phase: string })[] = journey
       ? journey.tasks
           .filter((t) => !!t.courseId)
           .map((t) => {
@@ -104,25 +108,34 @@ export function AcademyHome() {
             const done = t.done || enriched?.enrollment?.status === 'completed';
             return {
               id: t.id,
+              phaseKey: t.phase,
               phase: PHASE_LABEL[t.phase] ?? t.phase,
               title: enriched?.course.title ?? t.title,
               courseId: t.courseId!,
               done,
+              item: enriched,
+              dueDate: enriched?.enrollment?.dueDate ?? addDaysISO(journey.startDate, t.dueOffsetDays),
             };
           })
       : [];
 
     for (const item of onboardingEnrollments) {
       if (!checklist.some((c) => c.courseId === item.course.id)) {
+        // Phase from the auto-assign rule that enrolled it (falls back to Day 30).
+        const phaseKey = rules.find((r) => r.courseId === item.course.id)?.phase ?? 'day-30';
         checklist.push({
           id: item.enrollment!.id,
-          phase: 'Day 30',
+          phaseKey,
+          phase: PHASE_LABEL[phaseKey],
           title: item.course.title,
           courseId: item.course.id,
           done: item.enrollment!.status === 'completed',
+          item,
+          dueDate: item.enrollment!.dueDate,
         });
       }
     }
+    checklist.sort((a, b) => onboardingPhaseRank(a.phaseKey) - onboardingPhaseRank(b.phaseKey));
 
     const doneCount = checklist.filter((c) => c.done).length;
     return {
@@ -131,7 +144,7 @@ export function AcademyHome() {
       doneCount,
       totalCount: checklist.length,
     };
-  }, [me, journeys, all]);
+  }, [me, journeys, all, rules]);
 
   // Recommended next courses (not yet enrolled, prioritizing Nova pick, featured & XP)
   const recommended = useMemo(() => {
@@ -275,6 +288,11 @@ export function AcademyHome() {
                 <p className="ac-panel-lead">
                   Every certification quiz you pass here automatically ticks off the matching milestone on your HR Portal onboarding checklist and endorses your NEXUS profile skills.
                 </p>
+                <OnboardingTracker
+                  milestones={onboardingCtx.checklist}
+                  managerId={me?.managerId ?? onboardingCtx.journey?.managerId}
+                  viewerId={me?.id}
+                />
                 <div className="ac-onb-steps">
                   {onboardingCtx.checklist.map((step) => (
                     <button
@@ -321,13 +339,12 @@ export function AcademyHome() {
               ) : (
                 <div className="ac-queue-list">
                   {active.map((item) => {
-                    const { course, enrollment, progressPct, daysUntilDue, overdue, dueSoon } = item;
+                    const { course, enrollment, daysUntilDue, overdue, dueSoon } = item;
                     const assigner = enrollment?.assignedBy
                       ? users.find((u) => u.id === enrollment.assignedBy)
                       : undefined;
                     const started =
                       (enrollment?.completedLessonIds.length ?? 0) > 0 || enrollment?.status === 'in-progress';
-                    const totalStages = course.lessons.length + (course.quiz.length ? 1 : 0);
 
                     return (
                       <article
@@ -377,14 +394,7 @@ export function AcademyHome() {
                         )}
 
                         <div className="ac-course-row__foot">
-                          <div className="ac-progress-inline">
-                            <div className="ac-bar" style={{ '--th': course.hue } as CSSProperties}>
-                              <i style={{ width: `${Math.max(4, progressPct)}%` }} />
-                            </div>
-                            <span className="mono text-xs muted">
-                              {enrollment?.completedLessonIds.length ?? 0}/{totalStages} stages · {progressPct}%
-                            </span>
-                          </div>
+                          <CourseTrackerCompact course={course} enrollment={enrollment} status />
 
                           <div className="row" style={{ gap: 10 }}>
                             <span className="mono text-xs faint">
@@ -465,7 +475,7 @@ export function AcademyHome() {
                     <Link
                       key={path.id}
                       to={nextCourse ? `/academy/course/${nextCourse.id}` : '/academy/catalog'}
-                      className="ac-side-row neo-spot"
+                      className="ac-side-row ac-side-row--path neo-spot"
                       style={{ '--th': path.hue } as CSSProperties}
                     >
                       <ProgressRing pct={pct} hue={path.hue} size={42} stroke={3.5} />
@@ -480,6 +490,7 @@ export function AcademyHome() {
                         <div className="ac-side-row__sub">{path.badgeTitle}</div>
                       </div>
                       <ArrowRight size={14} className="ac-side-row__chev" />
+                      <PathTrackerCompact items={items} label={path.title} className="ac-side-row__trk" />
                     </Link>
                   );
                 })}

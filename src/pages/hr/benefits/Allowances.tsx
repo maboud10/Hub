@@ -1,7 +1,9 @@
 /**
  * Allowances & claims: a budget meter per allowance (spent · pending · left)
  * with examples and a one-tap claim, plus the claims history from receipt to
- * payslip (status, reviewer note and the payroll it was paid with).
+ * payslip (status, reviewer note and the payroll it was paid with). Each claim
+ * carries its tracker (receipt check → payroll → paid): full while it is in
+ * flight, a compact bar once paid or declined.
  */
 import { useMemo, type CSSProperties } from 'react';
 import { Paperclip, Plus, Receipt, Wallet } from 'lucide-react';
@@ -11,11 +13,13 @@ import { ALLOWANCE_BY_ID, ALLOWANCES, CLAIM_STATUS_META } from '@/hr/constants';
 import type { AllowanceUsage } from '@/hr/engine';
 import { useHr } from '@/hr/store';
 import { useAllowanceUsage } from '@/hr/selectors';
+import { claimTrack, type TrackContext } from '@/hr/trackers';
 import { formatDay } from '@/hr/calendar';
 import { useSessionUser, useUserById } from '@/store/selectors';
 import { relativeTime } from '@/lib/format';
 import { EmptyState } from '@/components/ui/primitives';
 import { HrPanel, ToneBadge } from '../components/shared';
+import { HrTracker, useTrackContext } from '../components/trackers';
 import { aed, ALLOWANCES_TOTAL, money, payrollLabel } from './model';
 
 const pct = (part: number, whole: number) => (whole > 0 ? Math.max(0, Math.min(100, (part / whole) * 100)) : 0);
@@ -102,6 +106,7 @@ export function ClaimsHistory({ onClaim }: { onClaim: (allowance?: AllowanceId) 
   const claims = useHr((s) => s.claims);
   const mine = useMemo(() => (me ? claims.filter((c) => c.userId === me.id).sort((a, b) => b.createdAt - a.createdAt) : []), [claims, me]);
   const pending = mine.filter((c) => c.status === 'submitted').length;
+  const trackCtx = useTrackContext();
   return (
     <HrPanel
       className="hr-bn-claims-panel"
@@ -125,7 +130,7 @@ export function ClaimsHistory({ onClaim }: { onClaim: (allowance?: AllowanceId) 
       ) : (
         <ul className="hr-bn-claims">
           {mine.map((c) => (
-            <ClaimRow key={c.id} claim={c} />
+            <ClaimRow key={c.id} claim={c} trackCtx={trackCtx} />
           ))}
         </ul>
       )}
@@ -133,11 +138,12 @@ export function ClaimsHistory({ onClaim }: { onClaim: (allowance?: AllowanceId) 
   );
 }
 
-function ClaimRow({ claim }: { claim: BenefitClaim }) {
+function ClaimRow({ claim, trackCtx }: { claim: BenefitClaim; trackCtx: TrackContext }) {
   const meta = ALLOWANCE_BY_ID[claim.allowance];
   const status = CLAIM_STATUS_META[claim.status];
   const reviewer = useUserById(claim.reviewerId);
   const payroll = payrollLabel(claim.payrollMonth);
+  const track = claimTrack(claim, trackCtx);
   const Icon = meta.icon;
   const detail =
     claim.status === 'submitted'
@@ -172,7 +178,17 @@ function ClaimRow({ claim }: { claim: BenefitClaim }) {
       <div className="hr-bn-claim__status">
         <ToneBadge tone={status.tone}>{status.label}</ToneBadge>
         <span className="hr-bn-claim__detail">{detail}</span>
+        {!track.inFlight && (
+          <div className="hr-trk-slot is-compact">
+            <HrTracker track={track} />
+          </div>
+        )}
       </div>
+      {track.inFlight && (
+        <div className="hr-trk-slot is-full hr-bn-claim__track">
+          <HrTracker track={track} />
+        </div>
+      )}
       {claim.note && (
         <blockquote className="hr-bn-claim__note">
           “{claim.note}”{reviewer && <cite> {reviewer.name.split(' ')[0]}, People Ops</cite>}

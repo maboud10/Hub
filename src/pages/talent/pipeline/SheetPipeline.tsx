@@ -1,8 +1,9 @@
 /**
  * Candidate sheet · Pipeline tab: one panel per application in scope with the
- * 8-step tracker, what-happens-next actions, the gate checklist for the next
- * stage, decision / close-out notes, the interview loop and the explainable
- * match (reasons, breakdown, must-have coverage).
+ * live journey tracker (plus the onboarding tracker once hired), what-happens-
+ * next actions, the gate checklist for the next stage, decision / close-out
+ * notes, the interview loop and the explainable match (reasons, breakdown,
+ * must-have coverage).
  */
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
@@ -22,7 +23,7 @@ import { EngineBadge, MatchRing, NextActionButton, PeopleStack, PersonChip, ReqS
 import { daysInStage, fmtDay, fmtRelativeDay, slaState } from '../components/format';
 import { GateChecklist } from './GateChecklist';
 import { MoveMenu } from './MoveMenu';
-import { StageTracker } from './StageTracker';
+import { CandidateJourneyTracker, OnboardingTracker } from '../trackers';
 import { actionVerdict, isClosedApp, nextStageOf, stageVars } from './pipelineUtils';
 
 const BREAKDOWN: { key: keyof MatchResult['breakdown']; label: string }[] = [
@@ -84,6 +85,7 @@ function ApplicationPanel({ app, candName }: { app: Application; candName: strin
   const interviews = useTalent((s) => s.interviews);
   const scorecards = useTalent((s) => s.scorecards);
   const reopen = useTalent((s) => s.reopenApplication);
+  const journey = useTalent((s) => (app.status === 'hired' ? s.onboarding.find((j) => j.applicationId === app.id) : undefined));
   const loop = useMemo(() => interviews.filter((i) => i.applicationId === app.id).sort((a, b) => a.scheduledAt - b.scheduledAt), [interviews, app.id]);
   const cards = useMemo(() => scorecards.filter((s) => s.applicationId === app.id), [scorecards, app.id]);
   const next = nextStageOf(app.stage);
@@ -122,7 +124,8 @@ function ApplicationPanel({ app, candName }: { app: Application; candName: strin
         <StageBadge stage={shownStage} size="md" />
       </header>
 
-      <StageTracker app={app} />
+      <CandidateJourneyTracker app={app} now={now} bare hud={false} title={false} className="tl-sheet-app__track" />
+      {journey && <OnboardingTracker journey={journey} now={now} bare className="tl-sheet-app__track tl-sheet-app__onb" />}
 
       <div className="tl-sheet-app__meta">
         {app.status === 'active' && (

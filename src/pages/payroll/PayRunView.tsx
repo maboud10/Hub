@@ -1,5 +1,5 @@
 /**
- * Pay run — home of the Payday deck. A four-step payday stepper with stage
+ * Pay run — home of the Payday deck. The Payday tracker (NeoTracker) with stage
  * actions, the gross → net composition, the four-eyes audit trail, the WPS
  * bank file and the filterable employee pay register (payslip + one-off
  * adjustment dialog). Period-level summaries live in the shell's HUD ribbon.
@@ -50,16 +50,10 @@ import {
   shortPeriodLabel,
   WpsSifModal,
 } from './shared';
+import { PaydayTracker } from './trackers';
 
 type RegisterFilter = 'all' | 'variance' | 'bonus' | 'reimbursement';
 type StepState = 'done' | 'active' | 'todo';
-
-const STAGES: Array<{ step: 1 | 2 | 3 | 4; icon: ReactNode; title: string; desc: string }> = [
-  { step: 1, icon: <RefreshCw />, title: 'Draft & live sync', desc: 'HR comp, pro-rata, leave, T&E and bonuses' },
-  { step: 2, icon: <ShieldCheck />, title: 'Four-eyes sign-off', desc: 'Independent Finance or People Ops counter-sign' },
-  { step: 3, icon: <FileCode2 />, title: 'WPS bank file', desc: 'Inspect and export the Central Bank .SIF' },
-  { step: 4, icon: <Banknote />, title: 'Disbursed', desc: 'Batch settled, payslips live in HR Portal' },
-];
 
 const sumBy = <T,>(list: T[], pick: (x: T) => number) => list.reduce((s, x) => s + pick(x), 0);
 const pct = (part: number, whole: number) => (whole > 0 ? (part / whole) * 100 : 0);
@@ -220,7 +214,6 @@ export function PayRunView() {
     );
   }
 
-  const currentStage = RUN_STATUS_META[activeRun.status].step;
   const isSelfPrepared =
     activeRun.status === 'pending_signoff' && Boolean(caps.viewer && activeRun.preparedBy === caps.viewer.userId);
   const prevRun = runs[runs.findIndex((r) => r.period === activeRun.period) + 1];
@@ -282,7 +275,6 @@ export function PayRunView() {
       <StageCard
         tone="app"
         icon={<RefreshCw />}
-        hud="Stage 1 of 4 · Live sync"
         title={`Live payroll sync is running for ${activeRun.label}`}
         actions={
           <>
@@ -334,7 +326,6 @@ export function PayRunView() {
       <StageCard
         tone="warning"
         icon={<ShieldCheck />}
-        hud="Stage 2 of 4 · Four-eyes"
         title="Awaiting counter-signature"
         actions={
           <>
@@ -393,7 +384,6 @@ export function PayRunView() {
       <StageCard
         tone="cyan"
         icon={<FileCode2 />}
-        hud="Stage 3 of 4 · Bank file"
         title="Four-eyes verified — WPS batch ready"
         actions={
           <>
@@ -432,7 +422,6 @@ export function PayRunView() {
       <StageCard
         tone="success"
         icon={<Banknote />}
-        hud="Stage 4 of 4 · Settled"
         title={`${activeRun.label} disbursed via UAE WPS`}
         badge={activeRun.wpsBatchRef ? <span className="neo-chip neo-chip--sm py-mono-chip" data-tone="success">{activeRun.wpsBatchRef}</span> : undefined}
         actions={
@@ -468,28 +457,7 @@ export function PayRunView() {
               title={`${activeRun.label} pay run`}
               actions={runs.length > 1 ? <NeoTabs value={activeRun.period} onChange={setSelectedPeriod} label="Payroll periods" items={periodTabs} /> : undefined}
             >
-              <ol className="py-steps" aria-label="Payday stages">
-                {STAGES.map((st) => {
-                  const state: StepState =
-                    activeRun.status === 'paid' || currentStage > st.step ? 'done' : currentStage === st.step ? 'active' : 'todo';
-                  return (
-                    <li key={st.step} className="py-step" data-state={state} aria-current={state === 'active' ? 'step' : undefined}>
-                      <span className="py-step__rail" aria-hidden="true">
-                        <span className="py-step__dot">{state === 'done' ? <Check strokeWidth={2.6} /> : st.icon}</span>
-                        <span className="py-step__line" />
-                      </span>
-                      <span className="py-step__text">
-                        <span className="py-step__idx">
-                          Step 0{st.step}
-                          {state === 'done' ? ' · done' : state === 'active' ? ' · now' : ''}
-                        </span>
-                        <span className="py-step__title">{st.title}</span>
-                        <span className="py-step__desc">{st.desc}</span>
-                      </span>
-                    </li>
-                  );
-                })}
-              </ol>
+              <PaydayTracker run={activeRun} runs={runs} className="py-payday-trk" />
               {stage}
             </NeoPanel>
             <CompositionPanel run={activeRun} prevRun={prevRun} b={breakdown} />
@@ -909,7 +877,6 @@ export function PayRunView() {
 function StageCard({
   tone,
   icon,
-  hud,
   title,
   badge,
   actions,
@@ -917,7 +884,6 @@ function StageCard({
 }: {
   tone: Tone;
   icon: ReactNode;
-  hud: string;
   title: string;
   badge?: ReactNode;
   actions?: ReactNode;
@@ -929,7 +895,6 @@ function StageCard({
         {icon}
       </span>
       <div className="py-stage__body">
-        <div className="py-stage__hud">{hud}</div>
         <h3 className="py-stage__title">
           {title}
           {badge}

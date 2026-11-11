@@ -28,7 +28,7 @@ import { useHotkeys } from '@/hooks/useHotkeys';
 import { useNow } from '@/hooks/useNow';
 import { burstConfetti } from '@/lib/confetti';
 import { cx } from '@/lib/cx';
-import { relativeTime } from '@/lib/format';
+import { greeting as hubGreeting, relativeTime } from '@/lib/format';
 import { toast } from '@/store/toast';
 import { canCompleteTask, canDecideApproval, canDeleteTask, canEditTask } from '@/projects/access';
 import { DAY, addDays, diffDays, formatDue, parseIso, startOfWeek, todayIso, WEEKDAYS, MONTHS } from '@/projects/dates';
@@ -51,12 +51,9 @@ const GROUPS: { id: GroupId; label: string }[] = [
   { id: 'none', label: 'No date' },
 ];
 
+/** Same greeting as every other NEXUS app (see `lib/format`). */
 function greeting(d: Date) {
-  const h = d.getHours();
-  if (h < 5) return 'Still up';
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  return hubGreeting(d);
 }
 
 /* ───────────── shared task actions ───────────── */

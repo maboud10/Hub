@@ -4,7 +4,9 @@
  * allowance claims (budget left), letters (linked travel / time off),
  * benefits enrolments (plan, dependents, monthly cost) and Ask People Ops
  * cases (thread, confidentiality, reply and resolve). Every action goes
- * through the store, which re-checks permissions.
+ * through the store, which re-checks permissions. Requests (not cases) open
+ * with the requester's journey tracker, the decider at the live stage and the
+ * courier on the SLA clock.
  */
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import {
@@ -27,6 +29,7 @@ import { daysBetween, eachDay, formatDay, formatDays, holidaySet, isWeekend, ove
 import { electionCost } from '@/hr/engine';
 import { useAbsences, useAllowanceUsage, useBalances, useHrCaps, useHrViewer, type ApprovalItem } from '@/hr/selectors';
 import { useHr } from '@/hr/store';
+import { claimTrack, electionTrack, leaveTrack, letterTrack } from '@/hr/trackers';
 import { useHub } from '@/store/hub';
 import { toast } from '@/store/toast';
 import { useNow } from '@/hooks/useNow';
@@ -35,6 +38,7 @@ import { formatDateTime, relativeTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import { PeopleStack, PersonChip } from '@/pages/talent/components/shared';
 import { LeaveTypeBadge, Money, ToneBadge, UserLine } from '../components/shared';
+import { HrTracker, useTrackContext } from '../components/trackers';
 import { fmtRange as formatRange } from '../timeoff/utils';
 import { DecisionBar } from './DecisionBar';
 import { KIND_META, slaOf } from './meta';
@@ -106,12 +110,33 @@ export function ApprovalDetail({ item }: { item: ApprovalItem }) {
           {sla.label}
         </span>
       </header>
+      <ApprovalTracker item={item} slaRatio={sla.ratio} />
       {item.kind === 'leave' && <LeaveDetail item={item} />}
       {item.kind === 'claim' && <ClaimDetail item={item} />}
       {item.kind === 'letter' && <LetterDetail item={item} />}
       {item.kind === 'election' && <ElectionDetail item={item} />}
       {item.kind === 'case' && <CaseDetail item={item} />}
     </article>
+  );
+}
+
+/**
+ * The requester's journey seen by whoever decides ("Mei is waiting on you").
+ * While it waits, the courier follows the SLA ratio shown in the header chip.
+ */
+function ApprovalTracker({ item, slaRatio }: { item: ApprovalItem; slaRatio: number }) {
+  const viewer = useHrViewer();
+  const trackCtx = useTrackContext(viewer?.userId);
+  const req = useHr((s) => (item.kind === 'leave' ? s.leave.find((r) => r.id === item.refId) : undefined));
+  const claim = useHr((s) => (item.kind === 'claim' ? s.claims.find((c) => c.id === item.refId) : undefined));
+  const letter = useHr((s) => (item.kind === 'letter' ? s.letters.find((l) => l.id === item.refId) : undefined));
+  const election = useHr((s) => (item.kind === 'election' ? s.elections.find((e) => e.id === item.refId) : undefined));
+  const track = req ? leaveTrack(req, trackCtx) : claim ? claimTrack(claim, trackCtx) : letter ? letterTrack(letter, trackCtx) : election ? electionTrack(election, trackCtx) : null;
+  if (!track) return null;
+  return (
+    <div className="hr-trk-slot hr-ap-track">
+      <HrTracker track={track} variant="full" progress={track.state === 'active' ? Math.max(0.1, Math.min(0.9, slaRatio)) : undefined} />
+    </div>
   );
 }
 

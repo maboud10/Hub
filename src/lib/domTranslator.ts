@@ -10,7 +10,7 @@ import { useEffect } from 'react';
 import { translateToArabic, useI18n } from './i18n';
 
 const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'CODE', 'PRE', 'NOSCRIPT', 'SVG', 'PATH']);
-const TRANSLATED_ATTRS = ['placeholder', 'title', 'aria-label', 'data-tip'] as const;
+const TRANSLATED_ATTRS = ['placeholder', 'title', 'aria-label', 'data-tip', 'aria-valuetext'] as const;
 
 /** Elements that never get an automatic `dir`: typing direction in form fields belongs to the user. */
 const NO_DIR_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'INPUT', 'SELECT', 'OPTION']);

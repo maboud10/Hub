@@ -2,7 +2,8 @@
  * Letters: pick a template (instant vs "within 1 working day"), fill a short
  * form and watch the letter build live on letterhead. Instant letters open in
  * the viewer straight away; reviewed ones are tracked in "Your letters" with
- * their status. `&new=<letterKind>` preselects a template.
+ * their status and letter tracker (full while People Ops prepares it, compact
+ * once issued or declined). `&new=<letterKind>` preselects a template.
  */
 import { useMemo, useRef, useState, type FormEvent } from 'react';
 import { Clock, Eye, FileText, Inbox, Lock, Send, TriangleAlert, Zap } from 'lucide-react';
@@ -10,6 +11,7 @@ import type { LetterKind } from '@/hr/types';
 import { LETTER_BY_ID, LETTER_STATUS_META, LETTER_TYPES } from '@/hr/constants';
 import { letterReference } from '@/hr/engine';
 import { useHr } from '@/hr/store';
+import { letterTrack } from '@/hr/trackers';
 import { todayISO } from '@/hr/calendar';
 import { useSessionUser } from '@/store/selectors';
 import { toast } from '@/store/toast';
@@ -18,6 +20,7 @@ import { formatDate, relativeTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import { EmptyState, Segmented, Switch } from '@/components/ui/primitives';
 import { HrPanel, ToneBadge } from '../components/shared';
+import { HrTracker, useTrackContext } from '../components/trackers';
 import { celebrate, useMyComp } from '../benefits/model';
 import { LetterSheet, type LetterLike } from './sheets';
 
@@ -74,6 +77,7 @@ export function LettersTab({ preset, onOpenDoc, onClearPreset }: { preset: Lette
   }
 
   const mine = useMemo(() => (me ? letters.filter((l) => l.userId === me.id).sort((a, b) => b.createdAt - a.createdAt) : []), [letters, me]);
+  const trackCtx = useTrackContext();
   if (!me) return null;
 
   const meta = kind ? LETTER_BY_ID[kind] : null;
@@ -308,8 +312,9 @@ export function LettersTab({ preset, onOpenDoc, onClearPreset }: { preset: Lette
               const m = LETTER_BY_ID[l.kind];
               const st = LETTER_STATUS_META[l.status];
               const Icon = m.icon;
+              const track = letterTrack(l, trackCtx);
               return (
-                <li key={l.id} className={cx('hr-doc-lrow', `is-${l.status}`)}>
+                <li key={l.id} className={cx('hr-doc-lrow', `is-${l.status}`, track.inFlight && 'has-track')}>
                   <span className="hr-doc-kind" aria-hidden="true">
                     <Icon />
                   </span>
@@ -329,12 +334,22 @@ export function LettersTab({ preset, onOpenDoc, onClearPreset }: { preset: Lette
                           : `Declined ${formatDate(l.createdAt)}`}
                     </span>
                     {l.note && <span className="hr-doc-lrow__note">“{l.note}”</span>}
+                    {!track.inFlight && (
+                      <div className="hr-trk-slot is-compact">
+                        <HrTracker track={track} />
+                      </div>
+                    )}
                   </div>
                   <ToneBadge tone={st.tone}>{st.label}</ToneBadge>
                   {l.status === 'issued' && (
                     <button type="button" className="btn btn--sm" onClick={() => onOpenDoc(`doc-${l.id}`)}>
                       <Eye aria-hidden="true" /> Open
                     </button>
+                  )}
+                  {track.inFlight && (
+                    <div className="hr-trk-slot is-full hr-doc-lrow__track">
+                      <HrTracker track={track} />
+                    </div>
                   )}
                 </li>
               );

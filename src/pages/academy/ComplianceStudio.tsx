@@ -31,6 +31,7 @@ import { Avatar, Switch } from '@/components/ui/primitives';
 import { addDaysISO, todayISO } from '@/hr/calendar';
 import { cx } from '@/lib/cx';
 import { DuePill, SourceBadge, TrackBadge } from './shared';
+import { CourseTrackerCompact } from './trackers';
 
 const PHASE_BADGE: Record<string, string> = {
   'pre-boarding': 'Pre-boarding',
@@ -429,6 +430,8 @@ export function ComplianceStudio() {
                             >
                               {item.course.title}
                             </Link>
+
+                            <CourseTrackerCompact course={item.course} enrollment={enr} />
 
                             <div className="row row--between" style={{ marginTop: 'auto' }}>
                               <SourceBadge source={enr.source} />

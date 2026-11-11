@@ -3075,24 +3075,33 @@ body[data-neo-app='hr'] > .sheet {
   flex-direction: column;
   gap: 6px;
 }
-.neo[data-app='talent'] .tl-deck-offer {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 9px 10px;
+/* Row card: the open-offers button on top, its compact NeoTracker underneath. */
+.neo[data-app='talent'] .tl-deck-offer-item {
+  display: grid;
   border-radius: 12px;
-  text-align: left;
-  color: var(--text);
   background: var(--surface);
   border: 1px solid var(--plane-border);
   transition:
     background var(--dur-fast),
     border-color var(--dur-fast);
 }
-.neo[data-app='talent'] .tl-deck-offer:hover {
+.neo[data-app='talent'] .tl-deck-offer-item:hover {
   background: var(--hover-2);
   border-color: var(--plane-border-2);
+}
+.neo[data-app='talent'] .tl-deck-offer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px 6px;
+  border-radius: 12px 12px 0 0;
+  text-align: start;
+  color: var(--text);
+}
+.neo[data-app='talent'] .tl-deck-offer:focus-visible {
+  outline: 2px solid var(--app-c1);
+  outline-offset: -2px;
 }
 .neo[data-app='talent'] .tl-deck-offer__ph {
   width: 30px;
@@ -3117,31 +3126,18 @@ body[data-neo-app='hr'] > .sheet {
   font-size: 11.5px;
   color: var(--text-3);
 }
-.neo[data-app='talent'] .tl-deck-offer__side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 5px;
+.neo[data-app='talent'] .tl-deck-offer__chev {
   flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--text-3);
 }
-.neo[data-app='talent'] .tl-deck-offer__chain {
-  display: inline-flex;
-  gap: 3px;
+[dir='rtl'] .neo[data-app='talent'] .tl-deck-offer__chev {
+  transform: scaleX(-1);
 }
-.neo[data-app='talent'] .tl-deck-offer__chain i {
-  width: 12px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--track);
-}
-.neo[data-app='talent'] .tl-deck-offer__chain i[data-state='approved'] {
-  background: var(--success);
-}
-.neo[data-app='talent'] .tl-deck-offer__chain i[data-state='rejected'] {
-  background: var(--danger);
-}
-.neo[data-app='talent'] .tl-deck-offer__chain i[data-state='pending'] {
-  background: var(--warning);
+.neo[data-app='talent'] .tl-deck-offer__track {
+  padding-block: 0 9px;
+  padding-inline: 50px 10px;
 }
 
 /* ---------- Side panel: SLA watch ---------- */
@@ -3495,5 +3491,47 @@ body[data-neo-app='hr'] > .sheet {
     width: 100%;
     min-width: 0;
   }
+}
+
+/* ==========================================================================
+   Journey trackers — NeoTracker integrations (pages/talent/trackers.tsx):
+   offers, candidate journey, requisitions, onboarding. Placement and copy
+   emphasis only; the tracker itself is styled by neo-tracker.css. The
+   candidate sheet and the modals are portaled, so `body[data-neo-app]`
+   shares the scope.
+   ========================================================================== */
+:is(.neo[data-app='talent'], body[data-neo-app='talent']) .tl-trk .neo-tracker__msg b {
+  font-weight: 650;
+  color: var(--text);
+}
+:is(.neo[data-app='talent'], body[data-neo-app='talent']) .tl-trk .neo-tracker__msg q {
+  font-style: italic;
+  color: var(--text);
+}
+/* Bare trackers without a HUD/title: no empty title column pushing the chips around. */
+:is(.neo[data-app='talent'], body[data-neo-app='talent']) .tl-trk .neo-tracker__titles:empty {
+  display: none;
+}
+
+/* Offer cards: the compact tracker reads as part of the card header. */
+.neo[data-app='talent'] .tl-offer-card__track {
+  margin-top: -2px;
+}
+
+/* Requisition cards: compact tracker under the title block. */
+.neo[data-app='talent'] .tl-req-card__track {
+  margin-top: -4px;
+}
+
+/* Candidate sheet: journey + onboarding inside an application panel. */
+body[data-neo-app='talent'] .tl-sheet-app__onb {
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-2);
+}
+
+/* Signed-offer banner: compact onboarding tracker under the hand-off line. */
+body[data-neo-app='talent'] .tl-offer-banner__track {
+  max-width: 420px;
+  margin-top: 8px;
 }
 

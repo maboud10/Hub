@@ -1,15 +1,12 @@
 /**
- * Catalog atoms: item visual, eligibility badge, price/ETA line and the
- * approval stepper (Submitted → Manager → IT → Security → Delivered).
+ * Catalog atoms: item visual, eligibility badge and the price/ETA line.
+ * (The approval route — Requested → Manager → IT → Security → Delivered — is
+ * drawn by `RequestTracker` in `trackers.tsx`.)
  */
-import { Check, Clock3, PackageCheck, Send, ShieldCheck, UserCheck, Wrench, X } from 'lucide-react';
-import { cx } from '@/lib/cx';
-import { relativeTime } from '@/lib/format';
-import { useHub } from '@/store/hub';
-import type { ApprovalStep, CatalogItem, CatalogRequest } from '@/helpdesk/types';
+import { Check, Clock3, ShieldCheck, Wrench, X } from 'lucide-react';
+import type { CatalogItem } from '@/helpdesk/types';
 import type { Eligibility } from '@/helpdesk/eligibility';
 import { formatMoney } from '@/helpdesk/meta';
-import { firstNameOf } from '@/helpdesk/util';
 import { DeviceGlyph } from './glyphs';
 import { CATALOG_ICON } from './icons';
 
@@ -54,60 +51,5 @@ export function EligibilityBadge({ e, item }: { e: Eligibility; item: CatalogIte
     <span className="hd-elig" data-s="ok">
       <Check /> Eligible
     </span>
-  );
-}
-
-const ROLE_ICON = { manager: UserCheck, it: Wrench, security: ShieldCheck } as const;
-const ROLE_NAME = { manager: 'Manager', it: 'IT', security: 'Security' } as const;
-
-/** Horizontal approval stepper. Works for live requests and previews. */
-export function ApprovalStepper({ steps, status, createdAt, fulfilledAt, compact }: { steps: ApprovalStep[]; status?: CatalogRequest['status']; createdAt?: number; fulfilledAt?: number; compact?: boolean }) {
-  const users = useHub((s) => s.users);
-  const name = (id?: string) => users.find((u) => u.id === id)?.name;
-  const nodes: { key: string; label: string; sub?: string; state: 'done' | 'active' | 'todo' | 'denied' | 'skipped'; icon: typeof Check }[] = [
-    { key: 'sub', label: 'Submitted', sub: createdAt ? relativeTime(createdAt) : 'You', state: 'done', icon: Send },
-    ...steps.map((s, i) => ({
-      key: `${s.role}-${i}`,
-      label: s.role === 'manager' && s.approverId ? firstNameOf(name(s.approverId)) || ROLE_NAME.manager : ROLE_NAME[s.role],
-      sub:
-        s.state === 'approved'
-          ? `Approved${s.decidedAt ? ` · ${relativeTime(s.decidedAt)}` : ''}`
-          : s.state === 'denied'
-            ? 'Declined'
-            : s.state === 'pending'
-              ? 'Reviewing'
-              : s.state === 'skipped'
-                ? 'Skipped'
-                : s.role === 'manager'
-                  ? 'Manager'
-                  : 'Next',
-      state: (s.state === 'approved' ? 'done' : s.state === 'pending' ? 'active' : s.state === 'denied' ? 'denied' : s.state === 'skipped' ? 'skipped' : 'todo') as 'done',
-      icon: ROLE_ICON[s.role],
-    })),
-    {
-      key: 'done',
-      label: 'Delivered',
-      sub: status === 'fulfilled' ? (fulfilledAt ? relativeTime(fulfilledAt) : 'Done') : status === 'approved' ? 'With IT' : status === 'denied' || status === 'cancelled' ? '—' : 'Last step',
-      state: status === 'fulfilled' ? 'done' : status === 'approved' ? 'active' : 'todo',
-      icon: PackageCheck,
-    },
-  ];
-  return (
-    <ol className={cx('hd-steps', compact && 'hd-steps--compact')} data-status={status}>
-      {nodes.map((n) => {
-        const Icon = n.state === 'denied' ? X : n.state === 'done' ? Check : n.icon;
-        return (
-          <li key={n.key} className="hd-step" data-state={n.state}>
-            <span className="hd-step__dot">
-              <Icon />
-            </span>
-            <span className="hd-step__text">
-              <b>{n.label}</b>
-              {!compact && n.sub && <span>{n.sub}</span>}
-            </span>
-          </li>
-        );
-      })}
-    </ol>
   );
 }

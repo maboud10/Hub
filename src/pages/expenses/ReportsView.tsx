@@ -16,7 +16,7 @@ import {
   Square,
   Wallet,
 } from 'lucide-react';
-import { Chip, NeoBanner, NeoBanners, NeoEmpty, NeoPanel } from '@/components/neo';
+import { Chip, NeoBanner, NeoBanners, NeoEmpty, NeoPanel, NeoTracker } from '@/components/neo';
 import { cx } from '@/lib/cx';
 import { formatDateTime } from '@/lib/format';
 import { formatDay } from '@/hr/calendar';
@@ -34,6 +34,7 @@ import {
   PolicyWarningChips,
   ReportStatusBadge,
 } from './shared';
+import { reportTrack, useSpendTrackCtx } from './trackers';
 
 export function ReportsView() {
   const me = useSessionUser();
@@ -42,6 +43,7 @@ export function ReportsView() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const summary = useMySpendSummary();
+  const trackCtx = useSpendTrackCtx();
   const allReceipts = useExpenses((s) => s.receipts);
   const createAndSubmitReport = useExpenses((s) => s.createAndSubmitReport);
   const submitDraftReport = useExpenses((s) => s.submitDraftReport);
@@ -455,6 +457,8 @@ export function ReportsView() {
                 .filter((x): x is NonNullable<typeof x> => Boolean(x));
               const linkedTrip = rep.tripId ? tripsById.get(rep.tripId) : undefined;
               const canSubmitNow = rep.status === 'draft' || rep.status === 'changes_requested';
+              const track = reportTrack(rep, trackCtx);
+              const trackLabel = `${rep.reference} · Reimbursement tracker`;
 
               return (
                 <li key={rep.id} id={`ex-rep-${rep.id}`} className={cx('ex-rep', isOpen && 'is-open')}>
@@ -492,6 +496,13 @@ export function ReportsView() {
                     <ChevronDown className="ex-rep__chev" aria-hidden="true" />
                   </button>
 
+                  {/* Compact journey tracker for scanning (the full tracker opens with the report) */}
+                  {!isOpen && (
+                    <div className="ex-rep__track">
+                      <NeoTracker {...track} compact label={trackLabel} />
+                    </div>
+                  )}
+
                   {/* Review / Revision Note Banner */}
                   {rep.reviewNote && (
                     <div className="ex-callout" data-tone={rep.status === 'changes_requested' ? 'warning' : 'slate'}>
@@ -507,6 +518,8 @@ export function ReportsView() {
                   {/* Expanded Line Items, Resubmit Form & Audit Trail */}
                   {isOpen && (
                     <div className="ex-rep__body">
+                      <NeoTracker {...track} hud="Reimbursement tracker" label={trackLabel} />
+
                       <span className="neo-hud">Attached receipts · {items.length}</span>
                       <ul className="ex-lines">
                         {items.map((r) => (

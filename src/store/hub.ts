@@ -133,7 +133,7 @@ export interface HubActions {
 export type HubStore = HubData & HubActions;
 
 /** Immersive workspace apps whose catalog visuals always follow the seed (declared before the store hydrates). */
-const WORKSPACE_APPS = new Set(['projects', 'drive', 'chat', 'helpdesk', 'performance', 'procurement', 'crm', 'analytics']);
+const WORKSPACE_APPS = new Set(['projects', 'drive', 'chat', 'helpdesk', 'performance', 'procurement', 'crm', 'analytics', 'meet', 'calendar']);
 
 const ok = (message?: string): ActionResult => ({ ok: true, message });
 const fail = (error: string): ActionResult => ({ ok: false, error });

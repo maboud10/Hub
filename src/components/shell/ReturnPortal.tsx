@@ -7,6 +7,7 @@ import { getIcon } from '@/icons';
 import { relativeTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { portalNavigate } from '@/lib/portalTransition';
 
 /* ==========================================================================
    Return Portal — the Hub's back button (TopBar)
@@ -21,22 +22,22 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
    ========================================================================== */
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
-const BACK_KEYS = isMac ? '⌥ ←' : 'Alt ←';
+export const BACK_KEYS = isMac ? '⌥ ←' : 'Alt ←';
 const GENERIC_SUBS = new Set(['Home workspace', 'All applications', 'App workspace']);
 // Path-derived sublabels ("Okrs") read better with their proper names.
 const PRETTY: Record<string, string> = { okrs: 'OKRs', checkins: 'Check-ins', 'one on ones': '1:1s' };
-const pretty = (s?: string) => (s ? (PRETTY[s.toLowerCase()] ?? s) : undefined);
+export const pretty = (s?: string) => (s ? (PRETTY[s.toLowerCase()] ?? s) : undefined);
 
-const HOME: NavEntry = { path: '/', areaKey: 'home', label: 'Launchpad', sublabel: 'Home workspace', icon: 'Sparkles', gradient: ['#6366f1', '#22d3ee'], isApp: false, at: 0 };
-const APPS: NavEntry = { path: '/apps', areaKey: 'apps', label: 'Apps Catalog', sublabel: 'All applications', icon: 'Compass', gradient: ['#38bdf8', '#818cf8'], isApp: false, at: 0 };
+export const HOME: NavEntry = { path: '/', areaKey: 'home', label: 'Launchpad', sublabel: 'Home workspace', icon: 'Sparkles', gradient: ['#6366f1', '#22d3ee'], isApp: false, at: 0 };
+export const APPS: NavEntry = { path: '/apps', areaKey: 'apps', label: 'Apps Catalog', sublabel: 'All applications', icon: 'Compass', gradient: ['#38bdf8', '#818cf8'], isApp: false, at: 0 };
 
 const reducedMotion = () => document.documentElement.dataset.motion === 'reduced' || !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-const detail = (e: NavEntry) => (e.sublabel && !GENERIC_SUBS.has(e.sublabel) ? pretty(e.sublabel) : undefined);
+export const detail = (e: NavEntry) => (e.sublabel && !GENERIC_SUBS.has(e.sublabel) ? pretty(e.sublabel) : undefined);
 
-function EntryBadge({ entry, size = 24, style }: { entry: Pick<NavEntry, 'icon' | 'gradient'>; size?: number; style?: CSSProperties }) {
+export function EntryBadge({ entry, size = 24, style, appIcon }: { entry: Pick<NavEntry, 'icon' | 'gradient'>; size?: number; style?: CSSProperties; appIcon?: string }) {
   const Icon = getIcon(entry.icon);
   return (
-    <span className="return-portal__orb" style={{ '--c1': entry.gradient[0], '--c2': entry.gradient[1], '--size': `${size}px`, ...style } as CSSProperties} aria-hidden="true">
+    <span className="return-portal__orb" style={{ '--c1': entry.gradient[0], '--c2': entry.gradient[1], '--size': `${size}px`, ...style } as CSSProperties} data-app-icon={appIcon} aria-hidden="true">
       <Icon />
     </span>
   );
@@ -111,6 +112,9 @@ export function ReturnPortal() {
 
   const go = (entry: NavEntry, dir: Warp['dir'] = 'back') => {
     setOpen(false);
+    // Portal transition first (icon morph + iris); the colour "warp" sweep is the fallback.
+    const kind = dir === 'fwd' ? (current?.isApp ? 'switch' : 'launch') : entry.isApp ? 'switch' : 'return';
+    if (portalNavigate(navigate, entry.path, { kind, appId: dir === 'fwd' ? entry.appId : current?.appId })) return;
     if (reducedMotion()) {
       navigate(entry.path);
       return;
@@ -145,7 +149,7 @@ export function ReturnPortal() {
       <>
         <div className={cx('return-portal return-portal--resume', warp && 'is-warping')} style={{ '--rp-c1': app.gradient[0], '--rp-c2': app.gradient[1], '--rp-cur': app.gradient[1] } as CSSProperties}>
           <button type="button" className="return-portal__back" onClick={() => go(app, 'fwd')} aria-label={`Resume ${app.label}${sub ? `, ${sub}` : ''}`} data-tip={`Jump back into ${app.label}${sub ? ` · ${sub}` : ''}`} data-tip-pos="bottom" data-qa="return-resume">
-            <EntryBadge entry={app} size={24} />
+            <EntryBadge entry={app} size={24} appIcon={app.appId} />
             <span className="return-portal__label">
               <span className="return-portal__hint">Resume</span>
               <span className="return-portal__dest">{app.label}</span>

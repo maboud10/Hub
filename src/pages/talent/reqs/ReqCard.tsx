@@ -14,6 +14,7 @@ import { cx } from '@/lib/cx';
 import { MatchRing, PersonChip, PriorityBadge, ReqStatusBadge } from '../components/shared';
 import { avgMatch, daysOpen, daysSince } from './helpers';
 import { CompRange, ReqPipelineBar, SeatMeter, TopCandidates } from './pieces';
+import { ReqTracker } from '../trackers';
 
 export function ReqCard({
   req,
@@ -82,6 +83,8 @@ export function ReqCard({
           <ReqStatusBadge status={req.status} />
         </div>
       </header>
+
+      {!preview && <ReqTracker req={req} apps={apps} now={now} compact className="tl-req-card__track" />}
 
       <div className="tl-req-card__row">
         <div className="tl-req-card__cell">

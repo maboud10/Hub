@@ -4,36 +4,38 @@ import { usePrefs } from '@/store/selectors';
 import { useUI } from '@/store/ui';
 
 /**
- * Immersive workspace apps get the full width: the Hub sidebar tucks into its
- * icon rail while they're open and springs back when you leave. Expanding it
- * inside an app is remembered for the session.
+ * Immersive workspace apps get ONE navigation rail — the app's own NEO rail.
+ * While an app is open the Hub sidebar steps aside and becomes a slide-over
+ * "Hub drawer" (opened from the NEXUS orb in the top bar, closed by Esc, the
+ * scrim or any navigation); on core hub pages it is the regular sidebar again.
+ * The way back sits under the app's last rail icon (see shell/RailReturn).
  *
  * Every in-hub app runs on the NEO workspace kit (rail + glass stage), so they
  * all behave the same way: Projects, Drive, Pulse Chat, IT Helpdesk,
  * Performance & OKRs, Talent Hub, HR Portal, Knowledge Base, Academy,
- * Travel & Expenses, Payroll Console and the Control Center.
+ * Travel & Expenses, Payroll Console, Procurement, CRM, Insights, Meet,
+ * Calendar and the Control Center.
  */
-export const IMMERSIVE_ROUTE = /^\/(projects|drive|chat|helpdesk|performance|talent|hr|wiki|academy|expenses|travel|payroll|procurement|crm|insights|admin)(\/|$)/;
+export const IMMERSIVE_ROUTE = /^\/(projects|drive|chat|helpdesk|performance|talent|hr|wiki|academy|expenses|travel|payroll|procurement|crm|insights|meet|calendar|admin)(\/|$)/;
 
 export function useSidebarState() {
   const { pathname } = useLocation();
   const prefs = usePrefs();
-  const expandedInApp = useUI((s) => s.immersiveExpanded);
-  const setExpandedInApp = useUI((s) => s.setImmersiveExpanded);
+  const drawerOpen = useUI((s) => s.immersiveExpanded);
+  const setDrawerOpen = useUI((s) => s.setImmersiveExpanded);
   const immersive = IMMERSIVE_ROUTE.test(pathname);
-  const collapsed = prefs.sidebarCollapsed || (immersive && !expandedInApp);
+  const drawer = immersive && drawerOpen;
+  // Inside an app the sidebar only ever appears as the drawer — always fully labelled.
+  const collapsed = immersive ? false : prefs.sidebarCollapsed;
 
   const toggle = () => {
-    const { updatePrefs } = useHub.getState();
-    if (!immersive) {
-      updatePrefs({ sidebarCollapsed: !prefs.sidebarCollapsed });
+    if (immersive) {
+      setDrawerOpen(!drawerOpen);
       return;
     }
-    if (collapsed) {
-      if (prefs.sidebarCollapsed) updatePrefs({ sidebarCollapsed: false });
-      setExpandedInApp(true);
-    } else setExpandedInApp(false);
+    useHub.getState().updatePrefs({ sidebarCollapsed: !prefs.sidebarCollapsed });
   };
+  const closeDrawer = () => setDrawerOpen(false);
 
-  return { immersive, collapsed, toggle };
+  return { immersive, collapsed, drawer, toggle, closeDrawer };
 }

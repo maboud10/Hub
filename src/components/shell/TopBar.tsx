@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Bell, Keyboard, Moon, Search, Sun } from 'lucide-react';
+import { Bell, Keyboard, LayoutGrid, Moon, Search, Sun } from 'lucide-react';
 import { useHub } from '@/store/hub';
 import { useUI } from '@/store/ui';
 import { usePrefs, useSessionUser, useUnreadCount } from '@/store/selectors';
@@ -13,6 +13,7 @@ import { BRAND } from '@/config/brand';
 import { BrandMark } from './Brand';
 import { FocusPill } from './Sidebar';
 import { ReturnPortal } from './ReturnPortal';
+import { useSidebarState } from './immersive';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -33,9 +34,28 @@ export function TopBar() {
   }, []);
 
   const isDark = useResolvedTheme() === 'dark';
+  const { immersive, drawer, toggle } = useSidebarState();
 
   return (
     <header className={'topbar' + (scrolled ? ' is-scrolled' : '')}>
+      {immersive && (
+        <button
+          type="button"
+          className={'hub-orb' + (drawer ? ' is-open' : '')}
+          onClick={toggle}
+          aria-label={drawer ? 'Close hub menu' : 'Open hub menu — home, apps and people'}
+          aria-expanded={drawer}
+          aria-controls="hub-sidebar"
+          data-tip="Hub · home, apps & people"
+          data-tip-pos="bottom"
+          data-qa="hub-orb"
+        >
+          <BrandMark withText={false} />
+          <span className="hub-orb__badge" aria-hidden="true">
+            <LayoutGrid />
+          </span>
+        </button>
+      )}
       <Link to="/" className="topbar__brand" aria-label="Home">
         <BrandMark sub="Hub" />
       </Link>

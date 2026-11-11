@@ -29,7 +29,8 @@ import {
 import { CRM_REGIONS, DEAL_STAGES, MEDDPICC_PILLARS } from '@/crm/seed';
 import { useCrm } from '@/crm/store';
 import type { CrmDeal, CrmRegion } from '@/crm/types';
-import { MeddpiccBar, StageBadge, useCrmUsersMap } from './shared';
+import { DealCloseDate, DealTrackerCompact, formatDealDate } from './DealTracker';
+import { MeddpiccBar, useCrmUsersMap } from './shared';
 
 type PipelineMode = 'board' | 'table';
 
@@ -218,7 +219,7 @@ export function PipelineView({ onOpenNewDeal }: { onOpenNewDeal: () => void }) {
                           </div>
                           <div>
                             <span className="neo-hud">Close</span>
-                            <span className="crm-deal-card__date">{deal.closeDate}</span>
+                            <span className="crm-deal-card__date">{formatDealDate(deal.closeDate)}</span>
                           </div>
                           <Spark data={deal.momentum} width={76} height={24} color={deal.color} />
                         </div>
@@ -300,13 +301,13 @@ export function PipelineView({ onOpenNewDeal }: { onOpenNewDeal: () => void }) {
                           <div>
                             <div className="crm-table__title">{deal.title}</div>
                             <div className="crm-table__sub">
-                              {deal.accountName} · Close {deal.closeDate}
+                              {deal.accountName} · <DealCloseDate deal={deal} />
                             </div>
                           </div>
                         </div>
                       </td>
-                      <td>
-                        <StageBadge stage={deal.stage} />
+                      <td className="crm-table__journey">
+                        <DealTrackerCompact deal={deal} />
                       </td>
                       <td>
                         <Chip tone="slate" size="sm">{deal.region}</Chip>

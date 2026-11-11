@@ -7,6 +7,7 @@ import { toast } from '@/store/toast';
 import { SEED_APPS } from '@/data/apps';
 import { appPermissionId } from '@/data/permissions';
 import { effectivePermissions, hasPermission } from '@/lib/rbac';
+import { portalNavigate } from '@/lib/portalTransition';
 
 /**
  * Launch an app by id.
@@ -51,8 +52,15 @@ export function useLaunchApp() {
         : null;
 
       if (inAppRoute) {
-        closeAll();
-        navigate(inAppRoute);
+        const go = (to: string) => {
+          closeAll();
+          navigate(to);
+        };
+        // Portal dive: the clicked icon flies into the app rail while the app irises open.
+        const here = useNavTrail.getState().current;
+        const sameApp = here?.isApp && here.appId === appId;
+        if (!sameApp && portalNavigate(go, inAppRoute, { kind: here?.isApp ? 'switch' : 'launch', appId })) return;
+        go(inAppRoute);
         return;
       }
 

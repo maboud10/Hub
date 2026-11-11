@@ -1,8 +1,9 @@
 /**
  * "It's a hire!" — celebration after an accepted offer, plus the hand-off to
- * HR Portal: an animated Talent Hub → HR Portal relay, what happens next
- * (pre-boarding checklist, manager, buddy, NEXUS account) and the CTA into the
- * onboarding journey. Confetti respects reduced motion.
+ * HR Portal: an animated Talent Hub → HR Portal relay, the live onboarding
+ * tracker once the journey exists, what happens next (pre-boarding checklist,
+ * manager, buddy, NEXUS account) and the CTA into the onboarding journey.
+ * Confetti respects reduced motion.
  */
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router';
@@ -13,12 +14,14 @@ import { useTalent } from '@/talent/store';
 import { useTalentCaps, useTalentViewer } from '@/talent/selectors';
 import { daysUntilStart } from '@/talent/onboarding';
 import { toast } from '@/store/toast';
+import { useNow } from '@/hooks/useNow';
 import { Modal } from '@/components/ui/Modal';
 import { burstConfetti } from '@/lib/confetti';
 import { relativeTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import { CandidateAvatar, PersonChip } from '../components/shared';
 import { fmtDay } from '../components/format';
+import { OnboardingTracker } from '../trackers';
 
 const reducedMotion = () => document.documentElement.dataset.motion === 'reduced' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -33,6 +36,7 @@ export function HiredModal({ modal, open, onClose }: { modal: Extract<TalentModa
   const journey = useTalent((s) => s.onboarding.find((j) => (modal.journeyId ? j.id === modal.journeyId : false)) ?? s.onboarding.find((j) => j.applicationId === modal.applicationId));
   const handOffToHR = useTalent((s) => s.handOffToHR);
   const [handing, setHanding] = useState(false);
+  const now = useNow(60_000);
 
   const hired = app?.status === 'hired';
 
@@ -170,6 +174,8 @@ export function HiredModal({ modal, open, onClose }: { modal: Extract<TalentModa
               <span className="tl-hired-relay__sub">{journey ? 'Journey live' : 'Onboarding'}</span>
             </div>
           </div>
+
+          {journey && <OnboardingTracker journey={journey} now={now} className="tl-hired__track" />}
 
           <div className="tl-hired-next">
             <div className="stat-label">What happens next</div>

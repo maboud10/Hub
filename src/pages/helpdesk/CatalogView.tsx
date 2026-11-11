@@ -13,11 +13,12 @@ import { toast } from '@/store/toast';
 import { useHotkeys } from '@/hooks/useHotkeys';
 import { useHub } from '@/store/hub';
 import { useHelpdesk } from '@/helpdesk/store';
-import type { CatalogItem, CatalogKind } from '@/helpdesk/types';
+import type { CatalogItem, CatalogKind, CatalogRequest } from '@/helpdesk/types';
 import { approvalChain, checkEligibility, type Eligibility } from '@/helpdesk/eligibility';
 import { requestsAwaiting, waitingOn } from '@/helpdesk/queries';
 import { CATALOG_KIND_LABEL, officeOf } from '@/helpdesk/meta';
-import { ApprovalStepper, EligibilityBadge, etaLabel, ItemVisual, priceLabel } from './catalogParts';
+import { EligibilityBadge, etaLabel, ItemVisual, priceLabel } from './catalogParts';
+import { RequestTracker } from './trackers';
 import { Kbd, useViewer } from './ui';
 
 type Tab = 'all' | CatalogKind;
@@ -160,7 +161,10 @@ function RequestSheet({ item, e, onClose }: { item: CatalogItem; e: Eligibility;
   const [options, setOptions] = useState<Record<string, string>>(() => Object.fromEntries((item.options ?? []).map((o) => [o.id, o.choices[0]])));
   const [why, setWhy] = useState('');
   const [error, setError] = useState('');
-  const steps = approvalChain(item, viewer.user);
+  const route = useMemo<CatalogRequest>(
+    () => ({ id: 'preview', itemId: item.id, requesterId: viewer.user.id, options: {}, justification: '', status: 'pending', steps: approvalChain(item, viewer.user), createdAt: 0, updatedAt: 0 }),
+    [item, viewer.user],
+  );
   const blocked = e.status === 'ineligible';
 
   const submit = () => {
@@ -223,7 +227,7 @@ function RequestSheet({ item, e, onClose }: { item: CatalogItem; e: Eligibility;
             ))}
             <div className="neo-field">
               <span className="neo-label">Approval route</span>
-              <ApprovalStepper steps={steps} status="pending" />
+              <RequestTracker r={route} item={item} preview bare />
             </div>
             {e.reasons.length > 0 && (
               <ul className="hd-reasons">

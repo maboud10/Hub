@@ -38,6 +38,7 @@ import { Avatar, Switch } from '@/components/ui/primitives';
 import { toast } from '@/store/toast';
 import { readTripDraft, TRIP_DRAFT_KEYS, type TripDraft } from './nova';
 import { formatAed, TripStatusBadge, VirtualCorporateCard } from './shared';
+import { TripTracker, useSpendTrackCtx } from './trackers';
 
 const CABIN_LABEL: Record<CabinClass, string> = {
   economy: 'Economy',
@@ -59,6 +60,7 @@ export function TravelDeskView() {
   const bookTravelItinerary = useExpenses((s) => s.bookTravelItinerary);
   const completeTrip = useExpenses((s) => s.completeTrip);
   const budget = useDeptTravelBudget();
+  const trackCtx = useSpendTrackCtx();
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -383,6 +385,9 @@ export function TravelDeskView() {
                     </span>
                   </div>
                 </div>
+
+                {/* Live approval → booking → travel → expensed journey */}
+                <TripTracker trip={trip} ctx={trackCtx} />
 
                 {/* Title & Purpose */}
                 <div className="ex-trip__title">

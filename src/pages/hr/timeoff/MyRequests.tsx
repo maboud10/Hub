@@ -3,6 +3,8 @@
  * (collapsible), each with its type, dates, working days, status, who decides
  * or decided (and their note), cover, attachment and a cancel action behind a
  * confirm dialog whenever the policy allows it (`canCancelLeave`).
+ * Every request shows its leave tracker (`@/hr/trackers`): the full live
+ * tracker while it waits for a decision, a compact bar once it is decided.
  */
 import { useMemo, useState, type CSSProperties } from 'react';
 import { CalendarCheck, CalendarPlus, ChevronDown, Hourglass, Paperclip, Plane, Quote, RotateCcw, Undo2, UserRound, Zap } from 'lucide-react';
@@ -12,6 +14,7 @@ import { canCancelLeave } from '@/hr/access';
 import { addDaysISO, formatDay, formatDays, holidaySet, nextWorkingDay, todayISO } from '@/hr/calendar';
 import { useHrViewer } from '@/hr/selectors';
 import { useHr } from '@/hr/store';
+import { leaveTrack, type TrackContext } from '@/hr/trackers';
 import { useHub } from '@/store/hub';
 import { useSessionUser } from '@/store/selectors';
 import { toast } from '@/store/toast';
@@ -21,6 +24,7 @@ import { EmptyState } from '@/components/ui/primitives';
 import { relativeTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import { HrPanel, LeaveTypeBadge, ToneBadge } from '../components/shared';
+import { HrTracker, useTrackContext } from '../components/trackers';
 import { fmtRange as formatRange, relDay } from './utils';
 
 const first = (name?: string) => (name ?? '').split(/\s+/)[0];
@@ -32,6 +36,7 @@ export function MyRequests({ onRequest }: { onRequest: (type?: LeaveTypeId) => v
   const today = todayISO(now);
   const [showPast, setShowPast] = useState(false);
   const [cancel, setCancel] = useState<{ req: LeaveRequest; open: boolean } | null>(null);
+  const trackCtx = useTrackContext();
 
   const { pending, upcoming, past } = useMemo(() => {
     const mine = leave.filter((r) => r.userId === me?.id);
@@ -80,7 +85,7 @@ export function MyRequests({ onRequest }: { onRequest: (type?: LeaveTypeId) => v
               </h3>
               <ul className="hr-to-reqs">
                 {pending.map((r) => (
-                  <RequestRow key={r.id} req={r} today={today} onCancel={openCancel} onRebook={onRequest} />
+                  <RequestRow key={r.id} req={r} today={today} trackCtx={trackCtx} onCancel={openCancel} onRebook={onRequest} />
                 ))}
               </ul>
             </section>
@@ -92,7 +97,7 @@ export function MyRequests({ onRequest }: { onRequest: (type?: LeaveTypeId) => v
             {upcoming.length ? (
               <ul className="hr-to-reqs">
                 {upcoming.map((r) => (
-                  <RequestRow key={r.id} req={r} today={today} onCancel={openCancel} onRebook={onRequest} />
+                  <RequestRow key={r.id} req={r} today={today} trackCtx={trackCtx} onCancel={openCancel} onRebook={onRequest} />
                 ))}
               </ul>
             ) : (
@@ -113,7 +118,7 @@ export function MyRequests({ onRequest }: { onRequest: (type?: LeaveTypeId) => v
               {showPast && (
                 <ul className="hr-to-reqs hr-to-reqs--past">
                   {past.map((r) => (
-                    <RequestRow key={r.id} req={r} today={today} onCancel={openCancel} onRebook={onRequest} />
+                    <RequestRow key={r.id} req={r} today={today} trackCtx={trackCtx} onCancel={openCancel} onRebook={onRequest} />
                   ))}
                 </ul>
               )}
@@ -126,7 +131,19 @@ export function MyRequests({ onRequest }: { onRequest: (type?: LeaveTypeId) => v
   );
 }
 
-function RequestRow({ req, today, onCancel, onRebook }: { req: LeaveRequest; today: string; onCancel: (r: LeaveRequest) => void; onRebook: (t: LeaveTypeId) => void }) {
+function RequestRow({
+  req,
+  today,
+  trackCtx,
+  onCancel,
+  onRebook,
+}: {
+  req: LeaveRequest;
+  today: string;
+  trackCtx: TrackContext;
+  onCancel: (r: LeaveRequest) => void;
+  onRebook: (t: LeaveTypeId) => void;
+}) {
   const viewer = useHrViewer();
   const users = useHub((s) => s.users);
   const me = useSessionUser();
@@ -137,6 +154,8 @@ function RequestRow({ req, today, onCancel, onRebook }: { req: LeaveRequest; tod
   const canCancel = !!viewer && (req.status === 'pending' || req.status === 'approved') && canCancelLeave(viewer, req, today).ok;
   const decider = req.decidedBy === 'system' ? undefined : nameOf(req.decidedBy);
   const back = live ? nextWorkingDay(addDaysISO(req.end, 1), holidaySet(me?.location ?? '')) : '';
+  // No tracker once cancelled; while waiting, the full tracker names who decides and when it was sent.
+  const track = leaveTrack(req, trackCtx);
 
   let who: string;
   if (req.status === 'pending') who = `With ${req.approverId ? (nameOf(req.approverId) ?? 'your manager') : 'People Ops'} · sent ${relativeTime(req.createdAt)}`;
@@ -160,10 +179,12 @@ function RequestRow({ req, today, onCancel, onRebook }: { req: LeaveRequest; tod
         </div>
         {req.reason && <p className="hr-to-req__reason">{req.reason}</p>}
         <div className="hr-to-req__meta">
-          <span>
-            {req.decidedBy === 'system' ? <Zap aria-hidden="true" /> : req.status === 'pending' ? <Hourglass aria-hidden="true" /> : <UserRound aria-hidden="true" />}
-            {who}
-          </span>
+          {!track?.inFlight && (
+            <span>
+              {req.decidedBy === 'system' ? <Zap aria-hidden="true" /> : req.status === 'pending' ? <Hourglass aria-hidden="true" /> : <UserRound aria-hidden="true" />}
+              {who}
+            </span>
+          )}
           {req.coverId && (
             <span>
               <UserRound aria-hidden="true" /> Cover: {first(nameOf(req.coverId))}
@@ -177,6 +198,11 @@ function RequestRow({ req, today, onCancel, onRebook }: { req: LeaveRequest; tod
           {(req.status === 'pending' || req.status === 'approved') && req.start > today && <span className="hr-to-req__count">Starts {relDay(req.start, today)}</span>}
           {live && back && <span className="hr-to-req__count">Back {formatDay(back)}</span>}
         </div>
+        {track && (
+          <div className={cx('hr-trk-slot', track.inFlight ? 'is-full' : 'is-compact')}>
+            <HrTracker track={track} />
+          </div>
+        )}
         {req.decisionNote && (
           <blockquote className={cx('hr-to-req__note', req.status === 'rejected' && 'is-declined')}>
             <Quote aria-hidden="true" />

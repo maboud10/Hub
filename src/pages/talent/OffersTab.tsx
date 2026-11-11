@@ -42,6 +42,7 @@ import { CandidateAvatar, Comp, OfferStatusBadge, SampleTag } from './components
 import { useNoteDialog, type NoteRequest } from './reqs/NoteDialog';
 import { ApprovalBrief, BandGuardrail, ExpiryPill, OfferApprovalChain, OfferFigures, recordOfferResponse } from './reqs/offer';
 import { DAY, firstYearTotal, viewerApproval } from './reqs/helpers';
+import { OfferTracker } from './trackers';
 
 type Ask = (r: NoteRequest) => void;
 
@@ -366,6 +367,7 @@ function OfferCard({
           )}
         </span>
       </header>
+      <OfferTracker offer={offer} req={req} candName={cand.name} now={now} compact className="tl-offer-card__track" />
       <div className="tl-offer-card__meta">
         <ExpiryPill offer={offer} now={now} />
         <span className="faint text-xs">

@@ -41,6 +41,7 @@ import {
 import { CATEGORY_META } from '@/procurement/seed';
 import { useProcurement } from '@/procurement/store';
 import type { VendorTier } from '@/procurement/types';
+import { PurchaseTracker } from './PurchaseTracker';
 
 type TierFilter = 'all' | VendorTier;
 
@@ -418,6 +419,7 @@ export function VendorsView() {
                           Negotiated: <b>{formatUsd(r.negotiatedAnnualUsd)}</b> ({r.quantity}{' '}
                           {r.unitLabel})
                         </div>
+                        <PurchaseTracker req={r} compact />
                       </div>
                     ))}
                 </div>

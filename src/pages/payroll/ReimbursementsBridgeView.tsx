@@ -2,6 +2,7 @@
  * Reimbursements Bridge — connects Travel & Expenses (`manager_approved` and
  * `payroll_queued` reports) and HR Portal (`approved` benefit allowance claims)
  * into the monthly WPS Pay Run or instant Express Off-Cycle Wire settlement.
+ * Every claim card carries a compact reimbursement tracker.
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -28,6 +29,7 @@ import { formatDateTime } from '@/lib/format';
 import { Avatar } from '@/components/ui/primitives';
 import { Chip, NeoEmpty, NeoKpi, NeoKpis, NeoPanel } from '@/components/neo';
 import { ALLOWANCE_LABELS, compactAed, formatAed } from './shared';
+import { ExpenseClaimTracker, HrClaimTracker, ridingRun } from './trackers';
 
 export function ReimbursementsBridgeView() {
   const navigate = useNavigate();
@@ -44,6 +46,7 @@ export function ReimbursementsBridgeView() {
   const [auditNotes, setAuditNotes] = useState<Record<string, string>>({});
 
   const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+  const activeRun = runs[0];
   const activePeriod = useMemo(() => runs[0]?.period ?? periodFromTimestamp(Date.now(), 0), [runs]);
 
   const managerApprovedReports = useMemo(() => reports.filter((r) => r.status === 'manager_approved'), [reports]);
@@ -180,6 +183,8 @@ export function ReimbursementsBridgeView() {
                       </div>
                     </div>
 
+                    <ExpenseClaimTracker report={rep} run={activeRun} />
+
                     {!gate.ok ? (
                       <div className="py-note" data-tone="warning">
                         <ShieldAlert />
@@ -267,6 +272,8 @@ export function ReimbursementsBridgeView() {
                       </div>
                     </div>
 
+                    <ExpenseClaimTracker report={rep} run={ridingRun(runs, rep.payrollPeriod)} />
+
                     <div className="py-award__foot">
                       <span className="py-sub">
                         Auto-settles in <b>{rep.payrollPeriod ?? activePeriod}</b> WPS batch
@@ -316,6 +323,8 @@ export function ReimbursementsBridgeView() {
                         <span>Period: {cl.payrollMonth ?? activePeriod}</span>
                       </div>
                     </div>
+
+                    <HrClaimTracker claim={cl} run={ridingRun(runs, cl.payrollMonth)} />
 
                     <div className="py-award__foot">
                       <span className="py-sub">Synced from HR Portal Benefits — settles with monthly Pay Run</span>

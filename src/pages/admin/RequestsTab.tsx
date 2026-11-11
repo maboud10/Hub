@@ -5,14 +5,17 @@ import {
   Ban,
   Boxes,
   Check,
+  ChevronUp,
   CircleCheck,
   CircleX,
   Clock,
+  Clock3,
   History,
   Hourglass,
   Inbox,
   Info,
   PartyPopper,
+  Route,
   ScrollText,
   ShieldAlert,
   TriangleAlert,
@@ -21,6 +24,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { NeoEmpty, NeoKpi, NeoKpis, NeoPanel, NeoTabs } from '@/components/neo';
+import { AccessTrack, useAccessTracker } from '@/components/apps/AccessTracker';
 import { useHub } from '@/store/hub';
 import { usePermissions, useSessionUser } from '@/store/selectors';
 import { useNow } from '@/hooks/useNow';
@@ -410,6 +414,8 @@ function RequestCard({
         </div>
       </div>
 
+      <RequestJourney request={request} canReview={check.ok} />
+
       <blockquote className="adm-quote">“{request.reason}”</blockquote>
 
       {already && (
@@ -516,7 +522,52 @@ function HistoryRow({
         )}
       </div>
       {r.reviewNote && <blockquote className="adm-quote adm-quote--sm adm-hist__note">“{r.reviewNote}”</blockquote>}
+      <RequestJourney request={r} quiet />
     </li>
+  );
+}
+
+// ─────────────────────────── journey (pizza tracker) ───────────────────────────
+
+/**
+ * Live journey strip for a request: compact tracker + who has it now + the
+ * 24h review deadline (or the grant's expiry once approved). "Journey" opens
+ * the full timeline — who handled each stage, and when. `quiet` drops the
+ * status line where the row already says it (history).
+ */
+function RequestJourney({ request, canReview, quiet }: { request: AccessRequest; canReview?: boolean; quiet?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const viewerId = useHub((s) => s.sessionUserId);
+  const view = useAccessTracker(request, { id: viewerId, canReview });
+  if (!view) return null;
+
+  const toggle = (
+    <button type="button" className="neo-btn neo-btn--ghost neo-btn--xs adm-journey__toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+      {open ? <ChevronUp aria-hidden="true" /> : <Route aria-hidden="true" />}
+      {open ? 'Hide journey' : 'Journey'}
+    </button>
+  );
+
+  return (
+    <div className={cx('adm-journey', open && 'is-open', quiet && 'adm-journey--quiet')}>
+      {open ? (
+        <AccessTrack view={view} bare actions={toggle} />
+      ) : (
+        <>
+          <AccessTrack view={view} compact />
+          <div className="adm-journey__foot">
+            {quiet ? <span className="grow" /> : <p className="adm-journey__msg">{view.message}</p>}
+            {view.eta && (
+              <span className="adm-journey__eta" data-overdue={view.overdue || undefined}>
+                <Clock3 aria-hidden="true" />
+                {view.eta}
+              </span>
+            )}
+            {toggle}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

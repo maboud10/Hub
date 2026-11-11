@@ -1191,3 +1191,321 @@ button.rp-stop__row:focus-visible {
 [data-motion='reduced'] .rp-stop__pulse {
   animation: none !important;
 }
+
+/* ==========================================================================
+   One rail inside apps
+   The app's NEO rail is the only navigation column; the Hub sidebar steps
+   aside and slides over as a drawer from the NEXUS orb in the top bar.
+   The back control lives under the app's last rail icon (shell/RailReturn).
+   ========================================================================== */
+.hub-orb {
+  position: relative;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  transition: transform var(--dur) var(--ease-spring);
+}
+.hub-orb .brand__mark {
+  width: 44px;
+  height: 44px;
+  border-radius: 15px;
+  transition: box-shadow var(--dur);
+}
+.hub-orb:hover {
+  transform: translateY(-1px);
+}
+.hub-orb:hover .brand__mark,
+.hub-orb.is-open .brand__mark {
+  box-shadow:
+    0 0 0 1px rgb(var(--accent-rgb) / 0.55),
+    0 0 28px -4px rgb(var(--accent-rgb) / 0.9);
+}
+.hub-orb:hover .brand__orbit {
+  animation-duration: 3.5s;
+}
+.hub-orb:focus-visible {
+  outline: 2px solid rgb(var(--accent-rgb) / 0.85);
+  outline-offset: 3px;
+}
+.hub-orb__badge {
+  position: absolute;
+  inset-block-end: -3px;
+  inset-inline-end: -3px;
+  width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--grad-accent);
+  color: #fff;
+  box-shadow:
+    0 0 0 2px var(--bg-2),
+    0 4px 10px -3px rgb(var(--accent-rgb) / 0.8);
+  transition: transform var(--dur) var(--ease-spring);
+}
+.hub-orb__badge svg {
+  width: 11px;
+  height: 11px;
+}
+.hub-orb.is-open .hub-orb__badge {
+  transform: rotate(45deg) scale(1.06);
+}
+.hub-scrim {
+  display: none;
+}
+
+@media (min-width: 721px) {
+  .shell[data-immersive][data-collapsed] {
+    grid-template-columns: minmax(0, 1fr);
+    transition: none;
+  }
+  .shell[data-immersive] .sidebar {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 90;
+    width: var(--sidebar-w);
+    padding-left: 14px;
+    padding-right: 14px;
+    background: color-mix(in srgb, var(--surface-solid) 84%, transparent);
+    transform: translateX(-104%);
+    visibility: hidden;
+    transition:
+      transform 0.34s var(--ease-out),
+      visibility 0s linear 0.34s;
+  }
+  [dir='rtl'] .shell[data-immersive] .sidebar {
+    transform: translateX(104%);
+  }
+  .shell[data-immersive][data-drawer] .sidebar {
+    transform: none;
+    visibility: visible;
+    transition:
+      transform 0.42s cubic-bezier(0.2, 0.9, 0.25, 1),
+      visibility 0s;
+    box-shadow:
+      28px 0 80px -28px rgb(0 0 0 / 0.7),
+      1px 0 0 rgb(var(--accent-rgb) / 0.28);
+  }
+  .shell[data-immersive] .hub-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 89;
+    background: rgb(3 5 14 / 0.42);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s var(--ease-out);
+  }
+  [data-theme='light'] .shell[data-immersive] .hub-scrim {
+    background: rgb(15 23 42 / 0.18);
+  }
+  .shell[data-immersive][data-drawer] .hub-scrim {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  /* Hub orb sits right above the app rail */
+  .shell[data-immersive] .topbar {
+    padding-inline-start: calc(clamp(10px, 1.2vw, 16px) + 16px);
+  }
+  /* The rail now carries the way back: hide the top-bar pill (the "Resume" capsule on hub pages stays) */
+  .shell:has(.neo-rail__return) .topbar .return-portal:not(.return-portal--resume) {
+    display: none;
+  }
+}
+/* tablets force the icon sidebar — but the in-app drawer always opens fully labelled */
+@media (min-width: 721px) and (max-width: 1100px) {
+  .shell[data-immersive] .sidebar :is(.brand__text, .nav-item__label, .sidebar__label, .pin-link__name, .user-card__meta, .focus-pill__label) {
+    display: revert;
+  }
+  .shell[data-immersive] .sidebar .nav-item .counter {
+    display: inline-grid;
+  }
+  .shell[data-immersive] .sidebar .collapse-btn {
+    display: inline-grid;
+  }
+  .shell[data-immersive] .sidebar :is(.nav-item, .pin-link) {
+    justify-content: flex-start;
+    padding: 0 12px;
+  }
+  .shell[data-immersive] .sidebar .user-card {
+    justify-content: flex-start;
+    padding: 9px;
+    border-color: var(--border);
+    background: var(--surface);
+  }
+}
+@media (max-width: 720px) {
+  .hub-orb {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   Portal transitions (lib/portalTransition.ts · View Transitions API)
+   launch: icon flies tile → rail brand, app irises open from the icon,
+           Hub sidebar slides away while the app rail slides in.
+   return: app irises shut into its rail icon, which flies home to its tile.
+   switch: rail icon morphs into the next app's icon, stage rises in.
+   ========================================================================== */
+html[data-vt] .sidebar {
+  view-transition-name: hub-sidebar;
+}
+html[data-vt] .topbar {
+  view-transition-name: hub-topbar;
+}
+html[data-vt] .neo-rail {
+  view-transition-name: app-rail;
+}
+html[data-vt] .neo {
+  animation: none;
+}
+html[data-vt]::view-transition-group(root) {
+  animation-duration: 0.6s;
+}
+::view-transition-group(hub-topbar) {
+  animation-duration: 0.3s;
+}
+::view-transition-group(hub-sidebar) {
+  animation-duration: 0.42s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+::view-transition-group(nexus-app-icon) {
+  z-index: 60;
+  animation-duration: 0.6s;
+  animation-timing-function: cubic-bezier(0.2, 0.9, 0.2, 1.06);
+}
+::view-transition-old(nexus-app-icon),
+::view-transition-new(nexus-app-icon) {
+  height: 100%;
+  animation-duration: 0.6s;
+}
+html[data-vt='launch']::view-transition-old(root) {
+  animation: vt-recede 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+html[data-vt='launch']::view-transition-new(root) {
+  animation: vt-iris-open 0.62s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+html[data-vt='return']::view-transition-old(root) {
+  z-index: 1;
+  animation: vt-iris-close 0.5s cubic-bezier(0.55, 0, 0.3, 1) both;
+}
+html[data-vt='return']::view-transition-new(root) {
+  animation: vt-emerge 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+html[data-vt='switch']::view-transition-old(root) {
+  animation: vt-fade-out 0.26s ease both;
+}
+html[data-vt='switch']::view-transition-new(root) {
+  animation: vt-rise 0.44s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+::view-transition-new(app-rail):only-child {
+  animation: vt-rail-in 0.5s 0.06s cubic-bezier(0.2, 0.9, 0.25, 1.04) both;
+}
+::view-transition-old(app-rail):only-child {
+  animation: vt-rail-out 0.3s ease-in both;
+}
+::view-transition-old(hub-sidebar):only-child {
+  animation: vt-sidebar-out 0.36s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+::view-transition-new(hub-sidebar):only-child {
+  animation: vt-sidebar-in 0.46s 0.08s cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+html[dir='rtl']::view-transition-new(app-rail):only-child {
+  animation-name: vt-rail-in-rtl;
+}
+html[dir='rtl']::view-transition-old(app-rail):only-child {
+  animation-name: vt-rail-out-rtl;
+}
+@keyframes vt-iris-open {
+  from {
+    clip-path: circle(24px at var(--vt-x, 50%) var(--vt-y, 50%));
+    filter: brightness(1.25) saturate(1.25);
+  }
+  to {
+    clip-path: circle(160vmax at var(--vt-x, 50%) var(--vt-y, 50%));
+    filter: none;
+  }
+}
+@keyframes vt-iris-close {
+  from {
+    clip-path: circle(160vmax at var(--vt-x, 50%) var(--vt-y, 50%));
+  }
+  to {
+    clip-path: circle(22px at var(--vt-x, 50%) var(--vt-y, 50%));
+    opacity: 0.4;
+  }
+}
+@keyframes vt-recede {
+  to {
+    opacity: 0.2;
+    transform: scale(0.955);
+    filter: blur(5px) saturate(0.7);
+  }
+}
+@keyframes vt-emerge {
+  from {
+    opacity: 0.25;
+    transform: scale(1.035);
+    filter: blur(5px);
+  }
+}
+@keyframes vt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.992);
+  }
+}
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-rail-in {
+  from {
+    opacity: 0;
+    transform: translateX(-36px) scale(0.94);
+  }
+}
+@keyframes vt-rail-out {
+  to {
+    opacity: 0;
+    transform: translateX(-36px) scale(0.94);
+  }
+}
+@keyframes vt-rail-in-rtl {
+  from {
+    opacity: 0;
+    transform: translateX(36px) scale(0.94);
+  }
+}
+@keyframes vt-rail-out-rtl {
+  to {
+    opacity: 0;
+    transform: translateX(36px) scale(0.94);
+  }
+}
+@keyframes vt-sidebar-out {
+  to {
+    opacity: 0;
+    transform: translateX(-60%);
+  }
+}
+@keyframes vt-sidebar-in {
+  from {
+    opacity: 0;
+    transform: translateX(-60%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

@@ -1,12 +1,13 @@
 /**
  * Support Home — Nova triage console, quick fixes, my setup (mini holograms),
- * open tickets with live SLA rings, service status and IT announcements.
+ * open tickets with live SLA rings and fix trackers, service status and IT
+ * announcements.
  */
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Activity, ArrowRight, BellRing, ChevronRight, CircleCheck, Info, LifeBuoy, Megaphone, Plus, Siren, Stethoscope, TriangleAlert } from 'lucide-react';
 import { NeoEmpty, NeoHead, NeoStage, Orb } from '@/components/neo';
-import { relativeTime } from '@/lib/format';
+import { greeting, relativeTime } from '@/lib/format';
 import { useNow } from '@/hooks/useNow';
 import { useHelpdesk } from '@/helpdesk/store';
 import type { Device, PlaybookId } from '@/helpdesk/types';
@@ -20,7 +21,8 @@ import { NovaTriage } from './NovaTriage';
 import { PlaybookModal } from './playbook';
 import { PLAYBOOK_ICON } from './icons';
 import { DeviceGlyph } from './glyphs';
-import { HealthRing, Kbd, Panel, SlaRing, StatusPill, useOpenTicket, useSetParam, useViewer } from './ui';
+import { FixTracker } from './trackers';
+import { HealthRing, Kbd, Panel, SlaRing, useOpenTicket, useSetParam, useViewer } from './ui';
 
 export function HomeView() {
   const viewer = useViewer();
@@ -28,8 +30,7 @@ export function HomeView() {
   const setParam = useSetParam();
   const [fix, setFix] = useState<PlaybookId | null>(null);
   const first = firstNameOf(viewer?.user.name);
-  const hour = new Date().getHours();
-  const hello = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const hello = greeting();
 
   return (
     <NeoStage label="Support home">
@@ -216,13 +217,13 @@ function OpenTickets() {
             return (
               <Link key={t.id} to={`/helpdesk/tickets/${t.id}`} className="hd-opentix__row">
                 <SlaRing sla={sla} size={40} caption={sla.kind === 'response' ? 'First response' : 'Resolution'} />
-                <span className="hd-opentix__text">
+                <div className="hd-opentix__text">
                   <span className="hd-opentix__subj">{t.subject}</span>
                   <span className="hd-opentix__meta">
                     <span className="neo-mono">{t.id}</span> · {t.status === 'waiting' ? 'Your reply needed' : slaLabel(sla)} · {relativeTime(t.updatedAt, now)}
                   </span>
-                </span>
-                <StatusPill status={t.status} size="sm" />
+                  <FixTracker ticket={t} compact className="hd-opentix__track" />
+                </div>
               </Link>
             );
           })}

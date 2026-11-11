@@ -12,12 +12,14 @@ import { ADD_ONS, HEALTH_PLAN_BY_ID, HEALTH_PLANS, LIFE_COVER, RELATION_LABEL } 
 import { COMPANY_PREMIUM, electionCost } from '@/hr/engine';
 import { daysBetween, formatDay, todayISO } from '@/hr/calendar';
 import type { BenefitElection } from '@/hr/types';
+import { electionTrack } from '@/hr/trackers';
 import { toast } from '@/store/toast';
 import { uid } from '@/lib/id';
 import { cx } from '@/lib/cx';
 import { Modal } from '@/components/ui/Modal';
 import { Switch } from '@/components/ui/primitives';
 import { Stepper, type StepDef } from '@/pages/talent/components/shared';
+import { HrTracker, useTrackContext } from '../components/trackers';
 import { aed, celebrate, deadlineInfo, money, planYear, useMyComp, useMyElection, type LifeEvent } from './model';
 
 const STEPS: StepDef[] = [
@@ -78,6 +80,9 @@ function WizardDialog({ open, onClose, event }: { open: boolean; onClose: () => 
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const trackCtx = useTrackContext();
+  // After submitting, the stored election is 'submitted': the tracker follows it live.
+  const doneTrack = done && election ? electionTrack(election, trackCtx) : null;
 
   const cost = useMemo(() => electionCost(draft), [draft]);
   const plan = HEALTH_PLAN_BY_ID[draft.health];
@@ -186,35 +191,11 @@ function WizardDialog({ open, onClose, event }: { open: boolean; onClose: () => 
             {plan.label} with {plan.insurer}
             {draft.dependents.length ? ` for you and ${draft.dependents.length} dependent${draft.dependents.length === 1 ? '' : 's'}` : ''}. People Ops will confirm with the insurer, usually within a day, and your digital card goes live as soon as they do.
           </p>
-          <ol className="hr-bn-track hr-bn-track--center" aria-label="What happens next">
-            <li className="is-done">
-              <span className="hr-bn-track__dot">
-                <Check aria-hidden="true" />
-              </span>
-              <span>
-                <b>Submitted</b>
-                <small>Just now</small>
-              </span>
-            </li>
-            <li className="is-active">
-              <span className="hr-bn-track__dot">
-                <ShieldCheck aria-hidden="true" />
-              </span>
-              <span>
-                <b>People Ops confirms</b>
-                <small>Usually within a day</small>
-              </span>
-            </li>
-            <li>
-              <span className="hr-bn-track__dot">
-                <CircleCheckBig aria-hidden="true" />
-              </span>
-              <span>
-                <b>Card goes live</b>
-                <small>In Benefits</small>
-              </span>
-            </li>
-          </ol>
+          {doneTrack && (
+            <div className="hr-trk-slot hr-bn-done__track">
+              <HrTracker track={doneTrack} variant="full" />
+            </div>
+          )}
         </div>
       ) : (
         <>

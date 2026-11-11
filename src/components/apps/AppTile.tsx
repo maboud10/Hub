@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties, type MouseEvent, type PointerEvent } from 'react';
+import { useRef, type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { ArrowUpRight, Clock, Ellipsis, Hourglass, Info, LockKeyhole, Pin, PinOff } from 'lucide-react';
 import type { AppStatus, AppWithAccess } from '@/types';
 import { useHub } from '@/store/hub';
@@ -7,6 +7,7 @@ import { toast } from '@/store/toast';
 import { usePrefs } from '@/store/selectors';
 import { useLongPress } from '@/hooks/useLongPress';
 import { useLaunchApp } from './useLaunchApp';
+import { AccessTrack, useAccessTracker } from './AccessTracker';
 import { AppIcon } from '@/components/ui/primitives';
 import { Chip, Orb, useContextMenu, type MenuEntry, type Tone } from '@/components/neo';
 import { getIcon } from '@/icons';
@@ -31,6 +32,26 @@ function accessLabel(item: AppWithAccess) {
   if (access === 'pending') return `${app.name}, access request pending.`;
   if (access === 'disabled') return `${app.name}, disabled by an administrator.`;
   return `Open ${app.name}${app.notifications ? `, ${app.notifications} new` : ''}`;
+}
+
+/** Live tracker view of the session user's pending request behind a tile. */
+function usePendingView(requestId: string) {
+  const viewerId = useHub((s) => s.sessionUserId);
+  const request = useHub((s) => s.requests.find((r) => r.id === requestId));
+  return useAccessTracker(request, { id: viewerId });
+}
+
+/** "Omar (your manager) is reviewing your request" — stands in for the tagline while access is on its way. */
+function PendingLine({ requestId, className, fallback }: { requestId: string; className: string; fallback: string }) {
+  const view = usePendingView(requestId);
+  return <div className={cx(className, view && 'tile__live')}>{view ? view.short : fallback}</div>;
+}
+
+/** Compact pizza tracker in the app's own plasma (falls back to the status chip). */
+function PendingTrack({ requestId, gradient, className, fallback }: { requestId: string; gradient: [string, string]; className?: string; fallback: ReactNode }) {
+  const view = usePendingView(requestId);
+  if (!view) return <>{fallback}</>;
+  return <AccessTrack view={view} compact tint={{ c1: gradient[0], c2: gradient[1] }} className={className} />;
 }
 
 export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAccess; variant?: TileVariant; index?: number }) {
@@ -119,6 +140,8 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
 
   const style = { '--c1': app.gradient[0], '--c2': app.gradient[1], '--i': index } as CSSProperties;
   const expiringSoon = expiresAt && expiresAt - Date.now() < 7 * DAY;
+  /** Your in-flight request for this app — the tile shows its live tracker. */
+  const pendingId = access === 'pending' ? item.pendingRequestId : undefined;
 
   // ───────── Icon (phone) ─────────
   if (variant === 'icon') {
@@ -203,11 +226,15 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
             {badge}
             {granted && !!app.notifications && <span className="counter">{app.notifications}</span>}
           </div>
-          <div className="tile-row__tagline">{app.tagline}</div>
+          {pendingId ? (
+            <PendingLine requestId={pendingId} className="tile-row__tagline" fallback={app.tagline} />
+          ) : (
+            <div className="tile-row__tagline">{app.tagline}</div>
+          )}
         </div>
         <div className="tile-row__aside">
           <span className="tile-row__cat">{app.category}</span>
-          {statusNode}
+          {pendingId ? <PendingTrack requestId={pendingId} gradient={app.gradient} className="tile-row__track" fallback={statusNode} /> : statusNode}
           {actions}
         </div>
       </div>
@@ -232,13 +259,19 @@ export function AppTile({ item, variant = 'card', index = 0 }: { item: AppWithAc
       </div>
       <div className="tile__body">
         <div className="tile__name">{app.name}</div>
-        <div className="tile__tagline">{app.tagline}</div>
+        {pendingId ? <PendingLine requestId={pendingId} className="tile__tagline" fallback={app.tagline} /> : <div className="tile__tagline">{app.tagline}</div>}
       </div>
-      <div className="tile__foot">
-        <span className="tile__meta">{app.category}</span>
-        {statusNode}
-        {granted && <div className="tile__actions">{actions}</div>}
-      </div>
+      {pendingId ? (
+        <div className="tile__foot tile__foot--track">
+          <PendingTrack requestId={pendingId} gradient={app.gradient} className="tile__track" fallback={statusNode} />
+        </div>
+      ) : (
+        <div className="tile__foot">
+          <span className="tile__meta">{app.category}</span>
+          {statusNode}
+          {granted && <div className="tile__actions">{actions}</div>}
+        </div>
+      )}
     </div>
     {ctx.element}
     </>

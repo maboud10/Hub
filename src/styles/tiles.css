@@ -781,3 +781,89 @@
     display: none;
   }
 }
+
+/* ==========================================================================
+   Access tracker — components/apps/AccessTracker.tsx
+   The NeoTracker for access requests (Requested → Manager review → Security
+   check → Access granted), shared by the app sheet, pending tiles and
+   Control Center. Lives here because it renders in portals (sheet) too.
+   ========================================================================== */
+.acc-trk__who {
+  color: var(--text);
+  font-weight: 650;
+}
+.acc-trk__role {
+  color: var(--text-3);
+}
+.acc-trk__num {
+  font-family: var(--font-mono);
+  font-size: 0.94em;
+  font-weight: 600;
+  color: var(--text);
+}
+.acc-trk__sep {
+  margin-inline: 7px;
+  color: var(--text-3);
+}
+.acc-trk__note {
+  font-style: italic;
+  color: var(--text-2);
+}
+/* Painted in the requested app's plasma: derive the ink from the element's own tint */
+.acc-trk--tinted {
+  --app-ink: color-mix(in oklab, var(--app-c1) 78%, #ffffff);
+}
+[data-theme='light'] .acc-trk--tinted {
+  --app-ink: color-mix(in oklab, var(--app-c2) 72%, #0b1020);
+}
+/* Review past its 24h window: the ETA chip says so in amber */
+.acc-trk--overdue .neo-tracker__eta {
+  color: var(--warning);
+  background: rgb(var(--warning-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--warning-rgb) / 0.36);
+}
+/* Outside NEO surfaces (legacy pages) borrow the classic hub tokens */
+body:not([data-neo-app]) .acc-trk {
+  --plane-2: var(--surface);
+  --plane-border: var(--border);
+  --plane-border-2: var(--border-2);
+  --hover: var(--surface-2);
+  --hover-2: var(--surface-2);
+  --track: color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+/* App details sheet */
+.appsheet__tracker {
+  margin-top: 20px;
+}
+.appsheet__tracker + .appsheet__access {
+  margin-top: 12px;
+}
+.appsheet__track-done {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px dashed rgb(var(--a-rgb) / 0.32);
+}
+
+/* Pending tiles: live line in place of the tagline, compact tracker as the foot */
+.tile__live {
+  color: var(--text-2);
+}
+.tile .tile__foot.tile__foot--track {
+  display: block;
+  padding-top: 11px;
+}
+/* ~210px cards: the stage label gets the room; the segments already show how far along it is */
+.tile__track .neo-tracker__count {
+  display: none;
+}
+.tile-row__track {
+  flex: none;
+  width: clamp(200px, 20vw, 248px);
+}
+@media (max-width: 560px) {
+  /* phones: the live line under the name already says who has it and where */
+  .tile-row__track {
+    display: none;
+  }
+}

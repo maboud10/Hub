@@ -611,51 +611,6 @@
   color: var(--text);
   text-align: right;
 }
-.pf-ck-next {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  margin-bottom: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--plane-border);
-}
-.pf-ck-next ol {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-.pf-ck-next li {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12.5px;
-  color: var(--text-2);
-}
-.pf-ck-next li i {
-  width: 9px;
-  height: 9px;
-  flex: none;
-  border-radius: 50%;
-  border: 2px solid rgb(var(--app-rgb) / 0.65);
-  background: var(--plane-solid);
-}
-.pf-ck-next li:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 14px;
-  width: 1px;
-  height: calc(100% - 3px);
-  background: rgb(var(--app-rgb) / 0.28);
-}
-.pf-ck-next .neo-mono {
-  font-size: 11px;
-  color: var(--text-3);
-}
 .pf-ck-ok {
   display: inline-flex;
   align-items: center;

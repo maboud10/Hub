@@ -62,6 +62,7 @@ import type { User } from '@/types';
 import { dayLabel, dueLabel, report, shortDate, useMinute, usePerfCtx, type PerfCtx } from './hooks';
 import { Kbd, NovaBox, NovaThinking, OkrRing, Seg, StatusChip, useNova } from './ui';
 import { GiveFeedbackModal, KindChip } from './FeedbackModals';
+import { ReviewTracker } from './trackers';
 import './styles/team.css';
 
 const DAY = 86_400_000;
@@ -539,7 +540,7 @@ export function TeamView() {
                     )}
                     <div className="pf-tm-grid neo-stagger">
                       {g.items.map((m, i) => (
-                        <MemberCard key={m.id} m={m} index={i} onOpen={openPerson} onGive={(id) => setGive({ open: true, to: id })} onMessage={message} onNudge={nudgeOne} onSetup={setup} />
+                        <MemberCard key={m.id} m={m} index={i} ctx={ctx} now={now} onOpen={openPerson} onGive={(id) => setGive({ open: true, to: id })} onMessage={message} onNudge={nudgeOne} onSetup={setup} />
                       ))}
                     </div>
                   </section>
@@ -624,46 +625,6 @@ function PulseBox({ text, scopeKey, actions }: { text: string; scopeKey: string;
   );
 }
 
-function Track({ m, large }: { m: Member; large?: boolean }) {
-  const steps: { key: string; label: string; state: string; detail: string }[] = [
-    {
-      key: 'self',
-      label: 'Self',
-      state: m.selfStatus === 'submitted' ? 'done' : m.selfStatus === 'draft' ? 'active' : m.selfStatus ? 'todo' : 'na',
-      detail: m.selfStatus === 'submitted' ? 'Submitted' : m.selfStatus === 'draft' ? 'Draft' : m.selfStatus ? 'Not started' : '—',
-    },
-    {
-      key: 'peers',
-      label: 'Peers',
-      state: !m.review ? 'na' : m.peers.proposed ? 'attn' : !m.peers.total ? 'todo' : m.peers.done >= m.peers.total ? 'done' : 'active',
-      detail: !m.review ? '—' : m.peers.proposed ? `${m.peers.proposed} to approve` : m.peers.total ? `${m.peers.done}/${m.peers.total} in` : 'None yet',
-    },
-    {
-      key: 'review',
-      label: 'Review',
-      state: m.mgr === 'submitted' ? 'done' : m.mgr === 'draft' ? 'active' : m.mgr === 'locked' ? 'locked' : m.mgr === 'not-started' ? 'todo' : 'na',
-      detail: m.mgr === 'submitted' ? 'Submitted' : m.mgr === 'draft' ? 'Draft' : m.mgr === 'locked' ? 'Locked' : m.mgr === 'not-started' ? 'Unlocked' : '—',
-    },
-    {
-      key: 'shared',
-      label: 'Shared',
-      state: m.release === 'acked' ? 'done' : m.release === 'shared' ? 'active' : m.review ? 'todo' : 'na',
-      detail: m.release === 'acked' ? 'Acknowledged' : m.release === 'shared' ? 'Awaiting ack' : m.review ? 'Not yet' : '—',
-    },
-  ];
-  return (
-    <ol className={cx('pf-tm-track', large && 'pf-tm-track--lg')} aria-label="Quarterly check-in progress">
-      {steps.map((s) => (
-        <li key={s.key} className="pf-tm-step" data-state={s.state} title={`${s.label}: ${s.detail}`}>
-          <i aria-hidden="true" />
-          <span className="pf-tm-step__label">{s.label}</span>
-          <span className="pf-tm-step__detail">{s.detail}</span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 function Balance({ praise, constructive }: { praise: number; constructive: number }) {
   const total = praise + constructive;
   return (
@@ -693,6 +654,8 @@ function Balance({ praise, constructive }: { praise: number; constructive: numbe
 function MemberCard({
   m,
   index,
+  ctx,
+  now,
   onOpen,
   onGive,
   onMessage,
@@ -701,6 +664,8 @@ function MemberCard({
 }: {
   m: Member;
   index: number;
+  ctx: PerfCtx;
+  now: number;
   onOpen: (id: string) => void;
   onGive: (id: string) => void;
   onMessage: (id: string) => void;
@@ -773,7 +738,7 @@ function MemberCard({
         </div>
       )}
 
-      <Track m={m} />
+      {m.review && <ReviewTracker review={m.review} ctx={ctx} now={now} compact label={`${m.user.name} · review cycle tracker`} />}
 
       <div className="pf-tm-signals">
         <div className="pf-tm-sig">
@@ -1069,7 +1034,7 @@ function PersonSheet({
         {cur.review && (
           <section className="pf-tm-sec">
             <h3 className="neo-hud">{cycleName ?? 'Quarterly check-in'}</h3>
-            <Track m={cur} large />
+            <ReviewTracker review={cur.review} ctx={ctx} now={now} bare />
             <div className="pf-row pf-row--wrap">
               {cur.reviewAction?.to ? (
                 <Link to={cur.reviewAction.to} className="neo-btn neo-btn--soft neo-btn--sm">

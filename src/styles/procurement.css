@@ -451,72 +451,77 @@ body[data-neo-app='procurement'] :is(.modal, .sheet) {
   font-style: normal;
 }
 
-.pr-stage-strip {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
-}
-
-@media (max-width: 860px) {
-  .pr-stage-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.pr-stage-pill {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border-radius: 10px;
-  background: var(--hover);
-  border: 1px solid var(--plane-border);
-  font-size: 11px;
-  min-width: 0;
-}
-
-.pr-stage-pill.is-approved {
-  background: rgb(16 185 129 / 0.12);
-  border-color: rgb(16 185 129 / 0.34);
-}
-
-.pr-stage-pill.is-pending {
-  background: rgb(251 191 36 / 0.15);
-  border-color: rgb(251 191 36 / 0.45);
-}
-
-.pr-stage-pill__idx {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--text-3);
-}
-
-.pr-stage-pill__name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-  color: var(--text-2);
-}
-
 .pr-req-card__foot {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
   padding-top: 8px;
   border-top: 1px solid var(--plane-border);
 }
 
-.pr-req-card__gate {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 12px;
-  color: var(--text-2);
+/* ---------- NeoTracker · Purchase & PO trackers (PurchaseTracker.tsx) ---------- */
+
+/* NEO type scale: the tracker headline matches panel titles (15.5px / 650 display). */
+.neo[data-app='procurement'] .pr-trk .neo-tracker__title {
+  font-size: 15.5px;
+}
+
+/* Gold is Procurement's own plasma, so a blocked stage turns rose — the app's
+   variance / risk colour — instead of the shared amber, so it reads as a problem. */
+.neo[data-app='procurement'] .pr-trk[data-state='blocked'] {
+  --trk-a: #fb7185;
+  --trk-b: #e11d48;
+  --trk-rgb: 244 63 94;
+}
+
+.neo[data-app='procurement'] .pr-trk .neo-tracker__count[data-state='blocked'] {
+  color: #fb7185;
+  background: rgb(244 63 94 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(244 63 94 / 0.38);
+}
+
+/* Live status line: people, vendors and PO numbers pop; reviewer notes stay quiet. */
+.pr-trk .neo-tracker__msg b {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.pr-trk-note {
+  color: var(--text-3);
+}
+
+.pr-trk-note::before {
+  content: '—';
+  margin-inline: 0.4em;
+}
+
+/* SLA chip: the hours stand out; an overdue gate turns the chip rose. */
+.pr-trk-eta b {
+  font-weight: 700;
+}
+
+.neo[data-app='procurement'] .pr-trk .neo-tracker__eta:has(.pr-trk-eta[data-late]) {
+  color: #fb7185;
+  background: rgb(244 63 94 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(244 63 94 / 0.36);
+}
+
+[data-theme='light'] .neo[data-app='procurement'] .pr-trk .neo-tracker__eta:has(.pr-trk-eta[data-late]),
+[data-theme='light'] .neo[data-app='procurement'] .pr-trk .neo-tracker__count[data-state='blocked'] {
+  color: #e11d48;
+}
+
+/* Compact trackers in rows: under a linked requisition's meta line, or a PO's amount. */
+.pr-linked-item > .pr-trk {
+  margin-top: 6px;
+}
+
+.pr-constellation-head__right > .pr-trk {
+  width: clamp(200px, 22vw, 260px);
+  margin-top: 8px;
+  text-align: start;
 }
 
 /* ---------- Playbooks & Category Breakdown ---------- */

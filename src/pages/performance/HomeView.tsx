@@ -40,8 +40,8 @@ import { checkinStreak, elapsed, formatValue, krProgress, rollupStatus } from '@
 import { currentPeriod, myCheckinKrs, objectivesOwnedBy, primaryCycle, reviewOf, rollup, todosFor, visibleFeedback, type Todo } from '@/performance/selectors';
 import { usePerf } from '@/performance/store';
 import type { KrStatus } from '@/performance/types';
-import { CycleTimeline, type PhaseMark } from './CycleTimeline';
 import { dayLabel, dueLabel, shortDate, useMinute, usePerfCtx, type PerfCtx } from './hooks';
+import { CycleTracker, ReviewTracker } from './trackers';
 import { OkrRing, Section, StatusChip } from './ui';
 import { useEvidence } from './useEvidence';
 
@@ -189,11 +189,6 @@ function QuarterCard({ ctx, now }: { ctx: PerfCtx; now: number }) {
   const review = reviewOf(data, cycle.id, ctx.me.id);
   const phase = currentPhaseKey(cycle, now);
   const self = getPhase(cycle, 'self');
-  const myPeers = data.cycleFeedback.filter((f) => f.cycleId === cycle.id && f.authorId === ctx.me.id && f.status !== 'proposed' && f.status !== 'declined');
-  const marks: Partial<Record<keyof typeof PHASE, PhaseMark>> = {
-    self: review?.self.status === 'submitted' ? 'done' : 'todo',
-    peer: myPeers.length && myPeers.every((f) => f.status === 'submitted') ? 'done' : myPeers.length ? 'todo' : 'na',
-  };
   const selfDue = self ? dueLabel(self.end, now) : null;
   const status = review?.self.status ?? 'not-started';
   const headline =
@@ -231,7 +226,12 @@ function QuarterCard({ ctx, now }: { ctx: PerfCtx; now: number }) {
         </div>
       </div>
       <div className="pf-quarter__tl">
-        <CycleTimeline cycle={cycle} now={now} marks={marks} />
+        {/* Your own review journey; leaders without a manager chain see the cycle calendar with their org's tallies. */}
+        {review?.managerId ? (
+          <ReviewTracker review={review} ctx={ctx} now={now} bare hud="Review cycle tracker" />
+        ) : (
+          <CycleTracker cycle={cycle} ctx={ctx} now={now} bare hud="Review cycle tracker" />
+        )}
       </div>
     </section>
   );

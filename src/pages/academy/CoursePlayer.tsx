@@ -40,6 +40,7 @@ import { toast } from '@/store/toast';
 import { Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/cx';
 import { LEVEL_TONE, ProgressRing, SourceBadge, TrackBadge, useCertParam } from './shared';
+import { CourseTracker } from './trackers';
 
 function CalloutIcon({ tone }: { tone: 'tip' | 'warning' | 'policy' | 'insight' }) {
   if (tone === 'tip') return <CheckCircle2 />;
@@ -313,6 +314,10 @@ export function CoursePlayer() {
       ? currentLesson.choices.find((c) => c.id === selectedScenarioChoiceId)
       : undefined;
 
+  // Live quiz state for the tracker: answers picked in this attempt, or a failed result on screen.
+  const quizAnswered = quizAnswers.filter((a) => a >= 0).length;
+  const failedAttemptScore = quizResult && !quizResult.passed ? quizResult.score : undefined;
+
   const stageTabItems = [
     ...course.lessons.map((l, idx) => ({
       value: l.id,
@@ -394,6 +399,26 @@ export function CoursePlayer() {
           />
         </div>
       </NeoPanel>
+
+      {/* Live journey tracker: Assigned → Lessons → Quiz → Certified */}
+      <CourseTracker
+        course={course}
+        enrollment={enrollment}
+        certificate={existingCert}
+        quizAnswered={quizAnswered}
+        lastAttemptScore={failedAttemptScore}
+        actions={(j) =>
+          j.stage === 'quiz' && activeStage !== 'quiz' ? (
+            <button type="button" className="neo-btn neo-btn--soft neo-btn--xs" onClick={() => selectStage('quiz')}>
+              <ClipboardCheck /> {j.state === 'blocked' ? 'Retry the quiz' : 'Take the quiz'}
+            </button>
+          ) : j.stage === 'lessons' && j.nextLessonId && activeStage !== j.nextLessonId ? (
+            <button type="button" className="neo-btn neo-btn--soft neo-btn--xs" onClick={() => selectStage(j.nextLessonId!)}>
+              <Play /> Resume
+            </button>
+          ) : null
+        }
+      />
 
       {/* Main Split: Curriculum Rail + Interactive Stage */}
       <div className="ac-player-layout">

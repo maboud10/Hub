@@ -1,16 +1,18 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import {
   AlertTriangle,
+  ArrowLeftRight,
   ArrowRight,
   Award,
   CheckCircle2,
+  ChevronDown,
   Plus,
   Sparkles,
   UserCheck,
   X,
   Zap,
 } from 'lucide-react';
-import { Chip, NovaChip, Ring, Spark } from '@/components/neo';
+import { Chip, NeoMenu, NovaChip, Ring, Spark } from '@/components/neo';
 import { Avatar } from '@/components/ui/primitives';
 import { SEED_USERS } from '@/data/users';
 import { relativeTime } from '@/lib/format';
@@ -31,11 +33,13 @@ import {
 } from '@/crm/seed';
 import { useCrm } from '@/crm/store';
 import type {
+  CrmDeal,
   CrmModuleId,
   CrmRegion,
   DealStage,
   MeddpiccPillarId,
 } from '@/crm/types';
+import { DealCloseDate, DealTracker } from './DealTracker';
 
 const CRM_OWNER_IDS = [
   'u-noah',
@@ -121,6 +125,31 @@ export function MeddpiccBar({
   );
 }
 
+/** "Move stage" menu for the deal tracker header: jump to any stage (forwards or back). */
+function StageMoveMenu({ deal }: { deal: CrmDeal }) {
+  const moveDealStage = useCrm((s) => s.moveDealStage);
+  return (
+    <NeoMenu
+      label="Move deal stage"
+      items={DEAL_STAGES.map((s) => ({
+        label: s.shortLabel,
+        icon: <span className="crm-stage-dot" style={{ background: s.color }} aria-hidden="true" />,
+        checked: s.id === deal.stage,
+        onSelect: () => {
+          if (s.id !== deal.stage) moveDealStage(deal.id, s.id);
+        },
+      }))}
+      trigger={(p) => (
+        <button {...p} type="button" className="neo-btn neo-btn--soft neo-btn--xs crm-trk-move">
+          <ArrowLeftRight />
+          <span>Move stage</span>
+          <ChevronDown />
+        </button>
+      )}
+    />
+  );
+}
+
 export function DealInspectorDrawer({
   dealId,
   onClose,
@@ -129,6 +158,7 @@ export function DealInspectorDrawer({
   onClose: () => void;
 }) {
   const deals = useCrm((s) => s.deals);
+  const accounts = useCrm((s) => s.accounts);
   const toggleMeddpicc = useCrm((s) => s.toggleMeddpicc);
   const moveDealStage = useCrm((s) => s.moveDealStage);
   const triggerDealNextBestAction = useCrm((s) => s.triggerDealNextBestAction);
@@ -147,6 +177,8 @@ export function DealInspectorDrawer({
   const sponsor = usersMap.get(deal.execSponsorId) ?? SEED_USERS[0];
   const nextStage = nextDealStage(deal.stage);
   const nextStageMeta = DEAL_STAGES.find((s) => s.id === nextStage);
+  // A couple of seed deals reuse another account's id; only trust the link when the names agree.
+  const account = accounts.find((a) => a.id === deal.accountId && a.name === deal.accountName);
 
   return (
     <div className="crm-drawer-backdrop" onClick={onClose} role="presentation">
@@ -167,7 +199,9 @@ export function DealInspectorDrawer({
             <div className="crm-drawer__sub">
               <span>{deal.accountName}</span>
               <span>·</span>
-              <span>Close {deal.closeDate}</span>
+              <span>
+                <DealCloseDate deal={deal} />
+              </span>
             </div>
           </div>
           <button
@@ -210,23 +244,13 @@ export function DealInspectorDrawer({
             </div>
           </div>
 
-          {/* Stage progression track */}
-          <div className="crm-stage-track" role="group" aria-label="Deal stage progression">
-            {DEAL_STAGES.map((s) => {
-              const active = s.id === deal.stage;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  className={active ? 'crm-stage-step is-active' : 'crm-stage-step'}
-                  onClick={() => moveDealStage(deal.id, s.id)}
-                >
-                  <span className="crm-stage-step__dot" style={{ background: s.color }} />
-                  <span>{s.shortLabel}</span>
-                </button>
-              );
-            })}
-          </div>
+          {/* Stage progression: live deal journey (NeoTracker) + jump-to-stage menu */}
+          <DealTracker
+            deal={deal}
+            users={usersMap}
+            account={account}
+            actions={<StageMoveMenu deal={deal} />}
+          />
 
           {/* Nova Next-Best-Action Box */}
           <div className="crm-nba-card">

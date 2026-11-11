@@ -12,7 +12,8 @@ import type { CatalogItem, CatalogRequest } from '@/helpdesk/types';
 import { currentStep } from '@/helpdesk/eligibility';
 import { officeOf } from '@/helpdesk/meta';
 import { useHub } from '@/store/hub';
-import { ApprovalStepper, etaLabel, ItemVisual, priceLabel } from './catalogParts';
+import { etaLabel, ItemVisual, priceLabel } from './catalogParts';
+import { RequestTracker } from './trackers';
 import { Person } from './ui';
 
 const ROLE_AS = { manager: 'As their manager', it: 'As IT', security: 'As Security' } as const;
@@ -62,7 +63,7 @@ export function ApprovalCard({ r, item }: { r: CatalogRequest; item: CatalogItem
         </div>
       </div>
       {r.justification && <blockquote className="hd-req__why">“{r.justification}”</blockquote>}
-      <ApprovalStepper steps={r.steps} status={r.status} createdAt={r.createdAt} compact />
+      <RequestTracker r={r} item={item} requester={false} compact />
       {denying ? (
         <div className="hd-req__deny">
           <textarea className="neo-textarea" rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Let them know why (they’ll see this)…" autoFocus />

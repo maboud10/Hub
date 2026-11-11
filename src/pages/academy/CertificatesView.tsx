@@ -6,6 +6,7 @@ import {
   Check,
   Lock,
   Printer,
+  RotateCcw,
   ShieldCheck,
   Sparkles,
   Zap,
@@ -13,8 +14,10 @@ import {
 import { NeoEmpty, NeoKpi, NeoKpis, NeoPanel, NeoTabs } from '@/components/neo';
 import { TRACK_META } from '@/academy/constants';
 import { useMyLearning } from '@/academy/selectors';
+import { useNow } from '@/hooks/useNow';
 import { formatDate } from '@/lib/format';
 import { TrackBadge, useCertParam } from './shared';
+import { CourseTrackerCompact, RecertTracker } from './trackers';
 
 type VaultFilter = 'all' | 'earned' | 'locked';
 
@@ -22,11 +25,20 @@ export function CertificatesView() {
   const { all, certificates, totalXp, rank } = useMyLearning();
   const { open: openCert } = useCertParam();
   const [filter, setFilter] = useState<VaultFilter>('all');
+  const now = useNow(60_000);
 
   const certifiedCourseIds = useMemo(() => new Set(certificates.map((c) => c.courseId)), [certificates]);
   const lockedCourses = useMemo(
     () => all.filter((item) => !certifiedCourseIds.has(item.course.id)),
     [all, certifiedCourseIds],
+  );
+  // Credential with the soonest expiry drives the recertification tracker.
+  const nextRenewal = useMemo(
+    () =>
+      certificates
+        .filter((c) => !!c.expiresAt)
+        .sort((a, b) => (a.expiresAt ?? 0) - (b.expiresAt ?? 0))[0],
+    [certificates],
   );
 
   const uniqueSkillsCount = useMemo(() => {
@@ -82,6 +94,25 @@ export function CertificatesView() {
         />
         <span className="ac-panel-note">Click any earned credential to inspect or print official PDF</span>
       </div>
+
+      {/* Recertification journey for the credential that expires first */}
+      {showEarned && nextRenewal && (
+        <RecertTracker
+          certificate={nextRenewal}
+          now={now}
+          actions={(j) =>
+            j.phase === 'valid' ? (
+              <button type="button" className="neo-btn neo-btn--soft neo-btn--xs" onClick={() => openCert(nextRenewal.id)}>
+                <Award /> View certificate
+              </button>
+            ) : (
+              <Link to={`/academy/course/${nextRenewal.courseId}`} className="neo-btn neo-btn--plasma neo-btn--xs">
+                <RotateCcw /> Recertify now
+              </Link>
+            )
+          }
+        />
+      )}
 
       {/* Earned Holographic Credentials Gallery */}
       {showEarned && (
@@ -158,11 +189,13 @@ export function CertificatesView() {
                       </div>
                     )}
 
+                    {cert.expiresAt && <RecertTracker compact certificate={cert} now={now} className="ac-cert-card__trk" />}
+
                     <div
                       className="row row--between row--wrap"
                       style={{
                         width: '100%',
-                        marginTop: 'auto',
+                        marginTop: cert.expiresAt ? undefined : 'auto',
                         paddingTop: 10,
                         borderTop: '1px solid var(--plane-border)',
                       }}
@@ -261,11 +294,13 @@ export function CertificatesView() {
                   ))}
                 </div>
 
+                {enrollment && <CourseTrackerCompact course={course} enrollment={enrollment} className="ac-cert-card__trk" />}
+
                 <div
                   className="row row--between"
                   style={{
                     width: '100%',
-                    marginTop: 'auto',
+                    marginTop: enrollment ? undefined : 'auto',
                     paddingTop: 10,
                     borderTop: '1px solid var(--plane-border)',
                   }}

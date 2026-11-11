@@ -145,6 +145,47 @@ body[data-neo-app='hr'] :is(.modal, .sheet, .neo-portal) {
   white-space: nowrap;
 }
 
+/* ---------- Journey trackers (components/trackers.tsx → NeoTracker) ---------- */
+/* Full trackers sit bare inside request rows and cards (the row is the card): a
+   dashed rule separates them from the row's facts. Compact bars read as a
+   status line, so they stay short; both need a definite width because the
+   tracker sizes itself with a container query. */
+.neo[data-app='hr'] .hr-trk-slot,
+body[data-neo-app='hr'] :is(.modal, .sheet) .hr-trk-slot {
+  min-width: 0;
+}
+.neo[data-app='hr'] .hr-trk-slot.is-full,
+body[data-neo-app='hr'] :is(.modal, .sheet) .hr-trk-slot.is-full {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-2);
+}
+.neo[data-app='hr'] .hr-trk-slot.is-compact,
+body[data-neo-app='hr'] :is(.modal, .sheet) .hr-trk-slot.is-compact {
+  width: 100%;
+  max-width: 380px;
+}
+.neo[data-app='hr'] .hr-trk__who,
+body[data-neo-app='hr'] :is(.modal, .sheet) .hr-trk__who {
+  font-weight: 650;
+  color: var(--text);
+}
+/* rows that carry a full tracker: it takes its own line under the row's facts */
+.neo[data-app='hr'] .hr-bn-claim__track {
+  grid-column: 2 / -1;
+}
+.neo[data-app='hr'] .hr-doc-lrow.has-track {
+  flex-wrap: wrap;
+}
+.neo[data-app='hr'] .hr-doc-lrow__track {
+  flex: 1 1 100%;
+}
+@media (max-width: 560px) {
+  .neo[data-app='hr'] .hr-bn-claim__track {
+    grid-column: 1 / -1;
+  }
+}
+
 /* ---------- HrPanel (NeoPanel anatomy: HUD · title · sub · actions) ---------- */
 .hr-panel {
   display: flex;

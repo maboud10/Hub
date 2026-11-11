@@ -1,58 +1,29 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   ArrowRight,
   Banknote,
   CalendarClock,
-  CheckCircle2,
   Clock,
   ExternalLink,
-  FileCheck2,
-  ShieldCheck,
   Wallet,
 } from 'lucide-react';
-import { Chip, NeoBanner, NeoBanners, NeoEmpty, NeoKpi, NeoKpis, NeoPanel } from '@/components/neo';
-import { formatDate } from '@/lib/format';
+import { Chip, NeoBanner, NeoBanners, NeoEmpty, NeoKpi, NeoKpis, NeoPanel, NeoTracker } from '@/components/neo';
 import { formatDay } from '@/hr/calendar';
 import { useMySpendSummary } from '@/expenses/selectors';
-import type { ExpenseReport } from '@/expenses/types';
-import { usePayroll } from '@/payroll/store';
-import { useHub } from '@/store/hub';
 import {
   compactAed,
   formatAed,
   ReportStatusBadge,
   useActivePaydayInfo,
 } from './shared';
-
-type StepNodeState = 'done' | 'active' | 'pending';
-
-// 1: Submitted, 2: Manager Approved, 3: Finance Audited & GL Coded, 4: Queued in Payroll, 5: Disbursed via WPS
-function computeStepStates(rep: ExpenseReport): [StepNodeState, StepNodeState, StepNodeState, StepNodeState, StepNodeState] {
-  if (rep.status === 'reimbursed') {
-    return ['done', 'done', 'done', 'done', 'done'];
-  }
-  if (rep.status === 'payroll_queued') {
-    return ['done', 'done', 'done', 'active', 'pending'];
-  }
-  if (rep.status === 'manager_approved') {
-    return ['done', 'done', 'active', 'pending', 'pending'];
-  }
-  if (rep.status === 'submitted') {
-    return ['done', 'active', 'pending', 'pending', 'pending'];
-  }
-  return ['active', 'pending', 'pending', 'pending', 'pending'];
-}
+import { reportTrack, useSpendTrackCtx } from './trackers';
 
 export function ReimbursementsView() {
   const navigate = useNavigate();
-  const users = useHub((s) => s.users);
   const summary = useMySpendSummary();
   const payday = useActivePaydayInfo();
-  const payrollRuns = usePayroll((s) => s.runs);
-
-  const usersById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
-  const runsByPeriod = useMemo(() => new Map(payrollRuns.map((r) => [r.period, r])), [payrollRuns]);
+  const trackCtx = useSpendTrackCtx();
 
   const inReviewAed = useMemo(
     () =>
@@ -124,48 +95,7 @@ export function ReimbursementsView() {
         ) : (
           <ul className="ex-claims">
             {trackedClaims.map((rep) => {
-              const states = computeStepStates(rep);
-              const mgr = rep.managerReviewerId ? usersById.get(rep.managerReviewerId) : undefined;
-              const fin = rep.financeReviewerId ? usersById.get(rep.financeReviewerId) : undefined;
-              const targetRun = rep.payrollPeriod ? runsByPeriod.get(rep.payrollPeriod) : undefined;
-              const nodes: { icon: ReactNode; title: string; meta: string }[] = [
-                {
-                  icon: <CheckCircle2 />,
-                  title: 'Submitted',
-                  meta: `${rep.submittedAt ? formatDate(rep.submittedAt) : 'Pending submission'} · ${rep.receiptIds.length} receipt${rep.receiptIds.length === 1 ? '' : 's'}`,
-                },
-                {
-                  icon: <ShieldCheck />,
-                  title: 'Manager approved',
-                  meta: rep.managerDecidedAt ? `${mgr?.name ?? 'Manager'} · ${formatDate(rep.managerDecidedAt)}` : 'Awaiting manager sign-off',
-                },
-                {
-                  icon: <FileCheck2 />,
-                  title: 'Finance & GL coded',
-                  meta: rep.financeQueuedAt
-                    ? `${fin?.name ?? 'Finance'} · VAT ${formatAed(rep.vatTotalAed, true)}`
-                    : states[2] === 'active'
-                      ? 'In the Finance audit inbox'
-                      : 'After manager review',
-                },
-                {
-                  icon: <CalendarClock />,
-                  title: `Queued${rep.payrollPeriod ? ` · ${rep.payrollPeriod}` : ' in payroll'}`,
-                  meta: rep.payrollPeriod
-                    ? targetRun
-                      ? `Payday ${formatDay(targetRun.payDate)} (${targetRun.status.replace('_', ' ')})`
-                      : `Scheduled for the ${rep.payrollPeriod} run`
-                    : 'Assigned at Finance audit',
-                },
-                {
-                  icon: <Banknote />,
-                  title: 'Paid via WPS',
-                  meta:
-                    rep.status === 'reimbursed'
-                      ? `Ref ${rep.paymentRef ?? 'WPS-PAID'}${rep.reimbursedAt ? ` · ${formatDate(rep.reimbursedAt)}` : ''}`
-                      : `Expected ${formatDay(targetRun?.payDate ?? payday.payDate)}`,
-                },
-              ];
+              const track = reportTrack(rep, trackCtx);
 
               return (
                 <li key={rep.id} className="ex-claim">
@@ -177,6 +107,9 @@ export function ReimbursementsView() {
                         <Chip size="sm">{rep.costCenter}</Chip>
                       </div>
                       <h3 className="ex-claim__title">{rep.title}</h3>
+                      <span className="ex-claim__meta">
+                        {`${rep.receiptIds.length} receipt${rep.receiptIds.length === 1 ? '' : 's'} · VAT ${formatAed(rep.vatTotalAed, true)}`}
+                      </span>
                     </div>
                     <div className="ex-amt ex-amt--lg">
                       <span className="neo-hud">Out-of-pocket</span>
@@ -185,22 +118,8 @@ export function ReimbursementsView() {
                     </div>
                   </div>
 
-                  {/* 5-Stage Audit Timeline (vertical on phones) */}
-                  <ol className="ex-tl">
-                    {nodes.map((n, idx) => (
-                      <li key={n.title} className="ex-tl__node" data-state={states[idx]}>
-                        <span className="ex-tl__dot" aria-hidden="true">
-                          {n.icon}
-                        </span>
-                        <span className="ex-tl__text">
-                          <b>
-                            {idx + 1}. {n.title}
-                          </b>
-                          <span>{n.meta}</span>
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
+                  {/* Live reimbursement journey (reflows to a vertical timeline on phones) */}
+                  <NeoTracker {...track} title={undefined} bare label={`${rep.reference} · Reimbursement tracker`} />
 
                   {/* Footer Action Row */}
                   <div className="ex-claim__foot">

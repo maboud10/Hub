@@ -1,0 +1,555 @@
+/* ==========================================================================
+   NeoTracker — segmented journey tracker ("pizza tracker")
+   components/neo/Tracker.tsx · imported by the component itself.
+   Tinted by the app plasma (--app-c1/--app-c2); blocked = amber, paused = slate.
+   ========================================================================== */
+
+.neo-tracker {
+  --trk-a: var(--app-c1, #22d3ee);
+  --trk-b: var(--app-c2, #8b5cf6);
+  --trk-rgb: var(--app-rgb, 34 211 238);
+  --trk-track: var(--track, rgb(255 255 255 / 0.09));
+  position: relative;
+  isolation: isolate;
+  container: tracker / inline-size;
+  display: grid;
+  flex-shrink: 0;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px 18px 14px;
+  border-radius: 18px;
+  background: var(--plane-2, rgb(255 255 255 / 0.05));
+  border: 1px solid var(--plane-border, rgb(255 255 255 / 0.08));
+  box-shadow: var(--plane-inset, none);
+  overflow: hidden;
+}
+.neo-tracker[data-state='blocked'] {
+  --trk-a: #fbbf24;
+  --trk-b: #f43f5e;
+  --trk-rgb: 245 158 11;
+}
+.neo-tracker[data-state='paused'] {
+  --trk-a: #94a3b8;
+  --trk-b: #64748b;
+  --trk-rgb: 148 163 184;
+}
+/* soft plasma bloom that follows the live colour */
+.neo-tracker::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset-block-start: -40%;
+  inset-inline-end: -18%;
+  width: 52%;
+  height: 150%;
+  background: radial-gradient(closest-side, rgb(var(--trk-rgb) / 0.13), transparent);
+  pointer-events: none;
+}
+.neo-tracker--bare {
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+.neo-tracker--bare::before {
+  display: none;
+}
+
+/* ---------- Header ---------- */
+.neo-tracker__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px 12px;
+  flex-wrap: wrap;
+}
+.neo-tracker__titles {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.neo-tracker__title {
+  margin: 3px 0 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.neo-tracker__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-inline-start: auto;
+}
+.neo-tracker__count,
+.neo-tracker__eta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.neo-tracker__count {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  background: var(--hover-2, rgb(255 255 255 / 0.06));
+  box-shadow: inset 0 0 0 1px var(--plane-border-2, rgb(255 255 255 / 0.12));
+}
+.neo-tracker__count svg,
+.neo-tracker__eta svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+.neo-tracker__count[data-state='done'] {
+  color: #34d399;
+  background: rgb(52 211 153 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(52 211 153 / 0.38);
+}
+.neo-tracker__count[data-state='blocked'] {
+  color: #fbbf24;
+  background: rgb(245 158 11 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(245 158 11 / 0.38);
+}
+.neo-tracker__eta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--app-ink, var(--text));
+  background: rgb(var(--trk-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--trk-rgb) / 0.34);
+}
+
+/* ---------- Segmented bar ---------- */
+.neo-tracker__bar {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: 6px;
+  height: 12px;
+}
+.neo-tracker__seg {
+  position: relative;
+  border-radius: 4px;
+  background: var(--trk-track);
+}
+.neo-tracker__seg:first-child {
+  border-start-start-radius: 999px;
+  border-end-start-radius: 999px;
+}
+.neo-tracker__seg:last-child {
+  border-start-end-radius: 999px;
+  border-end-end-radius: 999px;
+}
+.neo-tracker__seg[data-s='done'] {
+  background: linear-gradient(90deg, var(--app-c1, #22d3ee), var(--app-c2, #8b5cf6));
+  box-shadow:
+    0 0 16px -6px rgb(var(--app-rgb, 34 211 238) / 0.9),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+/* live stage: plasma fill up to --p with flowing stripes */
+.neo-tracker__seg[data-s='live']::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: calc(var(--p) * 100%);
+  border-radius: inherit;
+  border-start-end-radius: 999px;
+  border-end-end-radius: 999px;
+  background:
+    repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.26) 0 5px, transparent 5px 10px),
+    linear-gradient(90deg, var(--trk-a), var(--trk-b));
+  background-size:
+    14.14px 14.14px,
+    100% 100%;
+  box-shadow: 0 0 18px -3px rgb(var(--trk-rgb) / 0.85);
+  animation: trk-flow 0.8s linear infinite;
+}
+.neo-tracker__seg[data-s='live'] {
+  box-shadow: inset 0 0 0 1px rgb(var(--trk-rgb) / 0.35);
+}
+.neo-tracker[data-state='blocked'] .neo-tracker__seg[data-s='live']::before,
+.neo-tracker[data-state='paused'] .neo-tracker__seg[data-s='live']::before {
+  width: 100%;
+  animation-duration: 2.4s;
+}
+
+/* the courier: a glowing orb riding the leading edge, comet tail behind */
+.neo-tracker__courier {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  inset-inline-start: calc(var(--p) * 100%);
+  width: 18px;
+  height: 18px;
+  margin-block-start: -9px;
+  margin-inline-start: -9px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff, var(--trk-a) 52%, var(--trk-b));
+  box-shadow:
+    0 0 0 3px rgb(var(--trk-rgb) / 0.25),
+    0 0 20px 3px rgb(var(--trk-rgb) / 0.75);
+  animation: trk-courier 1.6s ease-in-out infinite;
+}
+.neo-tracker__courier::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  inset-inline-end: 62%;
+  width: 36px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 999px;
+  background: linear-gradient(to left, rgb(255 255 255 / 0.85), rgb(var(--trk-rgb) / 0.55) 30%, transparent);
+}
+[dir='rtl'] .neo-tracker__courier::after {
+  background: linear-gradient(to right, rgb(255 255 255 / 0.85), rgb(var(--trk-rgb) / 0.55) 30%, transparent);
+}
+
+/* completed journey: one celebratory sheen across the bar */
+.neo-tracker[data-state='done'] .neo-tracker__bar::after {
+  content: '';
+  position: absolute;
+  inset: -3px 0;
+  border-radius: 999px;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.6) 48%, transparent 66%);
+  background-size: 260% 100%;
+  background-position: 130% 0;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  animation: trk-sheen 1.6s 0.25s var(--ease-out, ease-out) both;
+}
+
+/* ---------- Stage list ---------- */
+.neo-tracker__steps {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo-tracker__step {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+}
+.neo-tracker__node {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  background: var(--hover, rgb(255 255 255 / 0.04));
+  box-shadow: inset 0 0 0 1px var(--plane-border-2, rgb(255 255 255 / 0.12));
+  transition:
+    background var(--dur, 0.2s),
+    color var(--dur, 0.2s);
+}
+.neo-tracker__node svg {
+  width: 14px;
+  height: 14px;
+}
+.neo-tracker__node b {
+  font-weight: 600;
+}
+.neo-tracker__step[data-s='done'] .neo-tracker__node {
+  color: var(--app-on, #fff);
+  background: linear-gradient(135deg, var(--app-c1, #22d3ee), var(--app-c2, #8b5cf6));
+  box-shadow: 0 6px 16px -9px rgb(var(--app-rgb, 34 211 238) / 0.95);
+}
+.neo-tracker__step[data-s='live'] .neo-tracker__node {
+  color: #fff;
+  background: linear-gradient(135deg, var(--trk-a), var(--trk-b));
+  box-shadow:
+    0 0 0 3px rgb(var(--trk-rgb) / 0.22),
+    0 8px 20px -8px rgb(var(--trk-rgb) / 0.95);
+}
+.neo-tracker__step[data-s='live'] .neo-tracker__node::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1.5px solid rgb(var(--trk-rgb) / 0.6);
+  animation: trk-ping 1.9s var(--ease-out, ease-out) infinite;
+}
+.neo-tracker__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 4px;
+}
+.neo-tracker__label {
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+.neo-tracker__step[data-s='done'] .neo-tracker__label {
+  color: var(--text-2);
+}
+.neo-tracker__step[data-s='live'] .neo-tracker__label {
+  color: var(--text);
+}
+.neo-tracker__sub {
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+.neo-tracker__at {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+.neo-tracker__step[data-s='live'] .neo-tracker__at {
+  color: var(--app-ink, var(--text-2));
+}
+
+/* ---------- Live status line ---------- */
+.neo-tracker__msg {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-2);
+  background: linear-gradient(90deg, rgb(var(--trk-rgb) / 0.13), transparent 78%);
+  box-shadow: inset 0 0 0 1px rgb(var(--trk-rgb) / 0.2);
+}
+[dir='rtl'] .neo-tracker__msg {
+  background: linear-gradient(270deg, rgb(var(--trk-rgb) / 0.13), transparent 78%);
+}
+.neo-tracker__pulse {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--trk-a);
+  animation: trk-beacon 1.8s ease-out infinite;
+}
+.neo-tracker[data-state='done'] .neo-tracker__pulse {
+  background: #34d399;
+  animation: none;
+}
+
+/* ---------- Compact (rows, cards) ---------- */
+.neo-tracker--compact {
+  gap: 7px;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
+}
+.neo-tracker--compact::before {
+  display: none;
+}
+.neo-tracker--compact .neo-tracker__bar {
+  height: 6px;
+  gap: 3px;
+}
+.neo-tracker--compact .neo-tracker__courier {
+  width: 11px;
+  height: 11px;
+  margin-block-start: -5.5px;
+  margin-inline-start: -5.5px;
+  box-shadow:
+    0 0 0 2px rgb(var(--trk-rgb) / 0.25),
+    0 0 12px 2px rgb(var(--trk-rgb) / 0.7);
+}
+.neo-tracker--compact .neo-tracker__courier::after {
+  width: 20px;
+  height: 3px;
+  margin-top: -1.5px;
+}
+.neo-tracker__compact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.neo-tracker__compact-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.neo-tracker__compact-label svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--trk-a);
+}
+.neo-tracker--compact[data-state='done'] .neo-tracker__compact-label svg {
+  color: #34d399;
+}
+.neo-tracker--compact .neo-tracker__count {
+  height: 20px;
+  padding: 0 8px;
+  font-size: 9.5px;
+}
+/* inline-size containers have no intrinsic width: keep a floor in auto table cells */
+.neo-tracker--compact {
+  min-width: 140px;
+}
+
+/* light theme: darker success / warning inks for contrast on white planes */
+[data-theme='light'] .neo-tracker__count[data-state='done'] {
+  color: #047857;
+  background: rgb(4 120 87 / 0.1);
+  box-shadow: inset 0 0 0 1px rgb(4 120 87 / 0.32);
+}
+[data-theme='light'] .neo-tracker__count[data-state='blocked'] {
+  color: #b45309;
+  background: rgb(180 83 9 / 0.1);
+  box-shadow: inset 0 0 0 1px rgb(180 83 9 / 0.32);
+}
+[data-theme='light'] .neo-tracker--compact[data-state='done'] .neo-tracker__compact-label svg {
+  color: #047857;
+}
+[data-theme='light'] .neo-tracker--compact[data-state='blocked'] .neo-tracker__compact-label svg {
+  color: #b45309;
+}
+[data-theme='light'] .neo-tracker[data-state='done'] .neo-tracker__pulse {
+  background: #059669;
+}
+
+/* ---------- Container-query reflow ---------- */
+@container tracker (421px <= width <= 640px) {
+  .neo-tracker__step {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 6px;
+  }
+  .neo-tracker__text {
+    justify-items: center;
+    padding-top: 0;
+  }
+  .neo-tracker__step:not([data-s='live']) :is(.neo-tracker__sub, .neo-tracker__at) {
+    display: none;
+  }
+}
+/* side panels: becomes a vertical timeline */
+@container tracker (width <= 420px) {
+  .neo-tracker:not(.neo-tracker--compact) .neo-tracker__bar {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .neo-tracker__steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .neo-tracker__step {
+    gap: 12px;
+    padding-bottom: 14px;
+  }
+  .neo-tracker__step:last-child {
+    padding-bottom: 0;
+  }
+  .neo-tracker__step:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 12px;
+    top: 30px;
+    bottom: 3px;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--trk-track);
+  }
+  .neo-tracker__step[data-s='done']:not(:last-child)::before {
+    background: linear-gradient(var(--app-c1, #22d3ee), var(--app-c2, #8b5cf6));
+  }
+  .neo-tracker__step[data-s='live']:not(:last-child)::before {
+    background: linear-gradient(var(--trk-a), var(--trk-track) 80%);
+  }
+}
+
+/* ---------- Motion ---------- */
+@keyframes trk-flow {
+  to {
+    background-position:
+      14.14px 0,
+      0 0;
+  }
+}
+@keyframes trk-courier {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.16);
+  }
+}
+@keyframes trk-ping {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.75);
+  }
+  80%,
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+@keyframes trk-beacon {
+  0% {
+    box-shadow: 0 0 0 0 rgb(var(--trk-rgb) / 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 9px rgb(var(--trk-rgb) / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--trk-rgb) / 0);
+  }
+}
+@keyframes trk-sheen {
+  to {
+    background-position: -130% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .neo-tracker *,
+  .neo-tracker *::before,
+  .neo-tracker *::after,
+  .neo-tracker__bar::after {
+    animation: none !important;
+  }
+}
+[data-motion='reduced'] .neo-tracker *,
+[data-motion='reduced'] .neo-tracker *::before,
+[data-motion='reduced'] .neo-tracker *::after {
+  animation: none !important;
+}

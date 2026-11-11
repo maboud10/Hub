@@ -1,5 +1,5 @@
-import { Suspense } from 'react';
-import { Outlet, useNavigate } from 'react-router';
+import { Suspense, useEffect } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router';
 import { useHub } from '@/store/hub';
 import { useUI } from '@/store/ui';
 import { useFocus } from '@/store/focus';
@@ -86,15 +86,41 @@ function PageFallback() {
   );
 }
 
+/** Inside apps the Hub sidebar is a slide-over drawer: close it on navigation / Esc, focus it when opened. */
+function HubDrawerEffects() {
+  const { pathname } = useLocation();
+  const { drawer, closeDrawer } = useSidebarState();
+  useEffect(() => {
+    useUI.getState().setImmersiveExpanded(false);
+  }, [pathname]);
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      closeDrawer();
+      document.querySelector<HTMLElement>('.hub-orb')?.focus({ preventScroll: true });
+    };
+    window.addEventListener('keydown', onKey);
+    const raf = requestAnimationFrame(() => document.querySelector<HTMLElement>('#hub-sidebar .nav-item')?.focus({ preventScroll: true }));
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      cancelAnimationFrame(raf);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawer]);
+  return null;
+}
+
 export function AppShell() {
-  const { collapsed, immersive } = useSidebarState();
+  const { collapsed, immersive, drawer, closeDrawer } = useSidebarState();
   return (
-    <div className="shell" data-collapsed={collapsed} data-immersive={immersive || undefined}>
+    <div className="shell" data-collapsed={collapsed} data-immersive={immersive || undefined} data-drawer={drawer || undefined}>
       <AmbientBackground />
       <a href="#main" className="skip-link">
         Skip to content
       </a>
       <Sidebar />
+      {immersive && <div className="hub-scrim" onClick={closeDrawer} aria-hidden="true" />}
       <div className="shell__main">
         <TopBar />
         <main id="main" className="shell__content" tabIndex={-1}>
@@ -114,6 +140,7 @@ export function AppShell() {
       <PersonaSwitcher />
       <FocusEngine />
       <GlobalHotkeys />
+      <HubDrawerEffects />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 /**
- * Candidate sheet · Overview tab: recent signal, snapshot facts (comp is
+ * Candidate sheet · Overview tab: the live journey tracker (when the candidate
+ * is in a pipeline), recent signal, snapshot facts (comp is
  * permission-aware via <Comp>), skills highlighted against the active
  * requisition, experience timeline, education, tags and consent.
  */
@@ -71,11 +72,12 @@ export function ConsentPanel({ cand }: { cand: Candidate }) {
   );
 }
 
-export function SheetOverview({ cand, match, matchFor }: { cand: Candidate; match: MatchResult | null; matchFor?: string }) {
+export function SheetOverview({ cand, match, matchFor, journey }: { cand: Candidate; match: MatchResult | null; matchFor?: string; journey?: ReactNode }) {
   const matched = match ? [...match.matched, ...match.bonus] : [];
   const exp = cand.salaryExpectation;
   return (
     <div className="tl-sheet-stack">
+      {journey}
       {cand.recentActivity && (
         <div className="tl-sheet-signal">
           <span className="tl-sheet-signal__icon" aria-hidden="true">

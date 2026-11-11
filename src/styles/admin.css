@@ -1171,6 +1171,92 @@ a.adm-legend__row:hover {
   flex: 0 1 auto;
 }
 
+/* Journey strip — access pizza tracker (components/apps/AccessTracker.tsx) */
+.adm-journey {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+  padding: 12px 14px 10px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--plane-border, var(--border));
+  background:
+    linear-gradient(100deg, rgb(var(--app-rgb) / 0.07), transparent 72%),
+    var(--hover, var(--surface));
+}
+.adm-journey.is-open {
+  padding: 14px 16px;
+}
+.adm-journey__foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.adm-journey__msg {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-2);
+}
+.adm-journey__eta {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--app-ink, var(--text));
+  background: rgb(var(--app-rgb) / 0.1);
+  box-shadow: inset 0 0 0 1px rgb(var(--app-rgb) / 0.28);
+}
+.adm-journey__eta svg {
+  width: 12px;
+  height: 12px;
+}
+.adm-journey__eta[data-overdue] {
+  color: var(--warning);
+  background: rgb(var(--warning-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--warning-rgb) / 0.36);
+}
+.adm-journey__toggle {
+  flex: none;
+}
+/* History: a slim strip across the whole row; withdrawn requests don't pulse */
+.adm-hist .adm-journey {
+  grid-column: 1 / -1;
+  padding: 9px 12px 8px;
+  border-style: dashed;
+  background: none;
+}
+.adm-hist .adm-journey.is-open {
+  padding: 12px 14px;
+}
+.adm-journey--quiet:not(.is-open) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 16px;
+}
+.adm-journey--quiet .adm-journey__foot > .grow {
+  display: none;
+}
+.adm-journey .neo-tracker[data-state='paused'] .neo-tracker__pulse {
+  animation: none;
+}
+@media (max-width: 560px) {
+  .adm-journey__foot {
+    flex-wrap: wrap;
+  }
+  .adm-journey__msg {
+    flex-basis: 100%;
+  }
+}
+
 /* ==========================================================================
    Users
    ========================================================================== */

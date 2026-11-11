@@ -1,20 +1,23 @@
 /**
  * "My coverage" hero: the digital insurance card next to a status-aware story —
  * an enrolment call-to-action with a deadline countdown, an "awaiting People
- * Ops" tracker, or the active plan — plus a total-rewards view of what Helix
- * pays versus what you pay each month.
+ * Ops" tracker (the shared NeoTracker, see `@/hr/trackers`), or the active
+ * plan — plus a total-rewards view of what Helix pays versus what you pay each
+ * month.
  */
 import type { CSSProperties } from 'react';
-import { ArrowRight, BadgeCheck, CalendarClock, Check, CreditCard, Glasses, Hourglass, PencilLine, ShieldCheck, Smile, Sparkles, Umbrella, Wallet } from 'lucide-react';
+import { ArrowRight, BadgeCheck, CalendarClock, Glasses, PencilLine, ShieldCheck, Smile, Sparkles, Umbrella, Wallet } from 'lucide-react';
 import type { BenefitElection } from '@/hr/types';
 import { HEALTH_PLAN_BY_ID, HEALTH_PLANS } from '@/hr/constants';
 import { COMPANY_PREMIUM, electionCost } from '@/hr/engine';
 import { formatDay, todayISO } from '@/hr/calendar';
+import { electionTrack } from '@/hr/trackers';
 import { useSessionUser, useUserById } from '@/store/selectors';
 import { useNow } from '@/hooks/useNow';
-import { formatDate, relativeTime } from '@/lib/format';
+import { formatDate } from '@/lib/format';
 import { cx } from '@/lib/cx';
 import { ToneBadge } from '../components/shared';
+import { HrTracker, useTrackContext } from '../components/trackers';
 import { InsuranceCard } from './InsuranceCard';
 import { aed, ALLOWANCES_TOTAL, deadlineInfo, money, planYear, useMyComp, useMyElection, type DeadlineInfo, type LifeEvent } from './model';
 
@@ -126,6 +129,7 @@ function EnrolCta({ election, deadline, onEnrol }: { election: BenefitElection; 
 
 function PendingState({ election, onEnrol }: { election: BenefitElection; onEnrol: (event?: LifeEvent) => void }) {
   const plan = HEALTH_PLAN_BY_ID[election.health];
+  const trackCtx = useTrackContext();
   return (
     <div className="hr-bn-state">
       <h2 id="hr-bn-hero-title" className="hr-bn-title">
@@ -134,35 +138,9 @@ function PendingState({ election, onEnrol }: { election: BenefitElection; onEnro
       <p className="muted">
         Your {plan.label} choices are with People Ops. They confirm them with {plan.insurer}, usually within a day, and your card goes live the moment they do.
       </p>
-      <ol className="hr-bn-track" aria-label="What happens next">
-        <li className="is-done">
-          <span className="hr-bn-track__dot">
-            <Check aria-hidden="true" />
-          </span>
-          <span>
-            <b>Submitted</b>
-            <small>{election.submittedAt ? relativeTime(election.submittedAt) : 'Just now'}</small>
-          </span>
-        </li>
-        <li className="is-active">
-          <span className="hr-bn-track__dot">
-            <Hourglass aria-hidden="true" />
-          </span>
-          <span>
-            <b>People Ops confirms</b>
-            <small>Usually within a day</small>
-          </span>
-        </li>
-        <li>
-          <span className="hr-bn-track__dot">
-            <CreditCard aria-hidden="true" />
-          </span>
-          <span>
-            <b>Card goes live</b>
-            <small>{election.memberNumber ? 'Same member number' : 'Member number issued'}</small>
-          </span>
-        </li>
-      </ol>
+      <div className="hr-trk-slot hr-bn-state__track">
+        <HrTracker track={electionTrack(election, trackCtx)} variant="full" />
+      </div>
       <div className="row row--wrap">
         <button type="button" className="btn btn--sm" onClick={() => onEnrol()}>
           <PencilLine aria-hidden="true" /> Change my choices

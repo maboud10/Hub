@@ -1,6 +1,6 @@
 import '@/styles/neo.css';
 import '@/styles/crm.css';
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import {
   Navigate,
   Route,
@@ -47,35 +47,35 @@ const SECTIONS: SectionMeta[] = [
     to: '/crm',
     end: true,
     icon: <Orbit />,
-    eyebrow: 'Helix CRM · Autonomous Revenue & Growth Orbit',
+    eyebrow: 'Revenue deck',
     title: 'Revenue Command',
     sub: 'Live ARR telemetry, Nova deal synthesis, tri-band forecast curves & 1-click autonomous closing plays.',
   },
   {
     to: '/crm/pipeline',
     icon: <Columns3 />,
-    eyebrow: 'Helix CRM · Deal Pipeline & MEDDPICC Matrix',
+    eyebrow: 'Revenue deck · Pipeline',
     title: 'Deal Pipeline & MEDDPICC',
     sub: 'Interactive 8-pillar MEDDPICC qualification, neural win-probability scoring & stage progression.',
   },
   {
     to: '/crm/accounts',
     icon: <Building2 />,
-    eyebrow: 'Helix CRM · Customer 360 & Expansion Radar',
+    eyebrow: 'Revenue deck · Accounts',
     title: 'Customer 360 & White-Space',
     sub: 'Enterprise seat utilization, NRR health, and 5-module product adoption white-space radar.',
   },
   {
     to: '/crm/playbooks',
     icon: <Workflow />,
-    eyebrow: 'Helix CRM · Autonomous Growth Loops',
+    eyebrow: 'Revenue deck · Playbooks',
     title: 'Playbooks & Dark-Funnel Signals',
     sub: 'Real-time buying intent surges wired to zero-touch expansion, Arabic RTL outreach & security auto-rooms.',
   },
   {
     to: '/crm/simulator',
     icon: <Sliders />,
-    eyebrow: 'Helix CRM · Revenue & Quota Simulator',
+    eyebrow: 'Revenue deck · Simulator',
     title: 'Revenue & Quota Simulator',
     sub: 'Model win-rate uplift, cycle compression, NDR & Nova AI attach across global regional pods.',
   },
@@ -108,6 +108,16 @@ export function CrmPage() {
     next.delete('new');
     setSearchParams(next, { replace: true });
   };
+
+  // ⌘K palette deal entries link to `/crm/pipeline?deal=<id>`: open that deal's 360 inspector.
+  const dealParam = searchParams.get('deal');
+  useEffect(() => {
+    if (!dealParam) return;
+    if (deals.some((d) => d.id === dealParam)) setSelectedDealId(dealParam);
+    const next = new URLSearchParams(searchParams);
+    next.delete('deal');
+    setSearchParams(next, { replace: true });
+  }, [dealParam]); // eslint-disable-line react-hooks/exhaustive-deps -- react to a new deep link only
 
   const openDealsCount = useMemo(
     () => deals.filter((d) => d.stage !== 'won').length,

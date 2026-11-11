@@ -47,7 +47,7 @@ import {
 } from 'lucide-react';
 import { Chip, NeoBanner, NeoBanners, NeoEmpty, NeoHome, NeoKpi, NeoKpis, NeoNovaPrompt, NeoPanel, Orb, type Tone as NeoTone } from '@/components/neo';
 import type { ActivityKind, StageId } from '@/talent/types';
-import { INTERVIEW_KIND_META, OFFER_STATUS_META, SOURCE_META, STAGES, STAGE_BY_ID, STAGE_PHASES } from '@/talent/constants';
+import { INTERVIEW_KIND_META, SOURCE_META, STAGES, STAGE_BY_ID, STAGE_PHASES } from '@/talent/constants';
 import { aiStatus, scoreMatch } from '@/talent/ai/engine';
 import { backendStatus } from '@/talent/backend';
 import { getLinkedInConnector } from '@/talent/linkedin/connector';
@@ -71,15 +71,14 @@ import { relativeTime } from '@/lib/format';
 import { Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/cx';
 import { Funnel } from './components/Funnel';
-import { CandidateAvatar, PeopleStack, PriorityBadge, ReqStatusBadge, SampleTag, type Tone as BadgeTone } from './components/shared';
+import { CandidateAvatar, PeopleStack, PriorityBadge, ReqStatusBadge, SampleTag } from './components/shared';
 import { fmtRelativeDay, slaState } from './components/format';
 import { runTalentTask } from './components/actionRunner';
 import { studio, useStudio } from './sourcing/store';
+import { OfferTracker } from './trackers';
 
 const DAY = 86_400_000;
 const s = (n: number) => (n === 1 ? '' : 's');
-/** Legacy badge tone → NEO tone. */
-const NEO_TONE: Record<BadgeTone, NeoTone> = { success: 'success', warning: 'warning', danger: 'danger', info: 'cyan', muted: 'slate' };
 const openCandidate = (id: string) => useTalentUI.getState().openCandidate(id);
 
 // ───────────────────────── attention banners ─────────────────────────
@@ -782,7 +781,7 @@ function UpcomingInterviews() {
 function OffersInFlight() {
   const data = useTalentData();
   const scope = useTalentScope();
-  const { candById } = useTalentLookups();
+  const { candById, reqById } = useTalentLookups();
   const navigate = useNavigate();
   const now = useNow(60_000);
   const list = useMemo(
@@ -815,11 +814,9 @@ function OffersInFlight() {
         <ul className="tl-deck-offers">
           {list.slice(0, 4).map((o) => {
             const c = candById.get(o.candidateId);
-            const meta = OFFER_STATUS_META[o.status];
-            const signed = o.approvals.filter((a) => a.decision === 'approved').length;
             const expires = o.status === 'sent' ? Math.ceil((o.expiresAt - now) / DAY) : null;
             return (
-              <li key={o.id}>
+              <li key={o.id} className="tl-deck-offer-item">
                 <button type="button" className="tl-deck-offer" onClick={() => navigate('/talent/offers')}>
                   {c ? <CandidateAvatar person={c} size={30} /> : <span className="tl-deck-offer__ph" />}
                   <span className="tl-deck-offer__main">
@@ -829,19 +826,9 @@ function OffersInFlight() {
                       {expires !== null && ` · ${expires > 0 ? `expires in ${expires}d` : 'expired'}`}
                     </span>
                   </span>
-                  <span className="tl-deck-offer__side">
-                    <Chip tone={NEO_TONE[meta.tone]} size="sm">
-                      {o.status === 'pending-approval' ? 'Approval' : o.status === 'approved' ? 'Ready' : 'Sent'}
-                    </Chip>
-                    {o.approvals.length > 0 && (
-                      <span className="tl-deck-offer__chain" title={`${signed}/${o.approvals.length} approvals`}>
-                        {o.approvals.map((a) => (
-                          <i key={a.step} data-state={a.decision} />
-                        ))}
-                      </span>
-                    )}
-                  </span>
+                  <ChevronRight className="tl-deck-offer__chev" aria-hidden="true" />
                 </button>
+                <OfferTracker offer={o} req={reqById.get(o.requisitionId)} candName={c?.name} now={now} compact className="tl-deck-offer__track" />
               </li>
             );
           })}

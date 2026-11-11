@@ -1,6 +1,6 @@
 /**
  * My tickets — tabs (Open / Waiting on me / Resolved / All), search, live
- * SLA chips, unread markers and last-message previews.
+ * SLA chips, compact fix trackers, unread markers and last-message previews.
  */
 import { useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -15,6 +15,7 @@ import type { Ticket } from '@/helpdesk/types';
 import { CATEGORY_LABEL } from '@/helpdesk/meta';
 import { isOpen, isUnread } from '@/helpdesk/queries';
 import { firstNameOf } from '@/helpdesk/util';
+import { FixTracker } from './trackers';
 import { CategoryGlyph, Kbd, SlaChip, StatusPill, useOpenTicket, useViewer, plural } from './ui';
 
 type Tab = 'open' | 'waiting' | 'resolved' | 'all';
@@ -146,10 +147,11 @@ function TicketRow({ t, i, unread }: { t: Ticket; i: number; unread: boolean }) 
           <span>updated {relativeTime(t.updatedAt, now)}</span>
         </div>
         <div className="hd-trow__preview">{preview.replace(/\s+/g, ' ')}</div>
+        {isOpen(t) && <FixTracker ticket={t} compact className="hd-trow__track" />}
       </div>
       <div className="hd-trow__side">
         {t.status === 'waiting' && <span className="hd-needs">Your reply needed</span>}
-        {t.selfService ? <NovaChip>Fixed by Nova</NovaChip> : <StatusPill status={t.status} />}
+        {t.selfService ? <NovaChip>Fixed by Nova</NovaChip> : !isOpen(t) && <StatusPill status={t.status} />}
         {t.status === 'resolved' ? (
           t.csat ? (
             <span className="hd-stars" aria-label={`Rated ${t.csat.score} of 5`}>

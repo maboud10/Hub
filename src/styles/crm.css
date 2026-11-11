@@ -1231,6 +1231,8 @@
 .crm-modal-backdrop {
   position: fixed;
   inset: 0;
+  /* Start below the shell top bar: it paints above the workspace's isolated stacking context. */
+  top: calc(var(--topbar-h) + var(--safe-top));
   z-index: 80;
   background: rgb(2 6 23 / 0.62);
   backdrop-filter: blur(6px);
@@ -1337,37 +1339,137 @@
   margin: 2px 0 4px;
 }
 
-.crm-stage-track {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
+/* ---------- Deal tracker (shared NeoTracker on the DealStage journey) ---------- */
+/* NeoTracker clips (overflow: hidden), so in the drawer's scrolling flex column it would shrink to nothing */
+.crm-trk {
+  flex-shrink: 0;
 }
 
-.crm-stage-step {
-  padding: 7px 6px;
-  border-radius: 10px;
-  background: var(--hover);
-  border: 1px solid var(--plane-border);
-  color: var(--text-2);
-  font-size: 11px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  cursor: pointer;
-}
-
-.crm-stage-step.is-active {
-  border-color: rgb(var(--app-rgb) / 0.65);
-  background: rgb(var(--app-rgb) / 0.16);
+.crm-trk .neo-tracker__msg b {
+  font-weight: 650;
   color: var(--text);
 }
 
-.crm-stage-step__dot {
-  width: 7px;
-  height: 7px;
+.crm-trk-dash {
+  color: var(--text-3);
+}
+
+.crm-trk .neo-tracker__msg .crm-trk-why {
+  color: var(--text);
+}
+
+.crm-trk-date {
+  font-variant-numeric: tabular-nums;
+}
+
+.crm-trk-move svg:last-child {
+  width: 13px;
+  height: 13px;
+  margin-inline-start: -2px;
+  opacity: 0.7;
+  transition: transform var(--dur-fast);
+}
+
+.crm-trk-move[aria-expanded='true'] svg:last-child {
+  transform: rotate(180deg);
+}
+
+/* Stage colour dot in the "Move stage" menu (menus are portaled, so this stays unscoped) */
+.crm-stage-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
   border-radius: 99px;
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 0.06);
+}
+
+[data-theme='light'] .crm-stage-dot {
+  box-shadow: 0 0 0 3px rgb(15 23 42 / 0.06);
+}
+
+/* Compact trackers. NeoTracker is an inline-size container, so a table cell
+   has to give it a definite width or it collapses to nothing. */
+.crm-trk-compact {
+  min-width: 0;
+}
+
+.crm-table__journey .crm-trk-compact {
+  width: 164px;
+}
+
+/* In the dense table the bar + stage label already show the position (the count stays in aria-valuetext) */
+.crm-table__journey .neo-tracker__count {
+  display: none;
+}
+
+/* ---------- Customer 360 · deal journeys ---------- */
+.crm-acc-deals {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.crm-acc-deals__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.crm-acc-deal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 9px 11px 10px;
+  border-radius: 12px;
+  background: var(--plane);
+  border: 1px solid var(--plane-border);
+  cursor: pointer;
+  transition:
+    border-color var(--dur-fast),
+    background var(--dur-fast);
+}
+
+.crm-acc-deal:hover {
+  border-color: rgb(var(--app-rgb) / 0.45);
+  background: var(--hover-2);
+}
+
+.crm-acc-deal__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.crm-acc-deal__title {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  text-align: start;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.crm-acc-deal__title:focus-visible {
+  outline: 2px solid rgb(var(--app-rgb) / 0.8);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.crm-acc-deal__acv {
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
 }
 
 .crm-nba-card {
