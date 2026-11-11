@@ -20,6 +20,7 @@ import { hasAny, hasPermission } from '@/lib/rbac';
 import { NAV_ITEMS } from '@/components/shell/nav';
 import { useLaunchApp } from '@/components/apps/useLaunchApp';
 import { startFocusSession } from '@/components/FocusEngine';
+import { mailComposeHref } from '@/mail/link';
 
 export type IntentKind = 'action' | 'app' | 'person' | 'page';
 
@@ -158,6 +159,20 @@ const VERBS: Verb[] = [
   { id: 'focus', title: 'Start a 25-minute focus session', icon: 'Timer', run: 'focus', aliases: ['focus', 'focus mode', 'pomodoro', 'deep work', 'do not disturb', 'dnd', 'تركيز', 'جلسة تركيز'] },
   { id: 'review', title: 'Review access requests', icon: 'ClipboardList', perm: 'hub.requests.review', to: '/admin/requests', aliases: ['access requests', 'approve access', 'review requests', 'approvals', 'طلبات الصلاحيات'] },
   { id: 'people', title: 'Find a colleague', icon: 'Users', perm: 'hub.people.view', to: '/people', aliases: ['directory', 'colleague', 'people', 'org chart', 'who is', 'دليل الموظفين', 'زميل'] },
+  { id: 'email', title: 'Write an email', icon: 'PenLine', apps: ['mail'], to: '/mail?compose=1', aliases: ['email', 'write email', 'send email', 'compose', 'compose email', 'new email', 'draft email', 'بريد', 'رسالة بريد', 'إرسال بريد', 'كتابة بريد'] },
+  { id: 'inbox', title: 'Triage my inbox', icon: 'Mail', apps: ['mail'], to: '/mail', aliases: ['inbox', 'my inbox', 'unread', 'inbox zero', 'triage', 'emails', 'صندوق الوارد', 'البريد الوارد'] },
+  { id: 'checkin', title: 'Check in on my wellbeing', icon: 'HeartPulse', apps: ['wellness'], to: '/wellbeing?checkin=1', aliases: ['wellbeing', 'wellness', 'mood', 'my energy', 'tired', 'exhausted', 'burnout', 'burned out', 'burnt out', 'recharge', 'aura', 'رفاهية', 'مزاج', 'طاقة', 'إرهاق', 'احتراق وظيفي'] },
+  { id: 'breathe', title: 'Take a two-minute breather', icon: 'Sparkles', apps: ['wellness'], to: '/wellbeing/breathe', aliases: ['breathe', 'breathing', 'breather', 'stressed', 'stress', 'anxious', 'anxiety', 'overwhelmed', 'calm down', 'meditate', 'meditation', 'mindfulness', 'تنفس', 'توتر', 'قلق', 'تأمل'] },
+  { id: 'counsellor', title: 'Talk to a counsellor confidentially', icon: 'Headphones', apps: ['wellness'], to: '/wellbeing/care', aliases: ['counsellor', 'counselor', 'counselling', 'therapist', 'therapy', 'eap', 'mental health', 'talk to someone', 'need to talk', 'مستشار', 'استشارة', 'صحة نفسية', 'دعم نفسي'] },
+  { id: 'pr', title: 'Review my pull requests', icon: 'GitBranch', apps: ['devhub'], to: '/devhub/reviews', aliases: ['pr', 'prs', 'pull request', 'pull requests', 'code review', 'review pr', 'merge', 'مراجعة الكود', 'طلبات الدمج'] },
+  { id: 'deploy', title: 'Check CI pipelines & deployments', icon: 'Rocket', apps: ['devhub'], to: '/devhub/deploys', aliases: ['deploy', 'deployment', 'deployments', 'pipeline', 'ci', 'cd', 'release', 'rollback', 'نشر', 'خطوط النشر'] },
+  { id: 'cloud', title: 'Check cloud spend & FinOps', icon: 'Cloud', apps: ['cloud'], to: '/cloud/finops', aliases: ['cloud', 'cloud spend', 'finops', 'aws', 'gcp', 'kubernetes', 'cluster', 'clusters', 'region', 'سحابة', 'إنفاق سحابي'] },
+  { id: 'incident', title: 'Open Incident Command & on-call', icon: 'Siren', apps: ['incidents'], to: '/incidents', aliases: ['incident', 'incidents', 'sev1', 'sev2', 'outage', 'oncall', 'on-call', 'pager', 'postmortem', 'حادثة', 'حوادث', 'مناوبة'] },
+  { id: 'vault', title: 'Open Vault secrets & credentials', icon: 'KeyRound', apps: ['vault'], to: '/vault', aliases: ['vault', 'secret', 'secrets', 'credentials', 'api key', 'token', 'ssh key', 'password generator', 'totp', 'خزنة', 'أسرار', 'مفاتيح'] },
+  { id: 'security', title: 'Check my security posture & alerts', icon: 'ShieldAlert', apps: ['security'], to: '/security', aliases: ['security', 'security center', 'siem', 'soc', 'phishing', 'report phishing', 'vulnerability', 'cve', 'soc2', 'compliance', 'أمن', 'مركز الأمن', 'تصيد'] },
+  { id: 'desk', title: 'Book a desk in the office', icon: 'Building2', apps: ['spaces'], to: '/spaces/desks', aliases: ['desk', 'book desk', 'hot desk', 'seat', 'floorplan', 'in office', 'who is in the office', 'مكتب', 'حجز مكتب'] },
+  { id: 'room', title: 'Book a meeting room', icon: 'Calendar', apps: ['spaces'], to: '/spaces/rooms', aliases: ['meeting room', 'book room', 'conference room', 'boardroom', 'room booking', 'قاعة اجتماعات', 'حجز قاعة'] },
+  { id: 'visitor', title: 'Pre-register a visitor badge', icon: 'UserPlus', apps: ['spaces'], to: '/spaces/visitors?new=1', aliases: ['visitor', 'guest', 'guest badge', 'register visitor', 'invite guest', 'زائر', 'بطاقة زائر', 'تسجيل زائر'] },
 ];
 
 const KIND_BIAS: Record<IntentKind, number> = { action: 0.18, app: 0.12, person: 0.05, page: -0.1 };
@@ -251,6 +266,7 @@ export function useNovaIntents() {
     }
 
     // 3. People
+    const mailGranted = byId.get('mail')?.access === 'granted';
     if (can('hub.people.view'))
       for (const u of users) {
         if (!u.active || u.id === me?.id) continue;
@@ -266,6 +282,22 @@ export function useNovaIntents() {
           phrases: [normalize(u.name), normalize(u.name.split(' ')[0] ?? '')],
           bias: KIND_BIAS.person,
         });
+        // "email Omar" → Nova Inbox composer addressed to them.
+        if (mailGranted) {
+          const first = normalize(u.name.split(' ')[0] ?? '');
+          out.push({
+            id: `email-${u.id}`,
+            kind: 'action',
+            title: `Email ${u.name}`,
+            detail: 'in Mail',
+            glyph: { kind: 'user', user: u },
+            run: () => navigate(mailComposeHref({ to: u.id })),
+            primary: ['email', 'mail', ...tokens(u.name)],
+            secondary: [],
+            phrases: [`email ${first}`, `email ${normalize(u.name)}`, `mail ${first}`, `write to ${first}`, `send ${first} an email`],
+            bias: 0,
+          });
+        }
       }
 
     // 4. Hub pages

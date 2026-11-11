@@ -1,0 +1,1016 @@
+/**
+ * Aegis Vault — Scoped Styles (`.neo[data-app='vault']`)
+ * Supports Dark & Light themes, RTL logical layout, reduced motion, and mobile (390px) responsiveness.
+ */
+
+.neo[data-app='vault'] .vault-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ─────────────────── Signature Aegis Hexagonal Shield Hero ─────────────────── */
+
+.neo[data-app='vault'] .vault-hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 22px;
+  align-items: center;
+  padding: 20px 24px;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 12% 50%, rgb(var(--app-rgb) / 0.16), transparent 55%),
+    linear-gradient(135deg, var(--surface-2), var(--surface));
+  border: 1px solid rgb(var(--app-rgb) / 0.28);
+  position: relative;
+  overflow: hidden;
+}
+
+.neo[data-app='vault'] .vault-hero__shield-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.neo[data-app='vault'] .vault-shield {
+  position: relative;
+  width: 156px;
+  height: 156px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.neo[data-app='vault'] .vault-shield__svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  animation: aegisHexPulse 14s linear infinite;
+}
+
+.neo[data-app='vault'] .vault-shield__outer {
+  fill: rgb(var(--app-rgb) / 0.06);
+  stroke: url(#aegisHexGrad);
+  stroke-width: 2;
+  stroke-dasharray: 8 4;
+}
+
+.neo[data-app='vault'] .vault-shield__inner {
+  fill: none;
+  stroke: rgb(var(--app-rgb) / 0.35);
+  stroke-width: 1.25;
+}
+
+.neo[data-app='vault'] .vault-shield__ring {
+  position: relative;
+  z-index: 1;
+}
+
+.neo[data-app='vault'] .vault-shield__score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.05;
+}
+
+.neo[data-app='vault'] .vault-shield__score strong {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='vault'] .vault-shield__score span {
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--app-c1);
+  font-family: var(--font-mono);
+}
+
+.neo[data-app='vault'] .vault-hero__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-hero__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.neo[data-app='vault'] .vault-hero__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='vault'] .vault-hero__sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-2);
+  max-width: 72ch;
+}
+
+.neo[data-app='vault'] .vault-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block-start: 4px;
+}
+
+/* ─────────────────── Filter Bar & Item Rows ─────────────────── */
+
+.neo[data-app='vault'] .vault-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-filter-bar__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 280px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='vault'] .vault-item-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-item-row:hover,
+.neo[data-app='vault'] .vault-item-row.is-selected {
+  border-color: rgb(var(--app-rgb) / 0.55);
+  background: linear-gradient(90deg, rgb(var(--app-rgb) / 0.1), var(--surface-2));
+}
+
+.neo[data-app='vault'] .vault-item-row__glyph {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgb(var(--app-rgb) / 0.14);
+  color: var(--app-c1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.neo[data-app='vault'] .vault-item-row__main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-item-row__title-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.neo[data-app='vault'] .vault-item-row__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='vault'] .vault-item-row__sub {
+  font-size: 12px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neo[data-app='vault'] .vault-item-row__acts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.neo[data-app='vault'] .vault-risk-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* ─────────────────── TOTP Ring & Secret Box ─────────────────── */
+
+.neo[data-app='vault'] .vault-totp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.neo[data-app='vault'] .vault-totp-pill__code {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.neo[data-app='vault'] .vault-totp-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='vault'] .vault-totp-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-totp-card__code {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--app-c1);
+  letter-spacing: 0.08em;
+}
+
+.neo[data-app='vault'] .vault-secret-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-secret-box__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.neo[data-app='vault'] .vault-secret-box__entropy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+}
+
+.neo[data-app='vault'] .vault-secret-box__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-secret-box__val {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* ─────────────────── Inspector & Generator ─────────────────── */
+
+.neo[data-app='vault'] .vault-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-inspector__meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.neo[data-app='vault'] .vault-inspector__kv {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-inspector__kv code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.neo[data-app='vault'] .vault-inspector__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.neo[data-app='vault'] .vault-inspector__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.neo[data-app='vault'] .vault-gen-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='vault'] .vault-gen-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='vault'] .vault-gen-card__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.neo[data-app='vault'] .vault-gen-card__output {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  border: 1px solid rgb(var(--app-rgb) / 0.3);
+  overflow-x: auto;
+}
+
+.neo[data-app='vault'] .vault-gen-card__output code {
+  font-size: 13px;
+  color: var(--app-c1);
+  word-break: break-all;
+}
+
+.neo[data-app='vault'] .vault-gen-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='vault'] .vault-gen-card__crack {
+  margin-inline-start: auto;
+  color: var(--text-3);
+}
+
+.neo[data-app='vault'] .vault-gen-card__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='vault'] .vault-gen-card__slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='vault'] .vault-gen-card__slider input[type='range'] {
+  flex: 1;
+  accent-color: var(--app-c1);
+}
+
+.neo[data-app='vault'] .vault-gen-card__toggles,
+.neo[data-app='vault'] .vault-gen-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ─────────────────── Team Vaults & Share Links ─────────────────── */
+
+.neo[data-app='vault'] .vault-tv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.neo[data-app='vault'] .vault-tv-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-tv-card.is-selected {
+  border-color: rgb(var(--app-rgb) / 0.65);
+  background: linear-gradient(135deg, rgb(var(--app-rgb) / 0.12), var(--surface-2));
+}
+
+.neo[data-app='vault'] .vault-tv-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.neo[data-app='vault'] .vault-tv-card__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgb(var(--app-rgb) / 0.15);
+  color: var(--app-c1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.neo[data-app='vault'] .vault-tv-card__titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-tv-card__name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='vault'] .vault-tv-card__desc {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='vault'] .vault-tv-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-block-start: auto;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='vault'] .vault-tv-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.neo[data-app='vault'] .vault-shared-item,
+.neo[data-app='vault'] .vault-link-card,
+.neo[data-app='vault'] .vault-join-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-shared-item__top,
+.neo[data-app='vault'] .vault-link-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='vault'] .vault-link-card__title {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.neo[data-app='vault'] .vault-link-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='vault'] .vault-link-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ─────────────────── Secrets, Certs, JIT & Audit Cards ─────────────────── */
+
+.neo[data-app='vault'] .vault-secret-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-secret-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='vault'] .vault-secret-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-block-end: 6px;
+}
+
+.neo[data-app='vault'] .vault-secret-card__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.neo[data-app='vault'] .vault-secret-card__uri-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-block-start: 4px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.neo[data-app='vault'] .vault-secret-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.neo[data-app='vault'] .vault-db-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='vault'] .vault-db-strip__info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.neo[data-app='vault'] .vault-cert-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='vault'] .vault-cert-timeline__row,
+.neo[data-app='vault'] .vault-cert-timeline__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='vault'] .vault-audit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.neo[data-app='vault'] .vault-audit-row.is-tampered {
+  border-color: var(--danger);
+  background: rgb(var(--danger-rgb) / 0.1);
+}
+
+.neo[data-app='vault'] .vault-audit-row__head,
+.neo[data-app='vault'] .vault-audit-row__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neo[data-app='vault'] .vault-audit-row__badges,
+.neo[data-app='vault'] .vault-audit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.neo[data-app='vault'] .vault-audit-seq {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--app-c1);
+}
+
+.neo[data-app='vault'] .vault-audit-row__target {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='vault'] .vault-audit-row__detail {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='vault'] .vault-audit-hashes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='vault'] .vault-finding-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='vault'] .vault-finding-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neo[data-app='vault'] .vault-finding-card__title {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.neo[data-app='vault'] .vault-finding-card__desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='vault'] .vault-clean-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 24px 16px;
+  color: var(--text-2);
+  font-size: 12.5px;
+}
+
+/* ─────────────────── Modals, Ritual & Nova Drawer ─────────────────── */
+
+.neo[data-app='vault'] .vault-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgb(5 8 18 / 0.72);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.neo[data-app='vault'] .vault-modal {
+  width: min(640px, 100%);
+  max-height: 88vh;
+  overflow-y: auto;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid rgb(var(--app-rgb) / 0.35);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.neo[data-app='vault'] .vault-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-block-end: 1px solid var(--border);
+}
+
+.neo[data-app='vault'] .vault-modal__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='vault'] .vault-modal__body {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.neo[data-app='vault'] .vault-modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-block-start: 10px;
+  border-block-start: 1px solid var(--border);
+}
+
+.neo[data-app='vault'] .vault-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.neo[data-app='vault'] .vault-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.neo[data-app='vault'] .vault-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='vault'] .vault-form__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='vault'] .vault-channel-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.neo[data-app='vault'] .vault-share-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid rgb(var(--success-rgb) / 0.4);
+}
+
+.neo[data-app='vault'] .vault-breakglass-warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgb(var(--danger-rgb) / 0.12);
+  border: 1px solid rgb(var(--danger-rgb) / 0.4);
+  font-size: 12px;
+  color: var(--text);
+}
+
+.neo[data-app='vault'] .vault-breakglass-warn div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neo[data-app='vault'] .vault-form__error {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgb(var(--danger-rgb) / 0.14);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.neo[data-app='vault'] .vault-ritual-card {
+  width: min(440px, 100%);
+  padding: 28px 24px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid rgb(var(--app-rgb) / 0.45);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.neo[data-app='vault'] .vault-ritual-ring {
+  width: 88px;
+  height: 88px;
+  border-radius: 999px;
+  background: rgb(var(--app-rgb) / 0.14);
+  border: 2px solid var(--app-c1);
+  color: var(--app-c1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.neo[data-app='vault'] .vault-ritual-card__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.neo[data-app='vault'] .vault-ritual-card__sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.neo[data-app='vault'] .vault-ritual-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-block-start: 6px;
+}
+
+.neo[data-app='vault'] .vault-nova-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='vault'] .vault-nova-ans {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='vault'] .vault-nova-ans__q {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--app-c1);
+  font-weight: 600;
+}
+
+.neo[data-app='vault'] .vault-nova-ans__sum {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.neo[data-app='vault'] .vault-nova-ans__bullets {
+  margin: 0;
+  padding-inline-start: 18px;
+  font-size: 12px;
+  color: var(--text-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ─────────────────── Light Theme Overrides ─────────────────── */
+
+[data-theme='light'] .neo[data-app='vault'] .vault-shield__score span,
+[data-theme='light'] .neo[data-app='vault'] .vault-totp-card__code,
+[data-theme='light'] .neo[data-app='vault'] .vault-gen-card__output code,
+[data-theme='light'] .neo[data-app='vault'] .vault-audit-seq {
+  color: #b45309;
+}
+
+[data-theme='light'] .neo[data-app='vault'] .vault-item-row__glyph,
+[data-theme='light'] .neo[data-app='vault'] .vault-tv-card__icon,
+[data-theme='light'] .neo[data-app='vault'] .vault-ritual-ring {
+  color: #b45309;
+  background: rgb(245 158 11 / 0.14);
+}
+
+/* ─────────────────── Motion & Responsive (≤ 720px) ─────────────────── */
+
+@keyframes aegisHexPulse {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neo[data-app='vault'] .vault-shield__svg {
+    animation: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .neo[data-app='vault'] .vault-hero {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    padding: 16px;
+  }
+
+  .neo[data-app='vault'] .vault-hero__badges,
+  .neo[data-app='vault'] .vault-hero__actions {
+    justify-content: center;
+  }
+
+  .neo[data-app='vault'] .vault-item-row {
+    flex-wrap: wrap;
+  }
+
+  .neo[data-app='vault'] .vault-filter-bar__search {
+    justify-content: stretch;
+  }
+}

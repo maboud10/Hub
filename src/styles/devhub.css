@@ -1,0 +1,1326 @@
+/**
+ * DevHub ("Forge") — app-scoped stylesheet (.neo[data-app='devhub'])
+ * Supports Dark & Light themes ([data-theme='light']), RTL ([dir='rtl']),
+ * reduced motion, and responsive layouts down to 390px.
+ */
+
+.neo[data-app='devhub'] .dh-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.neo[data-app='devhub'] .dh-top-tabs {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  max-width: 100%;
+  padding-block: 2px;
+}
+
+.neo[data-app='devhub'] .dh-toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.neo[data-app='devhub'] .dh-search-wide {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
+.neo[data-app='devhub'] .dh-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-user-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.neo[data-app='devhub'] .dh-user-pill__role {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='devhub'] .dh-reltime {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+/* ───────────────────────── Signature Delivery Stream Hero ───────────────────────── */
+
+.neo[data-app='devhub'] .dh-stream {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgb(var(--app-rgb) / 0.28);
+  background:
+    radial-gradient(620px 180px at 18% 0%, rgb(var(--app-rgb) / 0.14), transparent 70%),
+    var(--surface);
+}
+
+.neo[data-app='devhub'] .dh-stream__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block-end: 14px;
+}
+
+.neo[data-app='devhub'] .dh-stream__title {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='devhub'] .dh-stream__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-stream__lanes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(110px, 1fr));
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.neo[data-app='devhub'] .dh-stream__lane {
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.neo[data-app='devhub'] .dh-stream__lane[data-alert='warn'] {
+  border-color: rgb(var(--warning-rgb, 245 158 11) / 0.55);
+  background: linear-gradient(180deg, rgb(245 158 11 / 0.1), var(--surface-2));
+}
+
+.neo[data-app='devhub'] .dh-stream__lane[data-alert='fail'] {
+  border-color: rgb(var(--danger-rgb, 239 68 68) / 0.6);
+  background: linear-gradient(180deg, rgb(239 68 68 / 0.12), var(--surface-2));
+}
+
+.neo[data-app='devhub'] .dh-stream__lane-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.neo[data-app='devhub'] .dh-stream__step {
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='devhub'] .dh-stream__name {
+  flex: 1;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neo[data-app='devhub'] .dh-stream__count {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+
+.neo[data-app='devhub'] .dh-stream__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.neo[data-app='devhub'] .dh-stream__idle {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='devhub'] .dh-stream__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 0.15s ease;
+}
+
+.neo[data-app='devhub'] .dh-stream__pill:hover {
+  border-color: var(--app-c1);
+}
+
+/* ───────────────────────── Lists & Master-Detail Split ───────────────────────── */
+
+.neo[data-app='devhub'] .dh-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='devhub'] .dh-pr-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.neo[data-app='devhub'] .dh-pr-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.neo[data-app='devhub'] .dh-pr-row__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-pr-num {
+  color: var(--app-c1);
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
+.neo[data-app='devhub'] .dh-pr-row__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.neo[data-app='devhub'] .dh-pr-row__title:hover {
+  color: var(--app-c1);
+}
+
+.neo[data-app='devhub'] .dh-pr-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='devhub'] .dh-pr-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.neo[data-app='devhub'] .dh-diff-add {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.neo[data-app='devhub'] .dh-diff-del {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.neo[data-app='devhub'] .dh-split {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.neo[data-app='devhub'] .dh-split__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-list-card {
+  width: 100%;
+  text-align: start;
+  padding: 11px 13px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.neo[data-app='devhub'] .dh-list-card:hover {
+  border-color: var(--border-2);
+}
+
+.neo[data-app='devhub'] .dh-list-card[data-active='true'] {
+  border-color: var(--app-c1);
+  background: linear-gradient(135deg, rgb(var(--app-rgb) / 0.12), var(--surface));
+}
+
+.neo[data-app='devhub'] .dh-list-card__top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.neo[data-app='devhub'] .dh-list-card__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.neo[data-app='devhub'] .dh-list-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='devhub'] .dh-list-card__flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.neo[data-app='devhub'] .dh-list-card__flag svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ───────────────────────── PR Detail & Diffs ───────────────────────── */
+
+.neo[data-app='devhub'] .dh-pr-body {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.neo[data-app='devhub'] .dh-pr-meta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 10px 12px;
+  margin-block-end: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='devhub'] .dh-pr-meta-bar__group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neo[data-app='devhub'] .dh-action-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-block-start: 14px;
+  padding-block-start: 12px;
+  border-block-start: 1px solid var(--border);
+}
+
+.neo[data-app='devhub'] .dh-action-strip__spacer {
+  flex: 1;
+}
+
+.neo[data-app='devhub'] .dh-secret-panel {
+  border-color: rgb(239 68 68 / 0.55);
+  background: linear-gradient(135deg, rgb(239 68 68 / 0.1), var(--surface));
+}
+
+.neo[data-app='devhub'] .dh-secret-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.neo[data-app='devhub'] .dh-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.neo[data-app='devhub'] .dh-risk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-risk-item {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='devhub'] .dh-risk-item__top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.neo[data-app='devhub'] .dh-risk-item__files {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-block-start: 3px;
+}
+
+.neo[data-app='devhub'] .dh-nova-summary {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgb(var(--app-rgb) / 0.08);
+  border: 1px solid rgb(var(--app-rgb) / 0.25);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.neo[data-app='devhub'] .dh-checks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-check-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.neo[data-app='devhub'] .dh-check-pill__status {
+  margin-inline-start: auto;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='devhub'] .dh-diffs {
+  display: flex;
+  flex-direction: column;
+}
+
+.neo[data-app='devhub'] .dh-diff-file {
+  border-block-top: 1px solid var(--border);
+}
+
+.neo[data-app='devhub'] .dh-diff-file__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--surface-2);
+  border-block-end: 1px solid var(--border);
+}
+
+.neo[data-app='devhub'] .dh-diff-file__path {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='devhub'] .dh-hunk__header {
+  padding: 5px 16px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  background: var(--surface-3);
+}
+
+.neo[data-app='devhub'] .dh-hunk__lines {
+  overflow-x: auto;
+}
+
+.neo[data-app='devhub'] .dh-diff-line {
+  display: grid;
+  grid-template-columns: 38px 38px 20px minmax(0, 1fr);
+  align-items: baseline;
+  padding: 2px 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  cursor: pointer;
+}
+
+.neo[data-app='devhub'] .dh-diff-line:hover {
+  background: var(--surface-2);
+}
+
+.neo[data-app='devhub'] .dh-diff-line[data-kind='add'] {
+  background: rgb(34 197 94 / 0.12);
+}
+
+.neo[data-app='devhub'] .dh-diff-line[data-kind='del'] {
+  background: rgb(239 68 68 / 0.12);
+}
+
+.neo[data-app='devhub'] .dh-diff-line__no {
+  font-size: 11px;
+  color: var(--text-3);
+  user-select: none;
+}
+
+.neo[data-app='devhub'] .dh-diff-line__sign {
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.neo[data-app='devhub'] .dh-diff-line__code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.neo[data-app='devhub'] .dh-tok-kw {
+  color: #a78bfa;
+  font-weight: 600;
+}
+
+.neo[data-app='devhub'] .dh-tok-str {
+  color: #34d399;
+}
+
+.neo[data-app='devhub'] .dh-tok-com {
+  color: var(--text-3);
+  font-style: italic;
+}
+
+.neo[data-app='devhub'] .dh-tok-num {
+  color: #fbbf24;
+}
+
+.neo[data-app='devhub'] .dh-tok-fn {
+  color: #38bdf8;
+}
+
+.neo[data-app='devhub'] .dh-tok-key {
+  color: var(--app-c1);
+}
+
+.neo[data-app='devhub'] .dh-inline-thread {
+  margin: 8px 16px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-2);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-inline-thread[data-nova='true'] {
+  border-color: rgb(var(--app-rgb) / 0.45);
+  background: linear-gradient(135deg, rgb(var(--app-rgb) / 0.1), var(--surface-2));
+}
+
+.neo[data-app='devhub'] .dh-inline-thread__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-inline-thread__body {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.neo[data-app='devhub'] .dh-suggestion {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.neo[data-app='devhub'] .dh-suggestion__del {
+  color: var(--danger);
+}
+
+.neo[data-app='devhub'] .dh-suggestion__add {
+  color: var(--success);
+}
+
+.neo[data-app='devhub'] .dh-inline-composer,
+.neo[data-app='devhub'] .dh-comment-box {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+.neo[data-app='devhub'] .dh-comment-card {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ───────────────────────── Pipelines & Terminal ───────────────────────── */
+
+.neo[data-app='devhub'] .dh-stage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 8px;
+  margin-block: 12px;
+}
+
+.neo[data-app='devhub'] .dh-stage-card {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  text-align: start;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neo[data-app='devhub'] .dh-stage-card[data-active='true'] {
+  border-color: var(--app-c1);
+  background: rgb(var(--app-rgb) / 0.12);
+}
+
+.neo[data-app='devhub'] .dh-stage-card__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='devhub'] .dh-stage-card__dur {
+  margin-inline-start: auto;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='devhub'] .dh-stage-card__name {
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.neo[data-app='devhub'] .dh-terminal {
+  border-radius: 14px;
+  border: 1px solid var(--border-2);
+  background: #090d16;
+  color: #e2e8f0;
+  overflow: hidden;
+}
+
+.neo[data-app='devhub'] .dh-terminal__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border-block-end: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+}
+
+.neo[data-app='devhub'] .dh-terminal__body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.neo[data-app='devhub'] .dh-terminal__line {
+  display: flex;
+  gap: 10px;
+}
+
+.neo[data-app='devhub'] .dh-terminal__ts {
+  color: #64748b;
+  min-width: 36px;
+}
+
+.neo[data-app='devhub'] .dh-terminal__line[data-level='cmd'] .dh-terminal__text {
+  color: #a3e635;
+}
+
+.neo[data-app='devhub'] .dh-terminal__line[data-level='error'] .dh-terminal__text {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.neo[data-app='devhub'] .dh-terminal__line[data-level='ok'] .dh-terminal__text {
+  color: #4ade80;
+}
+
+.neo[data-app='devhub'] .dh-flake-dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.neo[data-app='devhub'] .dh-flake-dots i {
+  font-style: normal;
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--surface-3);
+}
+
+.neo[data-app='devhub'] .dh-flake-dots i[data-c='R'] {
+  background: rgb(245 158 11 / 0.22);
+  color: var(--warning);
+}
+
+.neo[data-app='devhub'] .dh-flake-dots i[data-c='F'] {
+  background: rgb(239 68 68 / 0.22);
+  color: var(--danger);
+}
+
+/* ───────────────────────── Deploys & Canary Dial ───────────────────────── */
+
+.neo[data-app='devhub'] .dh-grid-canary {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 16px;
+}
+
+.neo[data-app='devhub'] .dh-canary-dial {
+  margin-block-start: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.neo[data-app='devhub'] .dh-canary-dial__ring {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.neo[data-app='devhub'] .dh-canary-dial__info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.neo[data-app='devhub'] .dh-canary-dial__verdict {
+  font-size: 13px;
+}
+
+.neo[data-app='devhub'] .dh-canary-dial__steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.neo[data-app='devhub'] .dh-canary-dial__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-gates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='devhub'] .dh-gate-card {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.neo[data-app='devhub'] .dh-gate-card__top,
+.neo[data-app='devhub'] .dh-gate-card__vals {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.neo[data-app='devhub'] .dh-canary-sparks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-block-start: 12px;
+}
+
+.neo[data-app='devhub'] .dh-region-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.neo[data-app='devhub'] .dh-region-card {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='devhub'] .dh-region-card[data-status='degraded'] {
+  border-color: rgb(245 158 11 / 0.55);
+}
+
+.neo[data-app='devhub'] .dh-region-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-region-card__city {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='devhub'] .dh-region-card__id {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='devhub'] .dh-region-card__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+}
+
+.neo[data-app='devhub'] .dh-region-card__row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.neo[data-app='devhub'] .dh-region-card__row [data-status='degraded'] {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.neo[data-app='devhub'] .dh-flag-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.neo[data-app='devhub'] .dh-flag-row__desc {
+  margin: 4px 0 8px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='devhub'] .dh-flag-row__envs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.neo[data-app='devhub'] .dh-freeze-box {
+  display: flex;
+  gap: 8px;
+  margin-block-start: 12px;
+}
+
+/* ───────────────────────── Services, Scorecards & Code Search ───────────────────────── */
+
+.neo[data-app='devhub'] .dh-wizard-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin-block-end: 14px;
+}
+
+.neo[data-app='devhub'] .dh-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neo[data-app='devhub'] .dh-wizard-form__btns {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-scorecard-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 16px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  margin-block-end: 14px;
+}
+
+.neo[data-app='devhub'] .dh-scorecard-ring {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.neo[data-app='devhub'] .dh-scorecard-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-scorecard-metric {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 8px;
+  font-size: 12px;
+}
+
+.neo[data-app='devhub'] .dh-scorecard-metric .neo-bar {
+  grid-column: 1 / -1;
+}
+
+.neo[data-app='devhub'] .dh-subcard {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='devhub'] .dh-dep-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='devhub'] .dh-owners-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-owner-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.neo[data-app='devhub'] .dh-owner-share {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.neo[data-app='devhub'] .dh-code-hits {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-block-start: 12px;
+}
+
+.neo[data-app='devhub'] .dh-code-hit {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.neo[data-app='devhub'] .dh-code-hit__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+  margin-block-end: 4px;
+}
+
+.neo[data-app='devhub'] .dh-code-hit__repo {
+  color: var(--app-c1);
+  font-weight: 600;
+}
+
+.neo[data-app='devhub'] .dh-code-hit__line {
+  margin: 0;
+  font-size: 12px;
+  overflow-x: auto;
+}
+
+.neo[data-app='devhub'] .dh-code-mark {
+  background: rgb(var(--app-rgb) / 0.28);
+  color: var(--text);
+  padding: 0 2px;
+  border-radius: 4px;
+}
+
+/* ───────────────────────── Insights, Cycle Time & Equity ───────────────────────── */
+
+.neo[data-app='devhub'] .dh-cycle-bars {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-block-start: 14px;
+}
+
+.neo[data-app='devhub'] .dh-cycle-bar-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.neo[data-app='devhub'] .dh-cycle-bar-item__head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.neo[data-app='devhub'] .dh-equity-row,
+.neo[data-app='devhub'] .dh-devex-row {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-equity-row__top,
+.neo[data-app='devhub'] .dh-equity-row__bottom,
+.neo[data-app='devhub'] .dh-devex-row__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neo[data-app='devhub'] .dh-heat-strip {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.neo[data-app='devhub'] .dh-heat-cell {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--surface-3);
+}
+
+.neo[data-app='devhub'] .dh-heat-cell[data-level='1'] {
+  background: rgb(var(--app-rgb) / 0.45);
+}
+
+.neo[data-app='devhub'] .dh-heat-cell[data-level='2'] {
+  background: var(--app-c1);
+}
+
+.neo[data-app='devhub'] .dh-devex-row__votes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ───────────────────────── Side Bridge Cards & Drawer ───────────────────────── */
+
+.neo[data-app='devhub'] .dh-bridge-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='devhub'] .dh-bridge-card {
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  text-decoration: none;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neo[data-app='devhub'] .dh-bridge-card[data-tone='danger'] {
+  border-color: rgb(239 68 68 / 0.5);
+}
+
+.neo[data-app='devhub'] .dh-bridge-card__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.neo[data-app='devhub'] .dh-bridge-card__head svg:last-child {
+  margin-inline-start: auto;
+  width: 14px;
+  height: 14px;
+  color: var(--text-3);
+}
+
+.neo[data-app='devhub'] .dh-bridge-card__title {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.neo[data-app='devhub'] .dh-bridge-card__sub {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='devhub'] .dh-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='devhub'] .dh-activity-item {
+  padding-block-end: 8px;
+  border-block-end: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neo[data-app='devhub'] .dh-activity-item__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.neo[data-app='devhub'] .dh-activity-item__text {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.neo[data-app='devhub'] .dh-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(5, 10, 20, 0.55);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.neo[data-app='devhub'] .dh-drawer {
+  width: min(480px, 100vw);
+  height: 100%;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.neo[data-app='devhub'] .dh-drawer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.neo[data-app='devhub'] .dh-drawer__title {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.neo[data-app='devhub'] .dh-drawer__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.neo[data-app='devhub'] .dh-drawer__card {
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='devhub'] .dh-drawer__card h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.neo[data-app='devhub'] .dh-drawer__card p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.neo[data-app='devhub'] .dh-drawer__kv {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  font-size: 12px;
+}
+
+.neo[data-app='devhub'] .dh-drawer__kv div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.neo[data-app='devhub'] .dh-drawer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ───────────────────────── Light Theme Overrides ───────────────────────── */
+
+[data-theme='light'] .neo[data-app='devhub'] .dh-pr-num,
+[data-theme='light'] .neo[data-app='devhub'] .dh-code-hit__repo {
+  color: #15803d;
+}
+
+[data-theme='light'] .neo[data-app='devhub'] .dh-tok-kw {
+  color: #6d28d9;
+}
+
+[data-theme='light'] .neo[data-app='devhub'] .dh-tok-str {
+  color: #047857;
+}
+
+[data-theme='light'] .neo[data-app='devhub'] .dh-tok-num {
+  color: #b45309;
+}
+
+[data-theme='light'] .neo[data-app='devhub'] .dh-tok-fn {
+  color: #0369a1;
+}
+
+/* ───────────────────────── Responsive & RTL ───────────────────────── */
+
+@media (max-width: 1024px) {
+  .neo[data-app='devhub'] .dh-split,
+  .neo[data-app='devhub'] .dh-grid-canary,
+  .neo[data-app='devhub'] .dh-grid-2,
+  .neo[data-app='devhub'] .dh-scorecard-row {
+    grid-template-columns: 1fr;
+  }
+
+  .neo[data-app='devhub'] .dh-region-grid,
+  .neo[data-app='devhub'] .dh-cycle-bars {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .neo[data-app='devhub'] .dh-region-grid,
+  .neo[data-app='devhub'] .dh-cycle-bars,
+  .neo[data-app='devhub'] .dh-drawer__kv {
+    grid-template-columns: 1fr;
+  }
+
+  .neo[data-app='devhub'] .dh-stream__lanes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .neo[data-app='devhub'] .dh-search-wide {
+    max-width: 100%;
+  }
+}

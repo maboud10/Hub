@@ -13,6 +13,7 @@ import type {
   AnnouncementCategory,
   AnnouncementPriority,
   AppCategory,
+  AppStatus,
   AuditEntry,
   Clearance,
   Department,
@@ -109,6 +110,12 @@ export interface HubActions {
   updateRole(roleId: string, patch: Partial<Pick<Role, 'name' | 'description' | 'clearance' | 'color'>>): ActionResult;
   deleteRole(roleId: string): ActionResult;
   updateApp(appId: string, patch: Partial<Omit<HubApp, 'id'>>): ActionResult;
+  /**
+   * Status-page publishing for Incident Command responders (`app:incidents`):
+   * flips an app's health on the Launchpad status widget + tiles and notifies
+   * people who pinned it. Does not require `hub.apps.manage`.
+   */
+  setAppHealth(appId: string, status: AppStatus, reason?: string): ActionResult;
   createApp(input: NewAppInput, roleIds: string[]): ActionResult;
   deleteApp(appId: string): ActionResult;
   publishAnnouncement(input: NewAnnouncementInput): ActionResult;
@@ -133,7 +140,26 @@ export interface HubActions {
 export type HubStore = HubData & HubActions;
 
 /** Immersive workspace apps whose catalog visuals always follow the seed (declared before the store hydrates). */
-const WORKSPACE_APPS = new Set(['projects', 'drive', 'chat', 'helpdesk', 'performance', 'procurement', 'crm', 'analytics', 'meet', 'calendar']);
+const WORKSPACE_APPS = new Set([
+  'projects',
+  'drive',
+  'chat',
+  'helpdesk',
+  'performance',
+  'procurement',
+  'crm',
+  'analytics',
+  'meet',
+  'calendar',
+  'mail',
+  'wellness',
+  'devhub',
+  'cloud',
+  'incidents',
+  'vault',
+  'security',
+  'spaces',
+]);
 
 const ok = (message?: string): ActionResult => ({ ok: true, message });
 const fail = (error: string): ActionResult => ({ ok: false, error });
@@ -579,6 +605,37 @@ export const useHub = create<HubStore>()(
           return ok(`${app.name} updated`);
         },
 
+        setAppHealth(appId, status, reason) {
+          const app = get().apps.find((a) => a.id === appId);
+          const g = requirePerm('app:incidents', 'app.health', app?.name ?? appId);
+          if ('error' in g) return g.error;
+          if (!app) return fail('App not found.');
+          if (app.status === status) return ok(`${app.name} is already ${status}`);
+          const prev = app.status;
+          set((s) => ({ apps: s.apps.map((a) => (a.id === appId ? { ...a, status } : a)) }));
+          audit({
+            action: 'app.health',
+            target: app.name,
+            detail: `${prev} → ${status}${reason ? ` · ${reason}` : ''}`,
+            outcome: 'success',
+            severity: status === 'operational' ? 'info' : 'warning',
+          });
+          const watchers = Object.entries(get().prefs)
+            .filter(([, p]) => p.pinned.includes(appId))
+            .map(([uidKey]) => uidKey)
+            .filter((id) => id !== g.user.id);
+          notify(watchers, {
+            kind: 'system',
+            title:
+              status === 'operational'
+                ? `${app.name} is back to normal`
+                : `${app.name} is ${status === 'maintenance' ? 'under maintenance' : 'degraded'}`,
+            body: reason ?? (status === 'operational' ? 'Incident resolved — thanks for your patience.' : 'You pinned this app — we’ll keep you posted.'),
+            link: '/apps',
+          });
+          return ok(`${app.name} marked ${status}`);
+        },
+
         createApp(input, roleIds) {
           const g = requirePerm('hub.apps.manage', 'app.created', input.name);
           if ('error' in g) return g.error;
@@ -828,7 +885,24 @@ export const useHub = create<HubStore>()(
         if (version === DATA_VERSION) {
           // Safety net: re-apply the latest migration if workspace-app routes went missing or roster is still present.
           const missing =
-            ['projects', 'drive', 'chat', 'helpdesk', 'performance', 'procurement', 'crm', 'analytics'].some((id) => !s?.apps?.find((a) => a.id === id)?.route) ||
+            [
+              'projects',
+              'drive',
+              'chat',
+              'helpdesk',
+              'performance',
+              'procurement',
+              'crm',
+              'analytics',
+              'mail',
+              'wellness',
+              'devhub',
+              'cloud',
+              'incidents',
+              'vault',
+              'security',
+              'spaces',
+            ].some((id) => !s?.apps?.find((a) => a.id === id)?.route) ||
             Boolean(s?.apps?.some((a) => a.id === 'roster'));
           return missing ? migrateV6toV7(s) : s;
         }
@@ -852,6 +926,7 @@ export const useHub = create<HubStore>()(
               ...a,
               url: a.id === 'finance' ? fresh.url : (a.url ?? fresh.url),
               route: fresh.route ?? a.route,
+              discoverable: WORKSPACE_APPS.has(a.id) ? fresh.discoverable : a.discoverable,
               gradient: WORKSPACE_APPS.has(a.id) ? fresh.gradient : a.gradient,
               keywords: WORKSPACE_APPS.has(a.id) ? fresh.keywords : a.keywords,
               quickActions: fresh.quickActions ?? a.quickActions,
@@ -864,13 +939,16 @@ export const useHub = create<HubStore>()(
           const cleaned = r.permissions.filter((perm) => perm !== 'app:roster');
           if (r.id === 'employee') {
             const next = [...cleaned];
-            if (!next.includes('app:procurement')) next.push('app:procurement');
-            if (!next.includes('app:analytics')) next.push('app:analytics');
+            // Everyone gets a personal Vault + team vaults and their own Security Center posture view.
+            for (const req of ['app:procurement', 'app:analytics', 'app:vault', 'app:security']) {
+              if (!next.includes(req)) next.push(req);
+            }
             return { ...r, permissions: next };
           }
           if (r.id === 'people-ops' || r.id === 'manager' || r.id === 'finance' || r.id === 'engineering') {
             const next = [...cleaned];
-            for (const req of ['app:procurement', 'app:analytics', 'app:crm']) {
+            // Finance runs FinOps in Cloud Console (spend, budgets, commitments).
+            for (const req of ['app:procurement', 'app:analytics', 'app:crm', ...(r.id === 'finance' ? ['app:cloud'] : [])]) {
               if (!next.includes(req)) next.push(req);
             }
             return { ...r, permissions: next };
@@ -1064,7 +1142,16 @@ export function migrateV6toV7(s: HubData): HubData {
     const fresh = seedRole.get(r.id);
     if (!fresh || !r.system || r.locked) return r;
     const basePerms = r.permissions.filter((p) => p !== 'app:roster');
-    const add = fresh.permissions.filter((p) => (p.startsWith('performance.') || p === 'app:performance' || p === 'app:procurement') && !basePerms.includes(p));
+    const add = fresh.permissions.filter(
+      (p) =>
+        (p.startsWith('performance.') ||
+          p === 'app:performance' ||
+          p === 'app:procurement' ||
+          p === 'app:vault' ||
+          p === 'app:security' ||
+          p === 'app:cloud') &&
+        !basePerms.includes(p),
+    );
     return { ...r, permissions: [...basePerms, ...add] };
   });
   const seedApp = new Map(seed.apps.map((a) => [a.id, a]));
@@ -1078,6 +1165,7 @@ export function migrateV6toV7(s: HubData): HubData {
       return {
         ...a,
         route: fresh.route,
+        discoverable: fresh.discoverable,
         tagline: fresh.tagline,
         description: fresh.description,
         keywords: fresh.keywords,

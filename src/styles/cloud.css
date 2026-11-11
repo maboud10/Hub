@@ -1,0 +1,1573 @@
+/**
+ * Stratos · Cloud Console — scoped styles under .neo[data-app='cloud']
+ */
+
+.neo[data-app='cloud'] {
+  --cloud-cyan: #38bdf8;
+  --cloud-blue: #0ea5e9;
+  --cloud-amber: #f59e0b;
+  --cloud-rose: #f43f5e;
+  --cloud-emerald: #10b981;
+}
+
+.neo[data-app='cloud'] .cloud-overview,
+.neo[data-app='cloud'] .cloud-services,
+.neo[data-app='cloud'] .cloud-clusters,
+.neo[data-app='cloud'] .cloud-provisioning,
+.neo[data-app='cloud'] .cloud-observability,
+.neo[data-app='cloud'] .cloud-finops {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.neo[data-app='cloud'] .cloud-panel-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.neo[data-app='cloud'] .cloud-text-warn {
+  color: var(--warning);
+}
+
+.neo[data-app='cloud'] .cloud-subhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block: 14px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-subhead svg {
+  width: 14px;
+  height: 14px;
+  color: var(--app-c1);
+}
+
+.neo[data-app='cloud'] .cloud-reg-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+/* ───────────────────────── Interactive World / Region Map ───────────────────────── */
+
+.neo[data-app='cloud'] .cloud-map {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: radial-gradient(circle at 50% 35%, rgb(var(--app-rgb) / 0.12), transparent 72%), var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.neo[data-app='cloud'] .cloud-map__svg {
+  width: 100%;
+  height: auto;
+  max-height: 290px;
+  display: block;
+}
+
+.neo[data-app='cloud'] .cloud-map--compact .cloud-map__svg {
+  max-height: 205px;
+}
+
+.neo[data-app='cloud'] .cloud-map__grid {
+  stroke: var(--border);
+  stroke-width: 0.7;
+  stroke-dasharray: 4 6;
+  opacity: 0.45;
+}
+
+.neo[data-app='cloud'] .cloud-map__dots {
+  stroke: rgb(var(--app-rgb) / 0.34);
+  stroke-width: 3.1;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.neo[data-app='cloud'] .cloud-map__arc {
+  fill: none;
+  stroke: rgb(var(--app-rgb) / 0.55);
+  stroke-width: 1.8;
+  stroke-dasharray: 5 5;
+}
+
+.neo[data-app='cloud'] .cloud-map__arc--anomaly {
+  stroke: var(--warning);
+  stroke-width: 2.5;
+  stroke-dasharray: 6 4;
+}
+
+.neo[data-app='cloud'] .cloud-map__node {
+  cursor: pointer;
+}
+
+.neo[data-app='cloud'] .cloud-map__core {
+  fill: var(--app-c1);
+  stroke: #ffffff;
+  stroke-width: 2;
+}
+
+.neo[data-app='cloud'] .cloud-map__node.is-degraded .cloud-map__core {
+  fill: var(--warning);
+}
+
+.neo[data-app='cloud'] .cloud-map__ring {
+  fill: none;
+  stroke: var(--app-c1);
+  stroke-width: 1.8;
+  stroke-dasharray: 3 3;
+}
+
+.neo[data-app='cloud'] .cloud-map__tag {
+  fill: rgba(10, 15, 28, 0.86);
+  stroke: var(--border-2);
+  stroke-width: 1;
+}
+
+.neo[data-app='cloud'] .cloud-map__tag-text {
+  fill: #f8fafc;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.neo[data-app='cloud'] .cloud-map__strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.neo[data-app='cloud'] .cloud-region-pill {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+.neo[data-app='cloud'] .cloud-region-pill.is-active {
+  border-color: var(--app-c1);
+  background: rgb(var(--app-rgb) / 0.1);
+}
+
+.neo[data-app='cloud'] .cloud-region-pill__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.neo[data-app='cloud'] .cloud-region-pill__name {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='cloud'] .cloud-region-pill__code {
+  margin-inline-start: auto;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-region-pill__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+/* ───────────────────────── Overview Regional Focus & Side Cards ───────────────────────── */
+
+.neo[data-app='cloud'] .cloud-region-focus {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-region-focus__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.neo[data-app='cloud'] .cloud-region-focus__title {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='cloud'] .cloud-region-focus__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.neo[data-app='cloud'] .cloud-stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.neo[data-app='cloud'] .cloud-stat-box strong {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='cloud'] .cloud-stat-box__sub {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-side-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='cloud'] .cloud-alert-card,
+.neo[data-app='cloud'] .cloud-anomaly-mini,
+.neo[data-app='cloud'] .cloud-budget-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-alert-card__top,
+.neo[data-app='cloud'] .cloud-anomaly-mini__top,
+.neo[data-app='cloud'] .cloud-budget-mini__row,
+.neo[data-app='cloud'] .cloud-budget-mini__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neo[data-app='cloud'] .cloud-alert-card__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='cloud'] .cloud-alert-card__meta,
+.neo[data-app='cloud'] .cloud-anomaly-mini__sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-alert-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.neo[data-app='cloud'] .cloud-bridge-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='cloud'] .cloud-bridge-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color 0.15s ease;
+}
+
+.neo[data-app='cloud'] .cloud-bridge-card:hover {
+  border-color: var(--app-c1);
+}
+
+.neo[data-app='cloud'] .cloud-bridge-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgb(var(--app-rgb) / 0.14);
+  color: var(--app-c1);
+  flex-shrink: 0;
+}
+
+.neo[data-app='cloud'] .cloud-bridge-card__icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.neo[data-app='cloud'] .cloud-bridge-card__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.neo[data-app='cloud'] .cloud-bridge-card__title {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.neo[data-app='cloud'] .cloud-bridge-card__sub {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-bridge-card__ext {
+  width: 14px;
+  height: 14px;
+  color: var(--text-3);
+}
+
+/* ───────────────────────── Services & SLOs View ───────────────────────── */
+
+.neo[data-app='cloud'] .cloud-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.neo[data-app='cloud'] .cloud-toolbar-search {
+  min-width: 240px;
+  flex: 1;
+  max-width: 360px;
+}
+
+.neo[data-app='cloud'] .cloud-services__layout {
+  display: grid;
+  grid-template-columns: minmax(290px, 380px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.neo[data-app='cloud'] .cloud-services__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='cloud'] .cloud-services__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.neo[data-app='cloud'] .cloud-svc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+.neo[data-app='cloud'] .cloud-svc-card.is-selected {
+  border-color: var(--app-c1);
+  background: rgb(var(--app-rgb) / 0.08);
+}
+
+.neo[data-app='cloud'] .cloud-svc-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neo[data-app='cloud'] .cloud-svc-card__titles {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+
+.neo[data-app='cloud'] .cloud-svc-card__name {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='cloud'] .cloud-svc-card__id {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-svc-card__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-svc-card__metrics {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.neo[data-app='cloud'] .cloud-svc-card__metrics strong {
+  display: block;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.neo[data-app='cloud'] .cloud-svc-card__budget {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neo[data-app='cloud'] .cloud-svc-card__budget-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-svc-desc {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.neo[data-app='cloud'] .cloud-owner-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.neo[data-app='cloud'] .cloud-owner-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.neo[data-app='cloud'] .cloud-owner-pill strong {
+  display: block;
+  font-size: 12.5px;
+}
+
+.neo[data-app='cloud'] .cloud-slo-chart {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-slo-chart__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.neo[data-app='cloud'] .cloud-slo-chart__val {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='cloud'] .cloud-slo-chart__badges {
+  display: flex;
+  gap: 6px;
+}
+
+.neo[data-app='cloud'] .cloud-slo-chart__svg {
+  width: 100%;
+  height: auto;
+  max-height: 130px;
+  display: block;
+}
+
+.neo[data-app='cloud'] .cloud-hit-list,
+.neo[data-app='cloud'] .cloud-reg-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.neo[data-app='cloud'] .cloud-hit-item,
+.neo[data-app='cloud'] .cloud-reg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+}
+
+.neo[data-app='cloud'] .cloud-hit-item.is-live {
+  border-color: var(--warning);
+}
+
+.neo[data-app='cloud'] .cloud-hit-item__label {
+  flex: 1;
+  min-width: 140px;
+}
+
+.neo[data-app='cloud'] .cloud-topo-svg {
+  width: 100%;
+  height: auto;
+  max-height: 280px;
+  background: var(--surface-2);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-topo-edge {
+  stroke: var(--app-c1);
+  stroke-width: 1.8;
+  stroke-dasharray: 4 4;
+}
+
+.neo[data-app='cloud'] .cloud-topo-node {
+  cursor: pointer;
+}
+
+.neo[data-app='cloud'] .cloud-topo-node rect {
+  fill: var(--surface);
+  stroke: var(--border-2);
+  stroke-width: 1.4;
+}
+
+.neo[data-app='cloud'] .cloud-topo-node.is-selected rect {
+  stroke: var(--app-c1);
+  stroke-width: 2.2;
+}
+
+.neo[data-app='cloud'] .cloud-topo-node.is-dim {
+  opacity: 0.42;
+}
+
+.neo[data-app='cloud'] .cloud-topo-node text {
+  fill: var(--text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* ───────────────────────── Clusters & Regions View ───────────────────────── */
+
+.neo[data-app='cloud'] .cloud-quota-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.neo[data-app='cloud'] .cloud-quota-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-quota-card__top,
+.neo[data-app='cloud'] .cloud-quota-card__nums {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.neo[data-app='cloud'] .cloud-resource-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='cloud'] .cloud-res-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-res-card__main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.neo[data-app='cloud'] .cloud-res-card__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.neo[data-app='cloud'] .cloud-res-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: rgb(var(--app-rgb) / 0.14);
+  color: var(--app-c1);
+  flex-shrink: 0;
+}
+
+.neo[data-app='cloud'] .cloud-res-card__title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.neo[data-app='cloud'] .cloud-res-card__sub {
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-res-card__stats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.neo[data-app='cloud'] .cloud-res-util {
+  width: 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neo[data-app='cloud'] .cloud-res-util__top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.neo[data-app='cloud'] .cloud-res-cost {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.neo[data-app='cloud'] .cloud-res-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-res-card__Notices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.neo[data-app='cloud'] .cloud-drift-pill {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  background: rgba(244, 63, 94, 0.12);
+  color: var(--text);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+}
+
+.neo[data-app='cloud'] .cloud-drift-pill svg {
+  width: 13px;
+  height: 13px;
+}
+
+.neo[data-app='cloud'] .cloud-drift-pill--warn {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.neo[data-app='cloud'] .cloud-drift-pill--save {
+  background: rgb(var(--app-rgb) / 0.12);
+  border-color: rgb(var(--app-rgb) / 0.35);
+}
+
+.neo[data-app='cloud'] .cloud-res-card__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ───────────────────────── Provisioning View ───────────────────────── */
+
+.neo[data-app='cloud'] .cloud-prov-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.neo[data-app='cloud'] .cloud-tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.neo[data-app='cloud'] .cloud-tpl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  text-align: start;
+  cursor: pointer;
+}
+
+.neo[data-app='cloud'] .cloud-tpl-card.is-active {
+  border-color: var(--app-c1);
+  background: rgb(var(--app-rgb) / 0.1);
+}
+
+.neo[data-app='cloud'] .cloud-tpl-card strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.neo[data-app='cloud'] .cloud-tpl-card span {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.neo[data-app='cloud'] .cloud-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.neo[data-app='cloud'] .cloud-toggles-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-block: 12px;
+}
+
+.neo[data-app='cloud'] .cloud-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.neo[data-app='cloud'] .cloud-check svg {
+  width: 14px;
+  height: 14px;
+  color: var(--app-c1);
+}
+
+.neo[data-app='cloud'] .cloud-tags-editor {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-tags-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.neo[data-app='cloud'] .cloud-policy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='cloud'] .cloud-policy-item {
+  padding: 9px 11px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-policy-item__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.neo[data-app='cloud'] .cloud-policy-item__detail {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-hcl {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 11.5px;
+  line-height: 1.45;
+  overflow-x: auto;
+  color: var(--text-2);
+}
+
+.neo[data-app='cloud'] .cloud-prov-submit {
+  margin-top: 12px;
+}
+
+.neo[data-app='cloud'] .cloud-req-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.neo[data-app='cloud'] .cloud-req-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-req-card__foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-req-card__foot svg {
+  width: 14px;
+  height: 14px;
+  color: var(--success);
+}
+
+/* ───────────────────────── Observability View ───────────────────────── */
+
+.neo[data-app='cloud'] .cloud-obs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.neo[data-app='cloud'] .cloud-alert-list,
+.neo[data-app='cloud'] .cloud-rules-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='cloud'] .cloud-alert-row,
+.neo[data-app='cloud'] .cloud-rule-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-alert-row__top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  font-size: 13px;
+}
+
+.neo[data-app='cloud'] .cloud-alert-row__expr {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-alert-row__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.neo[data-app='cloud'] .cloud-rule-pill strong {
+  display: block;
+  font-size: 12.5px;
+}
+
+.neo[data-app='cloud'] .cloud-rule-pill span {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-trace-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.neo[data-app='cloud'] .cloud-trace-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 11px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  text-align: start;
+  cursor: pointer;
+}
+
+.neo[data-app='cloud'] .cloud-trace-tab.is-active {
+  border-color: var(--app-c1);
+  background: rgb(var(--app-rgb) / 0.1);
+}
+
+.neo[data-app='cloud'] .cloud-trace-tab__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.neo[data-app='cloud'] .cloud-trace-tab__sub {
+  font-size: 11px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neo[data-app='cloud'] .cloud-waterfall {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-waterfall__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-span-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 210px) 1fr 56px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.neo[data-app='cloud'] .cloud-span-row__meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.neo[data-app='cloud'] .cloud-span-row__svc {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='cloud'] .cloud-span-row__op {
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neo[data-app='cloud'] .cloud-span-row__track {
+  position: relative;
+  height: 10px;
+  border-radius: 99px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.neo[data-app='cloud'] .cloud-span-row__bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 99px;
+  background: var(--app-c1);
+}
+
+.neo[data-app='cloud'] .cloud-span-row__bar.is-error {
+  background: var(--danger);
+}
+
+.neo[data-app='cloud'] .cloud-span-row__bar.is-slow {
+  background: var(--warning);
+}
+
+.neo[data-app='cloud'] .cloud-span-row__dur {
+  text-align: end;
+  color: var(--text-2);
+}
+
+.neo[data-app='cloud'] .cloud-span-row__note {
+  grid-column: 1 / -1;
+  font-size: 11px;
+  color: var(--warning);
+}
+
+.neo[data-app='cloud'] .cloud-log-toolbar {
+  margin-bottom: 10px;
+}
+
+.neo[data-app='cloud'] .cloud-log-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.neo[data-app='cloud'] .cloud-log-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.neo[data-app='cloud'] .cloud-log-level {
+  padding: 2px 6px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.neo[data-app='cloud'] .cloud-log-level.is-error {
+  background: rgba(244, 63, 94, 0.16);
+  color: var(--danger);
+}
+
+.neo[data-app='cloud'] .cloud-log-level.is-warn {
+  background: rgba(245, 158, 11, 0.16);
+  color: var(--warning);
+}
+
+.neo[data-app='cloud'] .cloud-log-level.is-info {
+  background: rgb(var(--app-rgb) / 0.15);
+  color: var(--app-c1);
+}
+
+.neo[data-app='cloud'] .cloud-log-svc {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='cloud'] .cloud-log-msg {
+  flex: 1;
+  min-width: 200px;
+  color: var(--text-2);
+  word-break: break-word;
+}
+
+/* ───────────────────────── FinOps & Carbon View ───────────────────────── */
+
+.neo[data-app='cloud'] .cloud-anomaly-grid,
+.neo[data-app='cloud'] .cloud-rec-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.neo[data-app='cloud'] .cloud-anomaly-card,
+.neo[data-app='cloud'] .cloud-rec-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-anomaly-card__top,
+.neo[data-app='cloud'] .cloud-rec-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neo[data-app='cloud'] .cloud-anomaly-card__badges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.neo[data-app='cloud'] .cloud-anomaly-card__title,
+.neo[data-app='cloud'] .cloud-rec-card__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='cloud'] .cloud-anomaly-card__save,
+.neo[data-app='cloud'] .cloud-rec-card__savings {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+.neo[data-app='cloud'] .cloud-anomaly-card__exp,
+.neo[data-app='cloud'] .cloud-rec-card__detail {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='cloud'] .cloud-anomaly-card__drivers {
+  margin: 0;
+  padding-inline-start: 16px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.neo[data-app='cloud'] .cloud-anomaly-card__fix {
+  font-size: 12px;
+  color: var(--text-2);
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-anomaly-card__actions,
+.neo[data-app='cloud'] .cloud-rec-card__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.neo[data-app='cloud'] .cloud-finops-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.neo[data-app='cloud'] .cloud-team-budgets,
+.neo[data-app='cloud'] .cloud-commit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='cloud'] .cloud-team-row,
+.neo[data-app='cloud'] .cloud-commit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-team-row__top,
+.neo[data-app='cloud'] .cloud-commit-row__top,
+.neo[data-app='cloud'] .cloud-commit-row__sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.neo[data-app='cloud'] .cloud-team-row__cc {
+  margin-inline-start: 8px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-carbon-regions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.neo[data-app='cloud'] .cloud-carbon-reg-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-carbon-reg-card__top,
+.neo[data-app='cloud'] .cloud-carbon-reg-card__nums {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.neo[data-app='cloud'] .cloud-carbon-reg-card__foot {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='cloud'] .cloud-batch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='cloud'] .cloud-batch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-batch-row__info,
+.neo[data-app='cloud'] .cloud-batch-row__metrics {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+/* ───────────────────────── Nova Copilot Inline & Drawer ───────────────────────── */
+
+.neo[data-app='cloud'] .cloud-nova-inline {
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='cloud'] .cloud-nova-inline__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.neo[data-app='cloud'] .cloud-nova-inline__title svg {
+  width: 16px;
+  height: 16px;
+  color: var(--app-c1);
+}
+
+.neo[data-app='cloud'] .cloud-nova-inline__text {
+  margin: 6px 0 10px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='cloud'] .cloud-nova-inline__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cloud-nova-drawer__inner {
+  padding: 12px;
+  max-width: calc(100vw - 24px);
+}
+
+.cloud-nova-drawer__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.cloud-nova-drawer__brand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.cloud-nova-drawer__brand svg {
+  width: 15px;
+  height: 15px;
+  color: #38bdf8;
+}
+
+.cloud-nova-answer {
+  margin-top: 10px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.cloud-nova-answer__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+}
+
+.cloud-nova-answer__head svg {
+  width: 15px;
+  height: 15px;
+  color: #38bdf8;
+}
+
+.cloud-nova-answer__summary {
+  margin: 6px 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.cloud-nova-answer__list {
+  margin: 6px 0 10px;
+  padding-inline-start: 16px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.cloud-nova-answer__foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cloud-nova-answer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* ───────────────────────── Light Theme Overrides ───────────────────────── */
+
+[data-theme='light'] .neo[data-app='cloud'] .cloud-map {
+  background: radial-gradient(circle at 50% 35%, rgba(14, 165, 233, 0.1), transparent 72%), var(--surface-2);
+}
+
+[data-theme='light'] .neo[data-app='cloud'] .cloud-map__dots {
+  stroke: rgba(2, 132, 199, 0.42);
+}
+
+[data-theme='light'] .neo[data-app='cloud'] .cloud-map__tag {
+  fill: rgba(15, 23, 42, 0.92);
+}
+
+/* ───────────────────────── RTL Support ───────────────────────── */
+
+[dir='rtl'] .neo[data-app='cloud'] .cloud-bridge-card__ext {
+  transform: scaleX(-1);
+}
+
+/* ───────────────────────── Responsive Breakpoints ───────────────────────── */
+
+@media (max-width: 1120px) {
+  .neo[data-app='cloud'] .cloud-services__layout,
+  .neo[data-app='cloud'] .cloud-prov-grid,
+  .neo[data-app='cloud'] .cloud-obs-grid,
+  .neo[data-app='cloud'] .cloud-finops-split {
+    grid-template-columns: 1fr;
+  }
+
+  .neo[data-app='cloud'] .cloud-anomaly-grid,
+  .neo[data-app='cloud'] .cloud-rec-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .neo[data-app='cloud'] .cloud-map__strip,
+  .neo[data-app='cloud'] .cloud-region-focus__grid,
+  .neo[data-app='cloud'] .cloud-quota-grid,
+  .neo[data-app='cloud'] .cloud-carbon-regions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .neo[data-app='cloud'] .neo-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .neo[data-app='cloud'] .cloud-alert-row__main,
+  .neo[data-app='cloud'] .cloud-res-card__main,
+  .neo[data-app='cloud'] .cloud-res-card__head,
+  .neo[data-app='cloud'] .cloud-svc-card,
+  .neo[data-app='cloud'] .neo-panel {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .neo[data-app='cloud'] .cloud-alert-row__expr,
+  .neo[data-app='cloud'] .cloud-log-msg {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+
+  .neo[data-app='cloud'] .cloud-svc-card__metrics {
+    flex-wrap: wrap;
+  }
+
+  .neo[data-app='cloud'] .cloud-map__strip,
+  .neo[data-app='cloud'] .cloud-region-focus__grid,
+  .neo[data-app='cloud'] .cloud-quota-grid,
+  .neo[data-app='cloud'] .cloud-carbon-regions,
+  .neo[data-app='cloud'] .cloud-anomaly-grid,
+  .neo[data-app='cloud'] .cloud-rec-grid,
+  .neo[data-app='cloud'] .cloud-form-grid,
+  .neo[data-app='cloud'] .cloud-tags-editor__grid,
+  .neo[data-app='cloud'] .cloud-trace-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .neo[data-app='cloud'] .cloud-span-row {
+    grid-template-columns: 1fr;
+  }
+
+  .neo[data-app='cloud'] .cloud-toolbar-search {
+    min-width: 0;
+    max-width: none;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neo[data-app='cloud'] * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,1041 @@
+/**
+ * Security Center ("Bastion") — app-scoped styles under .neo[data-app='security']
+ * Supports Dark & Light themes ([data-theme='light']), RTL ([dir='rtl']), and mobile (<=720px).
+ */
+
+.neo[data-app='security'] .sec-top-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.neo[data-app='security'] .sec-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.neo[data-app='security'] .sec-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.neo[data-app='security'] .sec-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='security'] .sec-chip-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-block-start: 6px;
+}
+
+.neo[data-app='security'] .sec-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+/* ───────────── My Security Hero Shield ───────────── */
+
+.neo[data-app='security'] .sec-shield-hero {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.neo[data-app='security'] .sec-shield-hero__ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--r-lg, 14px);
+  background: radial-gradient(circle at 50% 35%, rgb(var(--app-rgb) / 0.16), transparent 72%), var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='security'] .sec-shield-hero__score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.05;
+}
+
+.neo[data-app='security'] .sec-shield-hero__score strong {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-shield-hero__score span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='security'] .sec-shield-hero__details {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.neo[data-app='security'] .sec-shield-hero__summary h3 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text);
+  margin: 4px 0 6px;
+}
+
+.neo[data-app='security'] .sec-shield-hero__summary p {
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 0 0 10px;
+}
+
+.neo[data-app='security'] .sec-badge-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='security'] .sec-segment-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+  gap: 10px;
+}
+
+.neo[data-app='security'] .sec-segment-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--r-md, 12px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='security'] .sec-segment-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neo[data-app='security'] .sec-segment-card__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-segment-card__score {
+  font-size: 12px;
+  color: var(--app-c1);
+}
+
+.neo[data-app='security'] .sec-segment-card__drivers {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+}
+
+.neo[data-app='security'] .sec-driver-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--text-3);
+}
+
+.neo[data-app='security'] .sec-driver-row [data-tone='good'] {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.neo[data-app='security'] .sec-driver-row [data-tone='warn'] {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.neo[data-app='security'] .sec-driver-row [data-tone='bad'] {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.neo[data-app='security'] .sec-segment-card__fix {
+  margin-block-start: auto;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* ───────────── Devices & Side Cards ───────────── */
+
+.neo[data-app='security'] .sec-device-card,
+.neo[data-app='security'] .sec-train-row,
+.neo[data-app='security'] .sec-mini-case {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 12px;
+  border-radius: var(--r-md, 12px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+}
+
+.neo[data-app='security'] .sec-train-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.neo[data-app='security'] .sec-device-card__head,
+.neo[data-app='security'] .sec-mini-case__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='security'] .sec-device-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgb(var(--app-rgb) / 0.14);
+  color: var(--app-c1);
+}
+
+.neo[data-app='security'] .sec-device-card__name,
+.neo[data-app='security'] .sec-train-row__title,
+.neo[data-app='security'] .sec-mini-case__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-device-card__meta,
+.neo[data-app='security'] .sec-train-row__meta,
+.neo[data-app='security'] .sec-mini-case__meta {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='security'] .sec-device-card__checks {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ───────────── MITRE ATT&CK Matrix Ribbon & Threat Queue ───────────── */
+
+.neo[data-app='security'] .sec-mitre-ribbon {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(150px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding-block-end: 4px;
+}
+
+.neo[data-app='security'] .sec-mitre-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--r-md, 12px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  min-width: 0;
+}
+
+.neo[data-app='security'] .sec-mitre-col__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-mitre-col__techs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.neo[data-app='security'] .sec-mitre-tech {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.neo[data-app='security'] .sec-mitre-tech.has-hits {
+  border-color: rgb(var(--app-rgb) / 0.38);
+}
+
+.neo[data-app='security'] .sec-mitre-tech.is-active {
+  background: rgb(var(--app-rgb) / 0.18);
+  border-color: var(--app-c1);
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-mitre-tech__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='security'] .sec-mitre-tech__badge {
+  padding: 1px 6px;
+  border-radius: 99px;
+  font-size: 10.5px;
+  font-weight: 600;
+  background: rgb(var(--app-rgb) / 0.22);
+  color: var(--app-c1);
+}
+
+.neo[data-app='security'] .sec-mitre-tech__name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-threat-layout {
+  display: grid;
+  grid-template-columns: minmax(290px, 380px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.neo[data-app='security'] .sec-queue-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-block-end: 12px;
+}
+
+.neo[data-app='security'] .sec-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='security'] .sec-case-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='security'] .sec-case-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 11px 12px;
+  border-radius: var(--r-md, 12px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  text-align: start;
+  cursor: pointer;
+  width: 100%;
+}
+
+.neo[data-app='security'] .sec-case-row.is-selected {
+  border-color: var(--app-c1);
+  background: linear-gradient(135deg, rgb(var(--app-rgb) / 0.14), transparent 80%), var(--surface-2);
+}
+
+.neo[data-app='security'] .sec-case-row__top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.neo[data-app='security'] .sec-case-row__time {
+  margin-inline-start: auto;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='security'] .sec-case-row__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-case-row__meta {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='security'] .sec-case-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.neo[data-app='security'] .sec-stage-pills {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-block-end: 12px;
+}
+
+.neo[data-app='security'] .sec-stage-pill {
+  padding: 6px 11px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.neo[data-app='security'] .sec-stage-pill.is-active {
+  background: rgb(var(--app-rgb) / 0.2);
+  border-color: var(--app-c1);
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-playbook-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(195px, 1fr));
+  gap: 8px;
+  margin-block-end: 14px;
+}
+
+.neo[data-app='security'] .sec-ioc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  padding-block-start: 12px;
+  border-block-start: 1px solid var(--border);
+}
+
+.neo[data-app='security'] .sec-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-block-end: 12px;
+}
+
+.neo[data-app='security'] .sec-timeline__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.neo[data-app='security'] .sec-timeline__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--app-c1);
+  margin-block-start: 6px;
+  flex-shrink: 0;
+}
+
+.neo[data-app='security'] .sec-timeline__text {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-timeline__meta {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='security'] .sec-inline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--app-c1);
+  text-decoration: none;
+}
+
+.neo[data-app='security'] .sec-note-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ───────────── Posture, Vulnerabilities & Compliance ───────────── */
+
+.neo[data-app='security'] .sec-pillar-grid,
+.neo[data-app='security'] .sec-fw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.neo[data-app='security'] .sec-pillar-card,
+.neo[data-app='security'] .sec-fw-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--r-lg, 14px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  text-align: start;
+  color: inherit;
+}
+
+.neo[data-app='security'] .sec-fw-card {
+  cursor: pointer;
+}
+
+.neo[data-app='security'] .sec-pillar-card.is-selected,
+.neo[data-app='security'] .sec-fw-card.is-selected {
+  border-color: var(--app-c1);
+  background: linear-gradient(135deg, rgb(var(--app-rgb) / 0.14), transparent 78%), var(--surface-2);
+}
+
+.neo[data-app='security'] .sec-pillar-card__head,
+.neo[data-app='security'] .sec-fw-card__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.neo[data-app='security'] .sec-pillar-card__title,
+.neo[data-app='security'] .sec-fw-card__name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-pillar-card__sub,
+.neo[data-app='security'] .sec-fw-card__region,
+.neo[data-app='security'] .sec-fw-card__auditor {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='security'] .sec-pillar-card__foot,
+.neo[data-app='security'] .sec-fw-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='security'] .sec-check-list,
+.neo[data-app='security'] .sec-pack-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='security'] .sec-check-row,
+.neo[data-app='security'] .sec-pack-card,
+.neo[data-app='security'] .sec-control-card,
+.neo[data-app='security'] .sec-misconfig-card,
+.neo[data-app='security'] .sec-ev-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: var(--r-md, 12px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.neo[data-app='security'] .sec-control-card,
+.neo[data-app='security'] .sec-misconfig-card {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.neo[data-app='security'] .sec-check-row__main,
+.neo[data-app='security'] .sec-pack-card__main {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 220px;
+  flex: 1;
+}
+
+.neo[data-app='security'] .sec-check-row__top,
+.neo[data-app='security'] .sec-pack-card__top,
+.neo[data-app='security'] .sec-control-card__top,
+.neo[data-app='security'] .sec-misconfig-card__top,
+.neo[data-app='security'] .sec-ev-row__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='security'] .sec-check-row__title,
+.neo[data-app='security'] .sec-control-card__title,
+.neo[data-app='security'] .sec-misconfig-card__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-check-row__rem,
+.neo[data-app='security'] .sec-pack-card__meta,
+.neo[data-app='security'] .sec-ev-row__meta,
+.neo[data-app='security'] .sec-misconfig-card__meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.neo[data-app='security'] .sec-pack-card__digest {
+  font-size: 11.5px;
+  color: var(--app-c1);
+  word-break: break-all;
+}
+
+.neo[data-app='security'] .sec-check-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='security'] .sec-vuln-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-block-end: 14px;
+}
+
+/* ───────────── Table & Radar ───────────── */
+
+.neo[data-app='security'] .sec-table-wrap {
+  overflow-x: auto;
+}
+
+.neo[data-app='security'] .sec-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.neo[data-app='security'] .sec-table th,
+.neo[data-app='security'] .sec-table td {
+  padding: 9px 10px;
+  border-block-end: 1px solid var(--border);
+  text-align: start;
+}
+
+.neo[data-app='security'] .sec-table th {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.neo[data-app='security'] .sec-radar-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-block-start: 6px;
+}
+
+.neo[data-app='security'] .sec-radar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  background: var(--surface-3);
+}
+
+.neo[data-app='security'] .sec-radar-row__time {
+  margin-inline-start: auto;
+  color: var(--text-3);
+}
+
+/* ───────────── DLP & Spot-the-Phish Lab ───────────── */
+
+.neo[data-app='security'] .sec-camp-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.neo[data-app='security'] .sec-camp-summary h3 {
+  font-size: 14px;
+  font-weight: 650;
+  margin: 4px 0;
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-camp-summary p {
+  font-size: 12px;
+  color: var(--text-2);
+  margin: 0;
+}
+
+.neo[data-app='security'] .sec-dept-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='security'] .sec-dept-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.neo[data-app='security'] .sec-dept-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.neo[data-app='security'] .sec-phish-game {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.neo[data-app='security'] .sec-phish-game__hint {
+  font-size: 12px;
+  color: var(--text-2);
+  margin: 0;
+}
+
+.neo[data-app='security'] .sec-email-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--r-md, 12px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='security'] .sec-email-zone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--surface-3);
+  border: 1px dashed var(--border-2);
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.neo[data-app='security'] .sec-email-zone.is-flagged {
+  border-style: solid;
+  border-color: var(--danger);
+  background: rgb(var(--danger-rgb, 239 68 68) / 0.14);
+}
+
+.neo[data-app='security'] .sec-email-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='security'] .sec-email-body p {
+  margin: 0;
+}
+
+.neo[data-app='security'] .sec-email-sig {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='security'] .sec-game-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgb(var(--app-rgb) / 0.14);
+  border: 1px solid var(--app-c1);
+}
+
+.neo[data-app='security'] .sec-game-feedback__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ───────────── Report Modal & Nova Drawer ───────────── */
+
+.neo[data-app='security'] .sec-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgb(2 6 23 / 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.neo[data-app='security'] .sec-modal {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  border-radius: var(--r-xl, 18px);
+  background: var(--surface);
+  border: 1px solid var(--border-2);
+  box-shadow: 0 24px 64px rgb(0 0 0 / 0.45);
+}
+
+.neo[data-app='security'] .sec-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-block-end: 1px solid var(--border);
+}
+
+.neo[data-app='security'] .sec-modal__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+  margin: 4px 0 0;
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.neo[data-app='security'] .sec-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-block-start: 8px;
+}
+
+.neo[data-app='security'] .sec-preset-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='security'] .sec-kind-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.neo[data-app='security'] .sec-kind-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  text-align: start;
+  cursor: pointer;
+}
+
+.neo[data-app='security'] .sec-kind-card.is-selected {
+  border-color: var(--app-c1);
+  background: rgb(var(--app-rgb) / 0.16);
+}
+
+.neo[data-app='security'] .sec-kind-card__title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='security'] .sec-kind-card__sub {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='security'] .sec-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 12px;
+}
+
+.neo[data-app='security'] .sec-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.neo[data-app='security'] .sec-analyzer-box,
+.neo[data-app='security'] .sec-nova-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgb(var(--app-rgb) / 0.14), transparent 85%), var(--surface-2);
+  border: 1px solid rgb(var(--app-rgb) / 0.35);
+}
+
+.neo[data-app='security'] .sec-analyzer-box__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='security'] .sec-analyzer-box__badges,
+.neo[data-app='security'] .sec-nova-presets,
+.neo[data-app='security'] .sec-nova-answer__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='security'] .sec-analyzer-box__reasons,
+.neo[data-app='security'] .sec-nova-answer__list {
+  margin: 0;
+  padding-inline-start: 18px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='security'] .sec-nova-answer__headline {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+  margin: 2px 0;
+}
+
+.neo[data-app='security'] .sec-nova-answer__body {
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 0;
+}
+
+.neo[data-app='security'] .sec-report-success {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.neo[data-app='security'] .sec-report-success__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--success);
+}
+
+.neo[data-app='security'] .sec-report-success__head h3 {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+  margin: 2px 0 0;
+}
+
+/* ───────────── Light Theme Overrides ───────────── */
+
+[data-theme='light'] .neo[data-app='security'] .sec-modal-backdrop {
+  background: rgb(15 23 42 / 0.42);
+}
+
+[data-theme='light'] .neo[data-app='security'] .sec-segment-card__score,
+[data-theme='light'] .neo[data-app='security'] .sec-pack-card__digest,
+[data-theme='light'] .neo[data-app='security'] .sec-inline-link {
+  color: #be185d;
+}
+
+/* ───────────── Responsive (<= 1080px & <= 720px) ───────────── */
+
+@media (max-width: 1080px) {
+  .neo[data-app='security'] .sec-threat-layout,
+  .neo[data-app='security'] .sec-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .neo[data-app='security'] .sec-shield-hero,
+  .neo[data-app='security'] .sec-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .neo[data-app='security'] .sec-mitre-ribbon {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+
+  .neo[data-app='security'] .sec-check-row,
+  .neo[data-app='security'] .sec-pack-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

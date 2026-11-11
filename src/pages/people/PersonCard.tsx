@@ -3,6 +3,7 @@ import type { User } from '@/types';
 import { Avatar, PRESENCE_LABEL } from '@/components/ui/primitives';
 import { firstName, formatTime } from '@/lib/format';
 import { cx } from '@/lib/cx';
+import { EmailLink } from '@/components/apps/EmailLink';
 import {
   DAY_PHASE_LABEL,
   DEPARTMENT_ICON,
@@ -93,14 +94,14 @@ function Actions({
             <MessagesSquare /> Message
           </button>
         ))}
-      <a
+      <EmailLink
         className={cx('icon-btn ppl-icon-btn', compact && 'ppl-hide-xs')}
-        href={`mailto:${user.email}`}
+        to={user.email}
         aria-label={`Email ${first}`}
         data-tip="Email"
       >
         <Mail />
-      </a>
+      </EmailLink>
       {canKudos && user.active && (
         <button
           type="button"

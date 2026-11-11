@@ -1,0 +1,3688 @@
+/**
+ * Helix Wellbeing — "Aura · Wellbeing OS"
+ * Scoped to .neo[data-app='wellbeing'] (in-frame) and .wb-portal (dialogs).
+ *
+ * NEO type scale (px, same as every app): panel titles from <NeoPanel>
+ * (Space Grotesk 15.5 / 650) + .neo-hud eyebrow; card titles h3 14 / 650;
+ * body 13; small 12; meta 11.5; HUD 10.5 mono caps. Radii 18 panels / 14
+ * inner cards / 12 nested. Gaps 16–18 between sections, 8–14 inside cards.
+ * Dark + light, logical properties for RTL (radial visuals mirror through
+ * --dirsign), reduced motion turns every continuous animation off.
+ */
+
+/* ───────────────────────── tokens ───────────────────────── */
+.neo[data-app='wellbeing'],
+.wb-portal {
+  --wb-sleep: #818cf8;
+  --wb-move: #34d399;
+  --wb-focus: #22d3ee;
+  --wb-conn: #fbbf24;
+  --wb-calm: #f472b6;
+  --wb-card: var(--hover);
+  --wb-card-2: var(--hover-2);
+  --wb-line: var(--plane-border);
+  --wb-glass: rgb(10 12 28 / 0.74);
+  --dirsign: 1;
+}
+[data-theme='light'] :is(.neo[data-app='wellbeing'], .wb-portal) {
+  --wb-sleep: #4f46e5;
+  --wb-move: #047857;
+  --wb-focus: #0e7490;
+  --wb-conn: #b45309;
+  --wb-calm: #be185d;
+  --wb-glass: rgb(255 255 255 / 0.86);
+}
+[dir='rtl'] :is(.neo[data-app='wellbeing'], .wb-portal) {
+  --dirsign: -1;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) [data-dim='sleep'] {
+  --col: var(--wb-sleep);
+  --glow: #818cf8;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) [data-dim='movement'] {
+  --col: var(--wb-move);
+  --glow: #34d399;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) [data-dim='focus'] {
+  --col: var(--wb-focus);
+  --glow: #22d3ee;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) [data-dim='connection'] {
+  --col: var(--wb-conn);
+  --glow: #fbbf24;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) [data-dim='calm'] {
+  --col: var(--wb-calm);
+  --glow: #f472b6;
+}
+
+/* ───────────────────────── shared bits ───────────────────────── */
+.neo[data-app='wellbeing'] .wb-view {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-view > .neo-kpis,
+.neo[data-app='wellbeing'] .wb-view > .neo-banners {
+  margin-bottom: 16px;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-muted {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-emoji {
+  font-size: 22px;
+  line-height: 1;
+}
+[dir='rtl'] :is(.neo[data-app='wellbeing'], .wb-portal) .wb-flip {
+  transform: scaleX(-1);
+}
+
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-private {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--app-ink);
+  background: rgb(var(--app-rgb) / 0.1);
+  border: 1px solid rgb(var(--app-rgb) / 0.24);
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-private svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-private--compact {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-stat svg {
+  width: 14px;
+  height: 14px;
+  color: var(--app-ink);
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-stat b {
+  color: var(--text);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.neo[data-app='wellbeing'] .wb-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-facts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  background: var(--wb-card-2);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-facts b {
+  color: var(--text);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-dimicon {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 9px;
+  color: var(--col, var(--app-ink));
+  background: color-mix(in oklab, var(--glow, var(--app-c1)) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--glow, var(--app-c1)) 30%, transparent);
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-dimicon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ───────────────────────── radios & switches ───────────────────────── */
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 5px 12px;
+  border-radius: 99px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: var(--wb-card);
+  border: 1px solid var(--plane-border-2);
+  text-align: start;
+  transition:
+    color var(--dur-fast),
+    background var(--dur-fast),
+    border-color var(--dur-fast),
+    box-shadow var(--dur-fast);
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-radio:hover {
+  color: var(--text);
+  border-color: rgb(var(--app-rgb) / 0.4);
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-radio.is-on {
+  color: var(--app-ink);
+  background: rgb(var(--app-rgb) / 0.14);
+  border-color: rgb(var(--app-rgb) / 0.55);
+  box-shadow: 0 0 0 3px rgb(var(--app-rgb) / 0.1);
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-radio:focus-visible {
+  outline: 2px solid rgb(var(--app-rgb) / 0.8);
+  outline-offset: 2px;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-radio__icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-radio__icon svg {
+  width: 15px;
+  height: 15px;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-radio__hint {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-3);
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-radios--tile {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 92px), 1fr));
+  gap: 8px;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-radios--tile .wb-radio {
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-height: 70px;
+  padding: 10px 8px;
+  border-radius: 14px;
+  text-align: center;
+}
+
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 0;
+  color: var(--text);
+  text-align: start;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-switch__track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex: none;
+  margin-top: 1px;
+  border-radius: 99px;
+  background: var(--track);
+  box-shadow: inset 0 0 0 1px var(--plane-border-2);
+  transition: background var(--dur-fast);
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-switch__track i {
+  position: absolute;
+  top: 3px;
+  inset-inline-start: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  transition: inset-inline-start var(--dur) var(--ease-out);
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-switch.is-on .wb-switch__track {
+  background: var(--app-grad);
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-switch.is-on .wb-switch__track i {
+  inset-inline-start: 21px;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-switch:focus-visible {
+  outline: 2px solid rgb(var(--app-rgb) / 0.8);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-switch__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-switch__text b {
+  font-size: 13px;
+  font-weight: 650;
+}
+:is(.neo[data-app='wellbeing'], .wb-portal) .wb-switch__text span {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.45;
+}
+
+/* ───────────────────────── Aura: living orb ───────────────────────── */
+.neo[data-app='wellbeing'] .wb-aura-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 22px;
+  align-items: center;
+}
+.neo[data-app='wellbeing'] .wb-aura-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-aura-insight {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 330px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-aura-insight svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  margin-top: 2px;
+  color: var(--app-ink);
+}
+
+.neo[data-app='wellbeing'] .wb-aura {
+  --size: clamp(250px, 24vw, 320px);
+  position: relative;
+  width: var(--size);
+  aspect-ratio: 1;
+  isolation: isolate;
+}
+.neo[data-app='wellbeing'] .wb-aura__field {
+  position: absolute;
+  inset: 11%;
+  border-radius: 50%;
+  transform: scale(var(--scale, 1));
+  animation: wb-aura-breathe var(--pulse, 4.5s) ease-in-out infinite;
+}
+.neo[data-app='wellbeing'] .wb-aura__halo {
+  position: absolute;
+  inset: -10%;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklab, var(--c1) 55%, transparent) 0%, color-mix(in oklab, var(--c2) 22%, transparent) 45%, transparent 70%);
+  filter: blur(20px);
+  opacity: 0.8;
+}
+.neo[data-app='wellbeing'] .wb-aura__lobe {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(44% + 26% * var(--s, 0.5));
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--glow) 0%, color-mix(in oklab, var(--glow) 45%, transparent) 36%, transparent 70%);
+  transform: translate(-50%, -50%) rotate(calc(var(--a) * var(--dirsign))) translateY(calc(-16% - 20% * var(--s, 0.5)));
+  mix-blend-mode: screen;
+  filter: blur(9px);
+  opacity: calc(0.42 + var(--s, 0.5) * 0.55);
+}
+.neo[data-app='wellbeing'] .wb-aura__swirl {
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  background: conic-gradient(from var(--orb-angle), var(--c1), var(--c2), var(--c3), var(--c1));
+  filter: blur(16px);
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  animation: wb-swirl 16s linear infinite;
+}
+.neo[data-app='wellbeing'] .wb-aura__ring {
+  position: absolute;
+  inset: -9%;
+  border-radius: 50%;
+  border: 1px dashed rgb(var(--app-rgb) / 0.28);
+  animation: wb-spin 80s linear infinite;
+}
+.neo[data-app='wellbeing'] .wb-aura__core {
+  position: absolute;
+  inset: 30%;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 3px;
+  border-radius: 50%;
+  text-align: center;
+  background:
+    radial-gradient(circle at 34% 26%, rgb(255 255 255 / 0.24), transparent 46%),
+    var(--wb-glass);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    inset 0 0 24px rgb(255 255 255 / 0.06),
+    0 14px 40px -12px color-mix(in oklab, var(--c1) 70%, transparent);
+}
+.neo[data-app='wellbeing'] .wb-aura__core .neo-hud {
+  font-size: 10.5px;
+  color: var(--text-2);
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
+}
+[data-theme='light'] .neo[data-app='wellbeing'] .wb-aura__core .neo-hud {
+  text-shadow: none;
+}
+.neo[data-app='wellbeing'] .wb-aura__score {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 3.4vw, 46px);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='wellbeing'] .wb-aura__est {
+  opacity: 0.5;
+}
+.neo[data-app='wellbeing'] .wb-aura__band {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-aura__cta {
+  margin-top: 4px;
+}
+.neo[data-app='wellbeing'] .wb-aura[data-state='asleep'] .wb-aura__field {
+  filter: saturate(0.4) brightness(0.85);
+  animation-duration: 7s;
+}
+[data-theme='light'] .neo[data-app='wellbeing'] .wb-aura__lobe,
+[data-theme='light'] .neo[data-app='wellbeing'] .wb-aura__swirl {
+  mix-blend-mode: normal;
+}
+[data-theme='light'] .neo[data-app='wellbeing'] .wb-aura__lobe {
+  opacity: calc(0.3 + var(--s, 0.5) * 0.45);
+}
+[data-theme='light'] .neo[data-app='wellbeing'] .wb-aura__core {
+  border-color: rgb(15 23 42 / 0.1);
+  box-shadow:
+    inset 0 0 18px rgb(255 255 255 / 0.6),
+    0 14px 40px -14px color-mix(in oklab, var(--c1) 60%, transparent);
+}
+[data-theme='light'] .neo[data-app='wellbeing'] .wb-aura[data-state='asleep'] .wb-aura__field {
+  filter: saturate(0.45) brightness(1.04);
+}
+
+/* petals: one per dimension, orbiting the core (mirrored in RTL) */
+.neo[data-app='wellbeing'] .wb-petal {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  width: 50px;
+  height: 50px;
+  margin: -25px 0 0 -25px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 1px;
+  border-radius: 50%;
+  color: var(--text);
+  background: color-mix(in oklab, var(--glow) 16%, var(--plane-solid));
+  border: 1px solid color-mix(in oklab, var(--glow) 45%, transparent);
+  box-shadow: 0 8px 20px -10px color-mix(in oklab, var(--glow) 80%, transparent);
+  transform: rotate(calc(var(--a) * var(--dirsign))) translateY(calc(var(--size) / -2 + 26px)) rotate(calc(var(--a) * var(--dirsign) * -1));
+  transition: box-shadow var(--dur-fast);
+}
+.neo[data-app='wellbeing'] .wb-petal .wb-dimicon {
+  width: auto;
+  height: auto;
+  background: none;
+  box-shadow: none;
+}
+.neo[data-app='wellbeing'] .wb-petal svg {
+  width: 14px;
+  height: 14px;
+}
+.neo[data-app='wellbeing'] .wb-petal b {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='wellbeing'] .wb-petal:hover,
+.neo[data-app='wellbeing'] .wb-petal.is-on {
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--glow) 32%, transparent),
+    0 8px 22px -8px var(--glow);
+}
+.neo[data-app='wellbeing'] .wb-petal:focus-visible {
+  outline: 2px solid var(--col);
+  outline-offset: 3px;
+}
+
+/* drivers + dimension list */
+.neo[data-app='wellbeing'] .wb-aura-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-drivers {
+  padding: 14px;
+  border-radius: 14px;
+  background:
+    linear-gradient(160deg, color-mix(in oklab, var(--glow) 13%, transparent), transparent 70%),
+    var(--wb-card);
+  border: 1px solid color-mix(in oklab, var(--glow) 30%, var(--wb-line));
+}
+.neo[data-app='wellbeing'] .wb-drivers__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.neo[data-app='wellbeing'] .wb-drivers__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-drivers__score {
+  margin-inline-start: auto;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 650;
+  line-height: 1;
+  color: var(--col);
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='wellbeing'] .wb-drivers__blurb {
+  margin: 8px 0 10px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-drivers__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-drivers__list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-drivers__list i {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-drivers__list li[data-tone='good'] i {
+  background: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-drivers__list li[data-tone='warn'] i {
+  background: var(--warning);
+}
+.neo[data-app='wellbeing'] .wb-drivers__list li[data-tone='bad'] i {
+  background: var(--danger);
+}
+.neo[data-app='wellbeing'] .wb-drivers__list b {
+  margin-inline-start: auto;
+  color: var(--text);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='wellbeing'] .wb-dimlist {
+  display: grid;
+  gap: 2px;
+}
+.neo[data-app='wellbeing'] .wb-dimrow {
+  display: grid;
+  grid-template-columns: auto 92px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 12px;
+  color: var(--text-2);
+  text-align: start;
+  transition: background var(--dur-fast);
+}
+.neo[data-app='wellbeing'] .wb-dimrow .wb-dimicon {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+}
+.neo[data-app='wellbeing'] .wb-dimrow .wb-dimicon svg {
+  width: 13px;
+  height: 13px;
+}
+.neo[data-app='wellbeing'] .wb-dimrow:hover,
+.neo[data-app='wellbeing'] .wb-dimrow.is-on {
+  background: var(--wb-card-2);
+  color: var(--text);
+}
+.neo[data-app='wellbeing'] .wb-dimrow__label {
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.neo[data-app='wellbeing'] .wb-dimrow .neo-bar {
+  height: 6px;
+}
+.neo[data-app='wellbeing'] .wb-dimrow__score {
+  font-size: 12.5px;
+  font-weight: 650;
+  text-align: end;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='wellbeing'] .wb-weights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-weights li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-weights li::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--glow);
+}
+.neo[data-app='wellbeing'] .wb-weights b {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+/* ───────────────────────── Aura: prescriptions ───────────────────────── */
+.neo[data-app='wellbeing'] .wb-rx-panel {
+  scroll-margin-top: 16px;
+}
+.neo[data-app='wellbeing'] .wb-rx-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 12px;
+}
+.neo[data-app='wellbeing'] .wb-rx {
+  --tone: var(--app-rgb);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    linear-gradient(165deg, rgb(var(--tone) / 0.15), transparent 62%),
+    var(--wb-card);
+  border: 1px solid rgb(var(--tone) / 0.28);
+}
+.neo[data-app='wellbeing'] .wb-rx::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgb(var(--tone)), transparent);
+  opacity: 0.8;
+}
+.neo[data-app='wellbeing'] .wb-rx[data-tone='violet'] {
+  --tone: 168 85 247;
+}
+.neo[data-app='wellbeing'] .wb-rx[data-tone='cyan'] {
+  --tone: 34 211 238;
+}
+.neo[data-app='wellbeing'] .wb-rx[data-tone='emerald'] {
+  --tone: 52 211 153;
+}
+.neo[data-app='wellbeing'] .wb-rx[data-tone='amber'] {
+  --tone: 251 191 36;
+}
+.neo[data-app='wellbeing'] .wb-rx[data-tone='rose'] {
+  --tone: 251 113 133;
+}
+.neo[data-app='wellbeing'] .wb-rx__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-rx__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 10px;
+  color: color-mix(in oklab, rgb(var(--tone)) 82%, #fff);
+  background: rgb(var(--tone) / 0.16);
+  box-shadow: inset 0 0 0 1px rgb(var(--tone) / 0.3);
+}
+[data-theme='light'] .neo[data-app='wellbeing'] .wb-rx__icon {
+  color: color-mix(in oklab, rgb(var(--tone)) 62%, #0b1020);
+}
+.neo[data-app='wellbeing'] .wb-rx__icon svg {
+  width: 16px;
+  height: 16px;
+}
+.neo[data-app='wellbeing'] .wb-rx__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.neo[data-app='wellbeing'] .wb-rx__chip {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 99px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  background: rgb(var(--tone) / 0.16);
+  border: 1px solid rgb(var(--tone) / 0.35);
+  white-space: nowrap;
+}
+.neo[data-app='wellbeing'] .wb-rx__why {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-rx__because {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-rx__foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+.neo[data-app='wellbeing'] .wb-rx__done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-rx__done svg {
+  width: 15px;
+  height: 15px;
+}
+.neo[data-app='wellbeing'] .wb-rx.is-done {
+  border-color: rgb(var(--success-rgb) / 0.35);
+}
+.neo[data-app='wellbeing'] .wb-rx-empty {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--wb-card);
+  border: 1px dashed var(--plane-border-2);
+}
+.neo[data-app='wellbeing'] .wb-rx-empty h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-rx-empty p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-rx-empty > div {
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-rx-empty__orb {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  background: conic-gradient(from var(--orb-angle), var(--app-c1), var(--app-c2), #22d3ee, var(--app-c1));
+  box-shadow: 0 0 22px -4px rgb(var(--app-rgb) / 0.7);
+  animation: wb-swirl 8s linear infinite;
+}
+
+/* ───────────────────────── Aura: energy forecast ───────────────────────── */
+.neo[data-app='wellbeing'] .wb-forecast__chart {
+  position: relative;
+  aspect-ratio: 640 / 220;
+  margin: 14px 0 26px;
+}
+.neo[data-app='wellbeing'] .wb-forecast__plot {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+[dir='rtl'] .neo[data-app='wellbeing'] .wb-forecast__plot {
+  transform: scaleX(-1);
+}
+.neo[data-app='wellbeing'] .wb-forecast__line {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.neo[data-app='wellbeing'] .wb-forecast__grid {
+  stroke: var(--plane-border-2);
+  stroke-dasharray: 3 6;
+  vector-effect: non-scaling-stroke;
+}
+.neo[data-app='wellbeing'] .wb-forecast__quiet {
+  fill: rgb(129 140 248 / 0.09);
+}
+.neo[data-app='wellbeing'] .wb-forecast__peak {
+  fill: rgb(251 191 36 / 0.09);
+  stroke: rgb(251 191 36 / 0.45);
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}
+.neo[data-app='wellbeing'] .wb-forecast__evt[data-kind='meet'] {
+  fill: rgb(var(--app-rgb) / 0.6);
+}
+.neo[data-app='wellbeing'] .wb-forecast__evt[data-kind='focus'] {
+  fill: rgb(168 85 247 / 0.6);
+}
+.neo[data-app='wellbeing'] .wb-forecast__dip {
+  fill: var(--plane-solid);
+  stroke: var(--danger);
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+.neo[data-app='wellbeing'] .wb-forecast__now {
+  stroke: var(--text-2);
+  stroke-dasharray: 2 4;
+  vector-effect: non-scaling-stroke;
+}
+.neo[data-app='wellbeing'] .wb-forecast__tag {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 99px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--danger);
+  background: var(--plane-solid);
+  border: 1px solid rgb(var(--danger-rgb) / 0.4);
+  translate: calc(-50% * var(--dirsign)) -170%;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.neo[data-app='wellbeing'] .wb-forecast__tag svg {
+  width: 11px;
+  height: 11px;
+}
+.neo[data-app='wellbeing'] .wb-forecast__nowtag {
+  position: absolute;
+  top: -10px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+  background: var(--wb-card-2);
+  border: 1px solid var(--plane-border-2);
+  translate: calc(-50% * var(--dirsign)) 0;
+}
+.neo[data-app='wellbeing'] .wb-forecast__axis {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 6px);
+  height: 14px;
+}
+.neo[data-app='wellbeing'] .wb-forecast__axis span {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+  translate: calc(-50% * var(--dirsign)) 0;
+}
+.neo[data-app='wellbeing'] .wb-forecast__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-forecast__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.neo[data-app='wellbeing'] .wb-forecast__legend li::before {
+  content: '';
+  width: 12px;
+  height: 8px;
+  border-radius: 3px;
+}
+.neo[data-app='wellbeing'] .wb-forecast__legend [data-k='meet']::before {
+  background: rgb(var(--app-rgb) / 0.6);
+}
+.neo[data-app='wellbeing'] .wb-forecast__legend [data-k='focus']::before {
+  background: rgb(168 85 247 / 0.6);
+}
+.neo[data-app='wellbeing'] .wb-forecast__legend [data-k='peak']::before {
+  background: rgb(251 191 36 / 0.25);
+  box-shadow: inset 0 0 0 1px rgb(251 191 36 / 0.6);
+}
+.neo[data-app='wellbeing'] .wb-forecast__legend [data-k='quiet']::before {
+  background: rgb(129 140 248 / 0.25);
+}
+.neo[data-app='wellbeing'] .wb-forecast__insights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 8px;
+}
+.neo[data-app='wellbeing'] .wb-insight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-insight > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--warning);
+}
+.neo[data-app='wellbeing'] .wb-insight[data-kind='dip'] > svg {
+  color: var(--danger);
+}
+.neo[data-app='wellbeing'] .wb-insight__text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-insight__label {
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.neo[data-app='wellbeing'] .wb-insight__text b {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+.neo[data-app='wellbeing'] .wb-insight__meta {
+  font-size: 11.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* ───────────────────────── Aura: side column ───────────────────────── */
+.neo[data-app='wellbeing'] .wb-moodspark {
+  display: block;
+  width: 100%;
+  height: 64px;
+}
+[dir='rtl'] .neo[data-app='wellbeing'] .wb-moodspark {
+  transform: scaleX(-1);
+}
+.neo[data-app='wellbeing'] .wb-moodspark__grid {
+  stroke: var(--plane-border);
+  stroke-dasharray: 2 5;
+  vector-effect: non-scaling-stroke;
+}
+.neo[data-app='wellbeing'] .wb-moodspark__line {
+  fill: none;
+  stroke: url(#wb-mood-grad);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.neo[data-app='wellbeing'] .wb-moodspark__dot {
+  fill: var(--app-c1);
+  stroke: var(--plane-solid);
+  stroke-width: 1.5;
+}
+.neo[data-app='wellbeing'] .wb-moodweek__days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin: 6px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-moodweek__days li {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 6px 0;
+  border-radius: 10px;
+}
+.neo[data-app='wellbeing'] .wb-moodweek__days li[data-today] {
+  background: rgb(var(--app-rgb) / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(var(--app-rgb) / 0.3);
+}
+.neo[data-app='wellbeing'] .wb-moodweek__emoji {
+  font-size: 17px;
+  line-height: 1;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-moodweek__day {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-moodweek__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.neo[data-app='wellbeing'] .wb-journal__form {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.neo[data-app='wellbeing'] .wb-journal__row {
+  display: flex;
+  gap: 8px;
+}
+.neo[data-app='wellbeing'] .wb-journal {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-journal li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--wb-card);
+}
+.neo[data-app='wellbeing'] .wb-journal__icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 8px;
+  color: var(--wb-conn);
+  background: rgb(251 191 36 / 0.14);
+}
+.neo[data-app='wellbeing'] .wb-journal li[data-kind='gratitude'] .wb-journal__icon {
+  color: var(--wb-calm);
+  background: rgb(244 114 182 / 0.14);
+}
+.neo[data-app='wellbeing'] .wb-journal__icon svg {
+  width: 13px;
+  height: 13px;
+}
+.neo[data-app='wellbeing'] .wb-journal__body {
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-journal__body p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.neo[data-app='wellbeing'] .wb-journal__time {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='wellbeing'] .wb-support__grid {
+  display: grid;
+  gap: 8px;
+}
+.neo[data-app='wellbeing'] .wb-support__tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  color: inherit;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-line);
+  transition:
+    border-color var(--dur-fast),
+    background var(--dur-fast);
+}
+.neo[data-app='wellbeing'] .wb-support__tile:hover {
+  background: var(--wb-card-2);
+  border-color: rgb(var(--app-rgb) / 0.4);
+}
+.neo[data-app='wellbeing'] .wb-support__orb {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.55), transparent 40%), var(--app-grad);
+  box-shadow: 0 0 18px -4px rgb(var(--app-rgb) / 0.8);
+}
+.neo[data-app='wellbeing'] .wb-support__orb.is-breathing {
+  animation: wb-breathe-soft 8s ease-in-out infinite;
+}
+.neo[data-app='wellbeing'] .wb-support__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 11px;
+  color: var(--app-ink);
+  background: rgb(var(--app-rgb) / 0.14);
+}
+.neo[data-app='wellbeing'] .wb-support__icon svg {
+  width: 16px;
+  height: 16px;
+}
+.neo[data-app='wellbeing'] .wb-support__text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-support__text b {
+  font-size: 13px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-support__text span {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ───────────────────────── dialogs (portal) ───────────────────────── */
+.wb-portal.wb-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 82;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--scrim);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: wb-fade 180ms var(--ease-out) both;
+}
+.wb-portal .wb-dialog {
+  width: min(640px, 100%);
+  max-height: min(92dvh, 880px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 18px 20px 20px;
+  border-radius: 22px;
+  color: var(--text);
+  background: var(--plane-solid);
+  border: 1px solid var(--plane-border-2);
+  box-shadow: var(--shadow-lg);
+  animation: wb-pop 260ms var(--ease-out) both;
+}
+.wb-portal .wb-dialog--sm {
+  width: min(520px, 100%);
+}
+.wb-portal .wb-dialog__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.wb-portal .wb-dialog__orb {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 50%;
+  color: #fff;
+  background: radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.5), transparent 42%), var(--app-grad);
+  box-shadow: 0 0 22px -4px rgb(var(--app-rgb) / 0.8);
+}
+.wb-portal .wb-dialog__orb svg {
+  width: 19px;
+  height: 19px;
+}
+.wb-portal .wb-dialog__titles {
+  flex: 1;
+  min-width: 0;
+}
+.wb-portal .wb-dialog__title {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.wb-portal .wb-ci {
+  display: grid;
+  gap: 16px;
+}
+.wb-portal .wb-ci__q {
+  display: grid;
+  gap: 8px;
+}
+.wb-portal .wb-ci__label {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.wb-portal .wb-ci__opt {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.wb-portal .wb-ci__err {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--danger);
+}
+.wb-portal .wb-ci__mood[data-invalid] .wb-radio {
+  border-color: rgb(var(--danger-rgb) / 0.5);
+}
+.wb-portal .wb-ci__scale {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.wb-portal .wb-ci__scale .wb-radio {
+  justify-content: center;
+  border-radius: 12px;
+  padding-inline: 6px;
+  font-size: 12px;
+  text-align: center;
+}
+.wb-portal .wb-stressdot {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--success);
+}
+.wb-portal .wb-stressdot[data-level='2'] {
+  background: #a3e635;
+}
+.wb-portal .wb-stressdot[data-level='3'] {
+  background: var(--warning);
+}
+.wb-portal .wb-stressdot[data-level='4'] {
+  background: #fb923c;
+}
+.wb-portal .wb-stressdot[data-level='5'] {
+  background: var(--danger);
+}
+.wb-portal .wb-ci__sleepval {
+  margin-inline-start: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--app-ink);
+}
+.wb-portal .wb-range {
+  width: 100%;
+  height: 22px;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+.wb-portal .wb-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, var(--app-c2), var(--app-c1)) 0 0 / var(--p, 50%) 100% no-repeat, var(--track);
+}
+[dir='rtl'] .wb-portal .wb-range::-webkit-slider-runnable-track {
+  background: linear-gradient(270deg, var(--app-c2), var(--app-c1)) 100% 0 / var(--p, 50%) 100% no-repeat, var(--track);
+}
+.wb-portal .wb-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--app-c1);
+  box-shadow: 0 2px 10px rgb(var(--app-rgb) / 0.5);
+}
+.wb-portal .wb-range::-moz-range-track {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--track);
+}
+.wb-portal .wb-range::-moz-range-progress {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--app-grad);
+}
+.wb-portal .wb-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--app-c1);
+}
+.wb-portal .wb-range:focus-visible {
+  outline: 2px solid rgb(var(--app-rgb) / 0.8);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+.wb-portal .wb-ci__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.wb-portal .wb-quick {
+  min-width: 44px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 99px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-2);
+  background: var(--wb-card);
+  border: 1px solid var(--plane-border-2);
+}
+.wb-portal .wb-quick[aria-pressed='true'] {
+  color: var(--app-ink);
+  border-color: rgb(var(--app-rgb) / 0.55);
+  background: rgb(var(--app-rgb) / 0.12);
+}
+.wb-portal .wb-ci__note {
+  min-height: 64px;
+  font-size: 13.5px;
+}
+.wb-portal .wb-ci__foot {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--plane-border);
+}
+.wb-portal .wb-ci__privacy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+.wb-portal .wb-ci__privacy p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.wb-portal .wb-ci__privacy p svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+.wb-portal .wb-ci__actions {
+  display: flex;
+  gap: 8px;
+  margin-inline-start: auto;
+}
+.wb-portal .wb-ci__done {
+  display: grid;
+  gap: 16px;
+}
+.wb-portal .wb-ci__score {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.wb-portal .wb-ci__num {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.wb-portal .wb-ci__lede {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.wb-portal .wb-ci__rx {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.wb-portal .wb-ci__rx li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--hover);
+  border: 1px solid var(--plane-border);
+  font-size: 13px;
+}
+.wb-portal .wb-ci__rxdot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--app-c1);
+  box-shadow: 0 0 10px var(--app-c1);
+}
+.wb-portal .wb-ci__rxdot[data-tone='violet'] {
+  background: #a855f7;
+  box-shadow: 0 0 10px #a855f7;
+}
+.wb-portal .wb-ci__rxdot[data-tone='cyan'] {
+  background: #22d3ee;
+  box-shadow: 0 0 10px #22d3ee;
+}
+.wb-portal .wb-ci__rxdot[data-tone='emerald'] {
+  background: #34d399;
+  box-shadow: 0 0 10px #34d399;
+}
+.wb-portal .wb-ci__rxdot[data-tone='amber'] {
+  background: #fbbf24;
+  box-shadow: 0 0 10px #fbbf24;
+}
+.wb-portal .wb-ci__rxtitle {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.wb-portal .wb-ci__rxchip {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--app-ink);
+}
+
+/* claim form */
+.wb-portal .wb-claimform {
+  display: grid;
+  gap: 12px;
+}
+.wb-portal .wb-claimform__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.wb-portal .wb-claimform__receipt {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.wb-portal .wb-file {
+  position: relative;
+  cursor: pointer;
+}
+.wb-portal .wb-file input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.wb-portal .wb-file:focus-within {
+  outline: 2px solid rgb(var(--app-rgb) / 0.8);
+  outline-offset: 2px;
+}
+.wb-portal .wb-claimform__file {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.wb-portal .wb-claimform__err {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  color: var(--danger);
+  background: rgb(var(--danger-rgb) / 0.1);
+  border: 1px solid rgb(var(--danger-rgb) / 0.3);
+}
+.wb-portal .wb-claimform__foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--plane-border);
+}
+.wb-portal .wb-claimform__foot .wb-muted {
+  flex: 1 1 160px;
+}
+.wb-portal .wb-claimform__foot .wb-muted b {
+  color: var(--text);
+  font-weight: 650;
+}
+
+/* ───────────────────────── Breathe ───────────────────────── */
+.neo[data-app='wellbeing'] .wb-studio__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+.neo[data-app='wellbeing'] .wb-studio__stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-studio__pick {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-patterns {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
+}
+.neo[data-app='wellbeing'] .wb-patterns .wb-radio {
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-height: 96px;
+  padding: 12px;
+  text-align: start;
+}
+.neo[data-app='wellbeing'] .wb-patterns .wb-radio__label {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+.neo[data-app='wellbeing'] .wb-pattern__short {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--app-ink);
+}
+.neo[data-app='wellbeing'] .wb-studio__cycle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-studio__cycle b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='wellbeing'] .wb-breath {
+  --size: clamp(220px, 23vw, 290px);
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--size);
+  aspect-ratio: 1;
+}
+.neo[data-app='wellbeing'] .wb-breath__ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+[dir='rtl'] .neo[data-app='wellbeing'] .wb-breath__ring {
+  transform: rotate(-90deg) scaleY(-1);
+}
+.neo[data-app='wellbeing'] .wb-breath__track {
+  fill: none;
+  stroke: var(--track);
+  stroke-width: 2.5;
+}
+.neo[data-app='wellbeing'] .wb-breath__prog {
+  fill: none;
+  stroke: var(--app-c1);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  transition: stroke-dashoffset 280ms linear;
+  filter: drop-shadow(0 0 4px rgb(var(--app-rgb) / 0.7));
+}
+.neo[data-app='wellbeing'] .wb-breath__orb {
+  position: absolute;
+  inset: 10%;
+  border-radius: 50%;
+  transform: scale(var(--b, 0.58));
+  will-change: transform;
+}
+.neo[data-app='wellbeing'] .wb-breath.is-idle .wb-breath__orb {
+  animation: wb-idle-breathe 6s ease-in-out infinite;
+}
+.neo[data-app='wellbeing'] .wb-breath.is-static .wb-breath__orb {
+  transform: scale(0.8);
+  animation: none;
+}
+.neo[data-app='wellbeing'] .wb-breath__glow {
+  position: absolute;
+  inset: -16%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(var(--app-rgb) / 0.55), rgb(var(--app-rgb-2) / 0.2) 45%, transparent 68%);
+  filter: blur(18px);
+}
+.neo[data-app='wellbeing'] .wb-breath__body {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, rgb(255 255 255 / 0.55) 0%, transparent 34%),
+    conic-gradient(from var(--orb-angle), var(--app-c1), var(--app-c2), #22d3ee, var(--app-c1));
+  box-shadow:
+    0 0 60px -12px rgb(var(--app-rgb) / 0.85),
+    inset 0 0 40px rgb(255 255 255 / 0.18);
+  animation: wb-swirl 14s linear infinite;
+}
+.neo[data-app='wellbeing'] .wb-breath__shine {
+  position: absolute;
+  inset: 16%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, rgb(255 255 255 / 0.35), transparent 60%);
+  mix-blend-mode: soft-light;
+}
+.neo[data-app='wellbeing'] .wb-breath__hud {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  color: #fff;
+  text-align: center;
+  text-shadow: 0 2px 14px rgb(0 0 0 / 0.45);
+}
+.neo[data-app='wellbeing'] .wb-breath__phase {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-breath__count {
+  font-family: var(--font-display);
+  font-size: 46px;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='wellbeing'] .wb-breath__idle,
+.neo[data-app='wellbeing'] .wb-breath__check {
+  width: 30px;
+  height: 30px;
+}
+.neo[data-app='wellbeing'] .wb-phases {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-phases li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 99px;
+  font-size: 12px;
+  color: var(--text-3);
+  background: var(--wb-card);
+  border: 1px solid var(--wb-line);
+  transition:
+    color var(--dur-fast),
+    background var(--dur-fast),
+    border-color var(--dur-fast);
+}
+.neo[data-app='wellbeing'] .wb-phases li b {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+.neo[data-app='wellbeing'] .wb-phases li.is-on {
+  color: var(--app-ink);
+  background: rgb(var(--app-rgb) / 0.14);
+  border-color: rgb(var(--app-rgb) / 0.5);
+}
+.neo[data-app='wellbeing'] .wb-studio__meta,
+.neo[data-app='wellbeing'] .wb-studio__controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 18px;
+}
+.neo[data-app='wellbeing'] .wb-studio__reduced {
+  text-align: center;
+}
+.neo[data-app='wellbeing'] .wb-breath-done {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  color: var(--text-2);
+  background: rgb(var(--success-rgb) / 0.1);
+  border: 1px solid rgb(var(--success-rgb) / 0.3);
+  overflow: hidden;
+}
+.neo[data-app='wellbeing'] .wb-breath-done > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-breath-done b {
+  color: var(--success);
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='wellbeing'] .wb-breath-done__burst {
+  position: absolute;
+  inset: -40%;
+  background: repeating-conic-gradient(from 0deg, rgb(var(--success-rgb) / 0.16) 0 6deg, transparent 6deg 24deg);
+  animation: wb-burst 1.4s var(--ease-out) both;
+  pointer-events: none;
+}
+.neo[data-app='wellbeing'] .wb-calm {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.neo[data-app='wellbeing'] .wb-calm__num,
+.neo[data-app='wellbeing'] .wb-goal__num {
+  font-family: var(--font-display);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='wellbeing'] .wb-calm__text {
+  display: grid;
+  gap: 8px;
+}
+.neo[data-app='wellbeing'] .wb-sessions {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-sessions li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  background: var(--wb-card);
+}
+.neo[data-app='wellbeing'] .wb-sessions li svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--app-ink);
+}
+.neo[data-app='wellbeing'] .wb-sessions__name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.neo[data-app='wellbeing'] .wb-sessions__time {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-breakcard .wb-muted {
+  margin-bottom: 12px;
+}
+
+/* soundscape */
+.neo[data-app='wellbeing'] .wb-wave {
+  position: relative;
+  height: 120px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 140% at 50% 120%, color-mix(in oklab, var(--w1) 36%, transparent), transparent 62%),
+    var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-wave__layer {
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: 0;
+  width: 200%;
+  height: 70%;
+  animation: wb-wave 14s linear infinite;
+}
+.neo[data-app='wellbeing'] .wb-wave__layer path {
+  fill: var(--w1);
+  opacity: 0.3;
+}
+.neo[data-app='wellbeing'] .wb-wave__layer[data-i='1'] {
+  height: 54%;
+  animation-duration: 20s;
+  animation-direction: reverse;
+}
+.neo[data-app='wellbeing'] .wb-wave__layer[data-i='1'] path {
+  fill: var(--w2);
+  opacity: 0.28;
+}
+.neo[data-app='wellbeing'] .wb-wave__layer[data-i='2'] {
+  height: 40%;
+  animation-duration: 10s;
+}
+.neo[data-app='wellbeing'] .wb-wave__layer[data-i='2'] path {
+  fill: color-mix(in oklab, var(--w1) 50%, var(--w2));
+  opacity: 0.32;
+}
+.neo[data-app='wellbeing'] .wb-wave.is-playing .wb-wave__layer {
+  animation-duration: 8s;
+}
+.neo[data-app='wellbeing'] .wb-wave.is-playing .wb-wave__layer[data-i='1'] {
+  animation-duration: 12s;
+}
+.neo[data-app='wellbeing'] .wb-wave.is-static .wb-wave__layer {
+  animation: none;
+}
+.neo[data-app='wellbeing'] .wb-wave__label {
+  position: absolute;
+  inset-inline-start: 16px;
+  top: 14px;
+  display: grid;
+  gap: 2px;
+}
+.neo[data-app='wellbeing'] .wb-wave__label b {
+  font-size: 14px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-wave__label span {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-scapedot {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+/* micro-resets */
+.neo[data-app='wellbeing'] .wb-resets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 10px;
+}
+.neo[data-app='wellbeing'] .wb-reset {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-reset.is-on {
+  border-color: rgb(var(--app-rgb) / 0.5);
+  box-shadow: 0 0 0 3px rgb(var(--app-rgb) / 0.08);
+}
+.neo[data-app='wellbeing'] .wb-reset__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.neo[data-app='wellbeing'] .wb-reset__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 10px;
+  color: var(--app-ink);
+  background: rgb(var(--app-rgb) / 0.14);
+}
+.neo[data-app='wellbeing'] .wb-reset__icon svg {
+  width: 16px;
+  height: 16px;
+}
+.neo[data-app='wellbeing'] .wb-reset__titles {
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-reset__titles h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-reset__meta {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-reset__blurb {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-reset__run {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.neo[data-app='wellbeing'] .wb-reset__secs {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+.neo[data-app='wellbeing'] .wb-reset__step {
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-reset__step p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.neo[data-app='wellbeing'] .wb-reset__stepn {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-reset__btns {
+  display: flex;
+  gap: 2px;
+}
+
+/* ───────────────────────── Move ───────────────────────── */
+.neo[data-app='wellbeing'] .wb-race {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-lane {
+  --tc: hsl(var(--hue) 82% 62%);
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-lane__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  font-size: 13px;
+}
+.neo[data-app='wellbeing'] .wb-lane__rank {
+  min-width: 24px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-lane__name {
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-lane__meta {
+  margin-inline-start: auto;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-lane__meta b {
+  color: var(--text);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='wellbeing'] .wb-lane__track {
+  position: relative;
+  height: 32px;
+  margin-top: 6px;
+  border-radius: 99px;
+  background:
+    repeating-linear-gradient(90deg, var(--plane-border-2) 0 2px, transparent 2px 12px) center / calc(100% - 24px) 2px no-repeat,
+    var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-lane.is-mine .wb-lane__track {
+  border-color: rgb(var(--app-rgb) / 0.45);
+  box-shadow: 0 0 0 3px rgb(var(--app-rgb) / 0.08);
+}
+.neo[data-app='wellbeing'] .wb-lane__trail {
+  position: absolute;
+  inset-block: 6px;
+  inset-inline-start: 6px;
+  width: calc(var(--p) * (100% - 62px) + 28px);
+  border-radius: 99px;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--tc) 10%, transparent), var(--tc));
+  box-shadow: 0 0 16px -4px var(--tc);
+}
+[dir='rtl'] .neo[data-app='wellbeing'] .wb-lane__trail {
+  background: linear-gradient(270deg, color-mix(in oklab, var(--tc) 10%, transparent), var(--tc));
+}
+.neo[data-app='wellbeing'] .wb-lane__tick {
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  translate: calc(-50% * var(--dirsign)) -50%;
+  background: var(--plane-solid);
+  border: 2px solid var(--plane-border-2);
+}
+.neo[data-app='wellbeing'] .wb-lane__tick[data-reached] {
+  background: var(--tc);
+  border-color: var(--tc);
+  box-shadow: 0 0 10px var(--tc);
+}
+.neo[data-app='wellbeing'] .wb-lane__runner {
+  position: absolute;
+  top: 50%;
+  inset-inline-start: calc(var(--p) * (100% - 62px) + 6px);
+  translate: 0 -50%;
+  display: flex;
+  align-items: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 2px;
+  border-radius: 99px;
+  color: var(--tc);
+  background: var(--plane-solid);
+  box-shadow:
+    0 0 0 2px var(--tc),
+    0 0 16px var(--tc);
+}
+.neo[data-app='wellbeing'] .wb-lane__runner > svg {
+  width: 14px;
+  height: 14px;
+  margin: auto;
+}
+.neo[data-app='wellbeing'] .wb-race__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--plane-border);
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-race__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.neo[data-app='wellbeing'] .wb-race__legend svg {
+  width: 13px;
+  height: 13px;
+  color: var(--app-ink);
+}
+.neo[data-app='wellbeing'] .wb-race__legend b {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.neo[data-app='wellbeing'] .wb-goal {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.neo[data-app='wellbeing'] .wb-goal__side {
+  display: grid;
+  gap: 6px;
+}
+.neo[data-app='wellbeing'] .wb-goal__stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.neo[data-app='wellbeing'] .wb-goal__stepper b {
+  min-width: 64px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 650;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='wellbeing'] .wb-weekbars {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 100px;
+  margin: 16px 0 22px;
+}
+.neo[data-app='wellbeing'] .wb-weekbars__goal {
+  position: absolute;
+  inset-inline: 0;
+  height: 0;
+  border-top: 1px dashed rgb(var(--success-rgb) / 0.65);
+}
+.neo[data-app='wellbeing'] .wb-weekbars__col {
+  position: relative;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  align-items: flex-end;
+  height: 100%;
+}
+.neo[data-app='wellbeing'] .wb-weekbars__bar {
+  width: 100%;
+  max-width: 26px;
+  border-radius: 8px 8px 4px 4px;
+  background: linear-gradient(180deg, var(--app-c1), rgb(var(--app-rgb-2) / 0.55));
+  opacity: 0.5;
+}
+.neo[data-app='wellbeing'] .wb-weekbars__col.is-hit .wb-weekbars__bar {
+  background: linear-gradient(180deg, var(--success), rgb(var(--success-rgb) / 0.45));
+}
+.neo[data-app='wellbeing'] .wb-weekbars__col.is-today .wb-weekbars__bar {
+  opacity: 1;
+  box-shadow: 0 0 16px -4px var(--app-c1);
+}
+.neo[data-app='wellbeing'] .wb-weekbars__day {
+  position: absolute;
+  top: calc(100% + 5px);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-log {
+  display: grid;
+  gap: 10px;
+  scroll-margin-top: 16px;
+}
+.neo[data-app='wellbeing'] .wb-log__kinds {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.neo[data-app='wellbeing'] .wb-log__kinds .wb-radio {
+  min-height: 58px;
+  padding: 8px 4px;
+  font-size: 11.5px;
+}
+.neo[data-app='wellbeing'] .wb-log__preview {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-log__preview b {
+  color: var(--text);
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-share {
+  display: grid;
+  gap: 10px;
+}
+.neo[data-app='wellbeing'] .wb-share__text {
+  min-height: 76px;
+  font-size: 13px;
+}
+.neo[data-app='wellbeing'] .wb-share__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.neo[data-app='wellbeing'] .wb-share__sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-share__sent svg {
+  width: 14px;
+  height: 14px;
+}
+.neo[data-app='wellbeing'] .wb-walks {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-walk {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-walk.is-walking {
+  border-color: rgb(var(--success-rgb) / 0.35);
+}
+.neo[data-app='wellbeing'] .wb-walk__body {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-walk__title {
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.neo[data-app='wellbeing'] .wb-walk__meta,
+.neo[data-app='wellbeing'] .wb-walk__route {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-walk__meta b {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.neo[data-app='wellbeing'] .wb-walk__route {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--wb-move);
+}
+.neo[data-app='wellbeing'] .wb-walk__route svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ───────────────────────── Care ───────────────────────── */
+.neo[data-app='wellbeing'] .wb-privacy-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background:
+    radial-gradient(90% 140% at 0% 0%, rgb(168 85 247 / 0.22), transparent 60%),
+    radial-gradient(80% 120% at 100% 100%, rgb(var(--app-rgb) / 0.14), transparent 60%),
+    var(--plane-2);
+  border: 1px solid rgb(168 85 247 / 0.32);
+}
+.neo[data-app='wellbeing'] .wb-privacy-hero__icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 15px;
+  color: #fff;
+  background: linear-gradient(135deg, #a855f7, var(--app-c1));
+  box-shadow: 0 10px 24px -10px rgb(168 85 247 / 0.9);
+}
+.neo[data-app='wellbeing'] .wb-privacy-hero__icon svg {
+  width: 21px;
+  height: 21px;
+}
+.neo[data-app='wellbeing'] .wb-privacy-hero h2 {
+  margin: 0 0 2px;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-privacy-hero p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-privacy-hero__chips {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-privacy-hero__chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--wb-card-2);
+  border: 1px solid var(--plane-border-2);
+}
+.neo[data-app='wellbeing'] .wb-privacy-hero__chips svg {
+  width: 12px;
+  height: 12px;
+  color: #c084fc;
+}
+[data-theme='light'] .neo[data-app='wellbeing'] .wb-privacy-hero__chips svg {
+  color: #7e22ce;
+}
+.neo[data-app='wellbeing'] .wb-book__q {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-book__label {
+  font-size: 13px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-book__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+.neo[data-app='wellbeing'] .wb-book__foot,
+.neo[data-app='wellbeing'] .wb-book__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.neo[data-app='wellbeing'] .wb-book__foot .wb-muted {
+  flex: 1 1 220px;
+}
+.neo[data-app='wellbeing'] .wb-book__done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  color: var(--text-2);
+  background: rgb(var(--success-rgb) / 0.1);
+  border: 1px solid rgb(var(--success-rgb) / 0.3);
+}
+.neo[data-app='wellbeing'] .wb-book__done svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-book__ask {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-book__ask b {
+  color: var(--text);
+  font-weight: 600;
+}
+.neo[data-app='wellbeing'] .wb-matches {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 10px;
+}
+.neo[data-app='wellbeing'] .wb-match {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-match.is-on {
+  border-color: rgb(var(--app-rgb) / 0.55);
+  box-shadow: 0 0 0 3px rgb(var(--app-rgb) / 0.1);
+}
+.neo[data-app='wellbeing'] .wb-match__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.neo[data-app='wellbeing'] .wb-match__avatar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+.neo[data-app='wellbeing'] .wb-match__titles {
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-match__titles h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-match__cred {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-match__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+}
+.neo[data-app='wellbeing'] .wb-match__rating svg {
+  width: 13px;
+  height: 13px;
+  color: var(--warning);
+}
+.neo[data-app='wellbeing'] .wb-match__bio {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-match__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.neo[data-app='wellbeing'] .wb-match__why {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-match__why li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.neo[data-app='wellbeing'] .wb-match__why svg {
+  width: 12px;
+  height: 12px;
+  color: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-match__slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: auto;
+}
+.neo[data-app='wellbeing'] .wb-slot {
+  display: grid;
+  gap: 1px;
+  padding: 6px 4px;
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  background: var(--wb-card-2);
+  border: 1px solid var(--plane-border-2);
+}
+.neo[data-app='wellbeing'] .wb-slot b {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+}
+.neo[data-app='wellbeing'] .wb-slot.is-on {
+  color: var(--app-ink);
+  background: rgb(var(--app-rgb) / 0.14);
+  border-color: rgb(var(--app-rgb) / 0.55);
+}
+.neo[data-app='wellbeing'] .wb-slot:focus-visible {
+  outline: 2px solid rgb(var(--app-rgb) / 0.8);
+  outline-offset: 2px;
+}
+.neo[data-app='wellbeing'] .wb-book__confirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgb(var(--app-rgb) / 0.08);
+  border: 1px solid rgb(var(--app-rgb) / 0.24);
+}
+.neo[data-app='wellbeing'] .wb-book__confirm .wb-switch {
+  flex: 1 1 260px;
+  width: auto;
+}
+.neo[data-app='wellbeing'] .wb-booked {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background:
+    linear-gradient(150deg, rgb(168 85 247 / 0.14), transparent 70%),
+    var(--wb-card);
+  border: 1px solid rgb(168 85 247 / 0.3);
+}
+.neo[data-app='wellbeing'] .wb-booked__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, #a855f7, var(--app-c1));
+}
+.neo[data-app='wellbeing'] .wb-booked__icon svg {
+  width: 20px;
+  height: 20px;
+}
+.neo[data-app='wellbeing'] .wb-booked__text {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  font-size: 13px;
+}
+.neo[data-app='wellbeing'] .wb-booked__when {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-book__fu {
+  margin-top: 10px;
+}
+.neo[data-app='wellbeing'] .wb-talk__call {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+  color: inherit;
+  background:
+    linear-gradient(135deg, rgb(var(--success-rgb) / 0.16), transparent 70%),
+    var(--wb-card);
+  border: 1px solid rgb(var(--success-rgb) / 0.35);
+}
+.neo[data-app='wellbeing'] .wb-talk__call:hover {
+  border-color: rgb(var(--success-rgb) / 0.6);
+}
+.neo[data-app='wellbeing'] .wb-talk__pulse {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-talk__pulse::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px solid rgb(var(--success-rgb) / 0.5);
+  animation: wb-ping 2.4s ease-out infinite;
+}
+.neo[data-app='wellbeing'] .wb-talk__pulse svg {
+  width: 18px;
+  height: 18px;
+}
+.neo[data-app='wellbeing'] .wb-talk__text {
+  display: grid;
+  gap: 2px;
+}
+.neo[data-app='wellbeing'] .wb-talk__text b {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-talk__text span {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-talk .wb-muted {
+  margin-bottom: 12px;
+}
+.neo[data-app='wellbeing'] .wb-talk .wb-muted b {
+  color: var(--text);
+}
+.neo[data-app='wellbeing'] .wb-talk__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  background: var(--wb-card);
+}
+.neo[data-app='wellbeing'] .wb-talk__status.is-ready svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  color: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-crisis .neo-tabs {
+  margin-bottom: 10px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.neo[data-app='wellbeing'] .wb-crisis__lines {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-crisis__lines a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1px 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  color: inherit;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-crisis__lines a:hover {
+  border-color: rgb(var(--danger-rgb) / 0.4);
+}
+.neo[data-app='wellbeing'] .wb-crisis__label {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.neo[data-app='wellbeing'] .wb-crisis__num {
+  grid-row: span 2;
+  align-self: center;
+  font-size: 14px;
+  color: var(--danger);
+}
+.neo[data-app='wellbeing'] .wb-crisis__note {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-crisis__foot {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-mhday .wb-muted {
+  margin-bottom: 12px;
+}
+.neo[data-app='wellbeing'] .wb-circles-panel {
+  scroll-margin-top: 16px;
+}
+.neo[data-app='wellbeing'] .wb-circles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
+  gap: 10px;
+}
+.neo[data-app='wellbeing'] .wb-circle {
+  --cc: hsl(var(--hue) 75% 62%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background:
+    linear-gradient(160deg, color-mix(in oklab, var(--cc) 12%, transparent), transparent 70%),
+    var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-circle.is-on {
+  border-color: color-mix(in oklab, var(--cc) 55%, transparent);
+}
+.neo[data-app='wellbeing'] .wb-circle__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.neo[data-app='wellbeing'] .wb-circle__head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-circle__glyph {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  color: var(--cc);
+  background: color-mix(in oklab, var(--cc) 18%, transparent);
+}
+[data-theme='light'] .neo[data-app='wellbeing'] .wb-circle__glyph {
+  color: hsl(var(--hue) 70% 36%);
+}
+.neo[data-app='wellbeing'] .wb-circle__glyph svg {
+  width: 14px;
+  height: 14px;
+}
+.neo[data-app='wellbeing'] .wb-circle__blurb {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-circle__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-circle__meta b {
+  color: var(--text-2);
+}
+
+/* ───────────────────────── Rhythm ───────────────────────── */
+.neo[data-app='wellbeing'] .wb-rhythm-top {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 16px;
+}
+.neo[data-app='wellbeing'] .wb-gauge {
+  position: relative;
+  width: min(280px, 100%);
+  margin: 4px auto 0;
+}
+.neo[data-app='wellbeing'] .wb-gauge__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+[dir='rtl'] .neo[data-app='wellbeing'] .wb-gauge__svg {
+  transform: scaleX(-1);
+}
+.neo[data-app='wellbeing'] .wb-gauge__track,
+.neo[data-app='wellbeing'] .wb-gauge__value {
+  fill: none;
+  stroke-width: 14;
+  stroke-linecap: round;
+}
+.neo[data-app='wellbeing'] .wb-gauge__track {
+  stroke: var(--track);
+}
+.neo[data-app='wellbeing'] .wb-gauge__value {
+  stroke: url(#wb-gauge-grad);
+  stroke-dasharray: 100;
+  transition: stroke-dashoffset 900ms var(--ease-out);
+}
+.neo[data-app='wellbeing'] .wb-gauge__needle {
+  transform-origin: 100px 100px;
+  transition: transform 900ms var(--ease-out);
+}
+.neo[data-app='wellbeing'] .wb-gauge__needle line {
+  stroke: var(--text);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.neo[data-app='wellbeing'] .wb-gauge__needle circle {
+  fill: var(--text);
+}
+.neo[data-app='wellbeing'] .wb-gauge__readout {
+  position: absolute;
+  inset-inline: 0;
+  bottom: -6px;
+  display: grid;
+  justify-items: center;
+}
+.neo[data-app='wellbeing'] .wb-gauge__num {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 650;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='wellbeing'] .wb-gauge__band {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-gauge[data-band='watch'] .wb-gauge__band {
+  color: var(--warning);
+}
+.neo[data-app='wellbeing'] .wb-gauge[data-band='high'] .wb-gauge__band {
+  color: var(--danger);
+}
+.neo[data-app='wellbeing'] .wb-pace__note {
+  margin: 18px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-radar {
+  position: relative;
+  width: min(300px, 100%);
+  aspect-ratio: 1;
+  margin: 8px auto;
+}
+.neo[data-app='wellbeing'] .wb-radar__svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+[dir='rtl'] .neo[data-app='wellbeing'] .wb-radar__svg {
+  transform: scaleX(-1);
+}
+.neo[data-app='wellbeing'] .wb-radar__ring {
+  fill: none;
+  stroke: var(--plane-border-2);
+}
+.neo[data-app='wellbeing'] .wb-radar__axis {
+  stroke: var(--plane-border);
+}
+.neo[data-app='wellbeing'] .wb-radar__shape {
+  fill: rgb(var(--app-rgb) / 0.22);
+  stroke: var(--app-c1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 8px rgb(var(--app-rgb) / 0.45));
+}
+.neo[data-app='wellbeing'] .wb-radar__dot {
+  fill: var(--success);
+  stroke: var(--plane-solid);
+  stroke-width: 1.5;
+}
+.neo[data-app='wellbeing'] .wb-radar__dot[data-level='watch'] {
+  fill: var(--warning);
+}
+.neo[data-app='wellbeing'] .wb-radar__dot[data-level='high'] {
+  fill: var(--danger);
+}
+.neo[data-app='wellbeing'] .wb-radar__label {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  width: 92px;
+  translate: calc(-50% * var(--dirsign)) -50%;
+  font-size: 11px;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--text-2);
+  pointer-events: none;
+}
+.neo[data-app='wellbeing'] .wb-radar__label b {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-radar__label[data-level='watch'] b {
+  color: var(--warning);
+}
+.neo[data-app='wellbeing'] .wb-radar__label[data-level='high'] b {
+  color: var(--danger);
+}
+.neo[data-app='wellbeing'] .wb-signals {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-signal {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px 120px auto 128px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-signal__main {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-signal__label {
+  font-size: 13px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-signal__tip {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-signal__value {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: end;
+}
+.neo[data-app='wellbeing'] .wb-signal__bar {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--track);
+  overflow: hidden;
+}
+.neo[data-app='wellbeing'] .wb-signal__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-signal[data-level='watch'] .wb-signal__bar i {
+  background: var(--warning);
+}
+.neo[data-app='wellbeing'] .wb-signal[data-level='high'] .wb-signal__bar i {
+  background: var(--danger);
+}
+.neo[data-app='wellbeing'] .wb-signal__src {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+  text-align: end;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.neo[data-app='wellbeing'] .wb-quiet {
+  scroll-margin-top: 16px;
+}
+.neo[data-app='wellbeing'] .wb-quiet__body {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+  transition: opacity var(--dur);
+}
+.neo[data-app='wellbeing'] .wb-quiet__body.is-off {
+  opacity: 0.5;
+}
+.neo[data-app='wellbeing'] .wb-quiet__times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.neo[data-app='wellbeing'] .wb-quiet__clock {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  gap: 2px;
+  height: 28px;
+}
+.neo[data-app='wellbeing'] .wb-quiet__clock i {
+  border-radius: 4px;
+  background: rgb(var(--app-rgb) / 0.18);
+}
+.neo[data-app='wellbeing'] .wb-quiet__clock i[data-quiet] {
+  background: linear-gradient(180deg, #818cf8, #6366f1);
+  opacity: 0.85;
+}
+.neo[data-app='wellbeing'] .wb-quiet__clock i[data-now] {
+  box-shadow:
+    0 0 0 2px var(--plane-solid),
+    0 0 0 4px var(--app-c1);
+}
+.neo[data-app='wellbeing'] .wb-quiet__scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-quiet__policy {
+  display: grid;
+  gap: 8px;
+}
+.neo[data-app='wellbeing'] .wb-quiet__status,
+.neo[data-app='wellbeing'] .wb-quiet__mail {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-quiet__status svg,
+.neo[data-app='wellbeing'] .wb-quiet__mail svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--app-ink);
+}
+.neo[data-app='wellbeing'] .wb-quiet__status.is-quiet svg {
+  color: #818cf8;
+}
+.neo[data-app='wellbeing'] .wb-quiet__status b {
+  color: var(--text);
+}
+.neo[data-app='wellbeing'] .wb-quiet__mail {
+  margin-top: 6px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-kanon {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--wb-card);
+  border: 1px dashed var(--plane-border-2);
+}
+.neo[data-app='wellbeing'] .wb-kanon__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 12px;
+  color: var(--app-ink);
+  background: rgb(var(--app-rgb) / 0.14);
+}
+.neo[data-app='wellbeing'] .wb-kanon h3 {
+  margin: 0 0 3px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-kanon p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-kanon p b {
+  color: var(--text);
+}
+.neo[data-app='wellbeing'] .wb-kanon__note {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-kanon__note svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  margin-top: 2px;
+  color: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-kanon__note b {
+  color: var(--text);
+}
+.neo[data-app='wellbeing'] .wb-heat {
+  display: grid;
+  gap: 4px;
+  overflow-x: auto;
+}
+.neo[data-app='wellbeing'] .wb-heat__row {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.4fr) repeat(6, minmax(44px, 1fr));
+  gap: 4px;
+  align-items: center;
+}
+.neo[data-app='wellbeing'] .wb-heat__rowlabel {
+  font-size: 12px;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.neo[data-app='wellbeing'] .wb-heat__rowlabel svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-heat__week {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-align: center;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.neo[data-app='wellbeing'] .wb-heat__cell {
+  display: grid;
+  place-items: center;
+  height: 30px;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text);
+  background: hsl(calc(150 - var(--r) * 1.5) 72% 52% / 0.32);
+  box-shadow: inset 0 0 0 1px hsl(calc(150 - var(--r) * 1.5) 72% 52% / 0.4);
+}
+.neo[data-app='wellbeing'] .wb-heat__pace {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--app-ink);
+}
+.neo[data-app='wellbeing'] .wb-heat__row--pace {
+  padding-top: 4px;
+  border-top: 1px solid var(--plane-border);
+}
+.neo[data-app='wellbeing'] .wb-rituals {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+.neo[data-app='wellbeing'] .wb-ritual {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-ritual__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 11px;
+  color: var(--app-ink);
+  background: rgb(var(--app-rgb) / 0.14);
+}
+.neo[data-app='wellbeing'] .wb-ritual__icon svg {
+  width: 16px;
+  height: 16px;
+}
+.neo[data-app='wellbeing'] .wb-ritual__text {
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-ritual__text h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-ritual__text p {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-team__foot {
+  margin-top: 12px;
+}
+.neo[data-app='wellbeing'] .wb-team__foot a {
+  color: var(--app-ink);
+  font-weight: 600;
+}
+
+/* ───────────────────────── Perks ───────────────────────── */
+.neo[data-app='wellbeing'] .wb-wallet {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.neo[data-app='wellbeing'] .wb-wallet__ring {
+  display: grid;
+  justify-items: center;
+  line-height: 1.1;
+}
+.neo[data-app='wellbeing'] .wb-wallet__ring b {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-wallet__ring span {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-wallet__rows {
+  display: grid;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-wallet__rows li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-wallet__rows li::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  flex: none;
+  border-radius: 3px;
+  background: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-wallet__rows li[data-k='approved']::before {
+  background: #60a5fa;
+}
+.neo[data-app='wellbeing'] .wb-wallet__rows li[data-k='review']::before {
+  background: var(--warning);
+}
+.neo[data-app='wellbeing'] .wb-wallet__rows li[data-k='left']::before {
+  background: var(--app-grad);
+}
+.neo[data-app='wellbeing'] .wb-wallet__rows b {
+  margin-inline-start: auto;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text);
+}
+.neo[data-app='wellbeing'] .wb-wallet__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--plane-border);
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-wallet__links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--app-ink);
+  font-weight: 600;
+}
+.neo[data-app='wellbeing'] .wb-wallet__links svg {
+  width: 12px;
+  height: 12px;
+}
+.neo[data-app='wellbeing'] .wb-claims {
+  display: grid;
+  gap: 10px;
+}
+.neo[data-app='wellbeing'] .wb-claim {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-claim.is-open {
+  border-color: rgb(var(--app-rgb) / 0.35);
+}
+.neo[data-app='wellbeing'] .wb-claim__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.neo[data-app='wellbeing'] .wb-claim__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 10px;
+  color: var(--app-ink);
+  background: rgb(var(--app-rgb) / 0.14);
+}
+.neo[data-app='wellbeing'] .wb-claim__icon svg {
+  width: 15px;
+  height: 15px;
+}
+.neo[data-app='wellbeing'] .wb-claim__titles {
+  display: grid;
+  flex: 1;
+  min-width: 140px;
+}
+.neo[data-app='wellbeing'] .wb-claim__titles b {
+  font-size: 13.5px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-claim__titles span {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-claim__amt {
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.neo[data-app='wellbeing'] .wb-market__filters {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.neo[data-app='wellbeing'] .wb-market {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 10px;
+}
+.neo[data-app='wellbeing'] .wb-partner {
+  --pc: hsl(var(--hue) 75% 60%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 14px;
+  background:
+    linear-gradient(160deg, color-mix(in oklab, var(--pc) 12%, transparent), transparent 65%),
+    var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-partner__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.neo[data-app='wellbeing'] .wb-partner__logo {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, var(--pc), hsl(calc(var(--hue) + 40) 70% 45%));
+}
+.neo[data-app='wellbeing'] .wb-partner__titles {
+  min-width: 0;
+}
+.neo[data-app='wellbeing'] .wb-partner__titles h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.neo[data-app='wellbeing'] .wb-partner__where {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-partner__where svg {
+  width: 11px;
+  height: 11px;
+  flex: none;
+}
+.neo[data-app='wellbeing'] .wb-partner__offer {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-partner__offer svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  margin-top: 2px;
+  color: var(--warning);
+}
+.neo[data-app='wellbeing'] .wb-partner__foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+}
+.neo[data-app='wellbeing'] .wb-partner__price {
+  flex: 1;
+  font-size: 13px;
+}
+.neo[data-app='wellbeing'] .wb-credits__big {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.neo[data-app='wellbeing'] .wb-credits__big b {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 650;
+  line-height: 1;
+  background: var(--app-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.neo[data-app='wellbeing'] .wb-credits__big span {
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-credits__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='wellbeing'] .wb-credits__list li {
+  display: flex;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-credits__list b {
+  margin-inline-start: auto;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--success);
+}
+.neo[data-app='wellbeing'] .wb-credits__list li[data-k='spent'] b {
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-campaigns {
+  display: grid;
+  gap: 8px;
+}
+.neo[data-app='wellbeing'] .wb-campaign {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--wb-card);
+  border: 1px solid var(--wb-line);
+}
+.neo[data-app='wellbeing'] .wb-campaign.is-live {
+  background:
+    linear-gradient(150deg, rgb(var(--success-rgb) / 0.12), transparent 70%),
+    var(--wb-card);
+  border-color: rgb(var(--success-rgb) / 0.3);
+}
+.neo[data-app='wellbeing'] .wb-campaign__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.neo[data-app='wellbeing'] .wb-campaign__head h3 {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+.neo[data-app='wellbeing'] .wb-campaign__window {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-campaign p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.neo[data-app='wellbeing'] .wb-campaign__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='wellbeing'] .wb-campaign__foot b {
+  color: var(--success);
+}
+
+/* ───────────────────────── motion ───────────────────────── */
+@keyframes wb-aura-breathe {
+  0%,
+  100% {
+    transform: scale(calc(var(--scale, 1) * 0.965));
+  }
+  50% {
+    transform: scale(calc(var(--scale, 1) * 1.035));
+  }
+}
+@keyframes wb-swirl {
+  to {
+    --orb-angle: 360deg;
+  }
+}
+@keyframes wb-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+@keyframes wb-wave {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes wb-idle-breathe {
+  0%,
+  100% {
+    transform: scale(0.62);
+  }
+  50% {
+    transform: scale(0.72);
+  }
+}
+@keyframes wb-breathe-soft {
+  0%,
+  100% {
+    transform: scale(0.86);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+@keyframes wb-ping {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+@keyframes wb-burst {
+  from {
+    transform: scale(0.4) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.1) rotate(40deg);
+    opacity: 0.35;
+  }
+}
+@keyframes wb-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes wb-pop {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neo[data-app='wellbeing'] :is(.wb-aura__field, .wb-aura__swirl, .wb-aura__ring, .wb-rx-empty__orb, .wb-support__orb, .wb-breath__orb, .wb-breath__body, .wb-wave__layer, .wb-breath-done__burst),
+  .neo[data-app='wellbeing'] .wb-talk__pulse::after,
+  .wb-portal .wb-dialog,
+  .wb-portal.wb-backdrop {
+    animation: none !important;
+  }
+}
+[data-motion='reduced'] .neo[data-app='wellbeing'] :is(.wb-aura__field, .wb-aura__swirl, .wb-aura__ring, .wb-rx-empty__orb, .wb-support__orb, .wb-breath__orb, .wb-breath__body, .wb-wave__layer, .wb-breath-done__burst),
+[data-motion='reduced'] .neo[data-app='wellbeing'] .wb-talk__pulse::after,
+[data-motion='reduced'] .wb-portal :is(.wb-dialog),
+[data-motion='reduced'] .wb-portal.wb-backdrop {
+  animation: none !important;
+}
+
+/* ───────────────────────── responsive ───────────────────────── */
+@media (max-width: 1280px) {
+  .neo[data-app='wellbeing'] .wb-signal {
+    grid-template-columns: minmax(0, 1fr) 56px 90px auto;
+  }
+  .neo[data-app='wellbeing'] .wb-signal__src {
+    display: none;
+  }
+}
+@media (max-width: 980px) {
+  .neo[data-app='wellbeing'] .wb-aura-grid,
+  .neo[data-app='wellbeing'] .wb-studio__grid,
+  .neo[data-app='wellbeing'] .wb-rhythm-top {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .neo[data-app='wellbeing'] .wb-aura {
+    --size: min(290px, calc(100vw - 96px));
+  }
+  .neo[data-app='wellbeing'] .wb-breath {
+    --size: min(250px, calc(100vw - 110px));
+  }
+  .neo[data-app='wellbeing'] .wb-petal {
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+    transform: rotate(calc(var(--a) * var(--dirsign))) translateY(calc(var(--size) / -2 + 23px)) rotate(calc(var(--a) * var(--dirsign) * -1));
+  }
+  .neo[data-app='wellbeing'] .wb-dimrow {
+    grid-template-columns: auto 76px minmax(0, 1fr) 28px;
+  }
+  .neo[data-app='wellbeing'] .wb-signal {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+  }
+  .neo[data-app='wellbeing'] .wb-signal__bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .neo[data-app='wellbeing'] .wb-signal .neo-chip {
+    justify-self: end;
+  }
+  .neo[data-app='wellbeing'] .wb-wallet,
+  .neo[data-app='wellbeing'] .wb-goal {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .neo[data-app='wellbeing'] .wb-wallet .neo-ring,
+  .neo[data-app='wellbeing'] .wb-goal .neo-ring {
+    align-self: center;
+  }
+  .neo[data-app='wellbeing'] .wb-privacy-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .neo[data-app='wellbeing'] .wb-privacy-hero__chips {
+    grid-column: 1;
+  }
+  .neo[data-app='wellbeing'] .wb-log__kinds {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .neo[data-app='wellbeing'] .wb-walk {
+    flex-wrap: wrap;
+  }
+  .neo[data-app='wellbeing'] .wb-forecast__tag {
+    display: none;
+  }
+  .neo[data-app='wellbeing'] .wb-rx-empty {
+    flex-wrap: wrap;
+  }
+  .wb-portal.wb-backdrop {
+    place-items: end center;
+    padding: 8px;
+  }
+  .wb-portal .wb-dialog {
+    max-height: 94dvh;
+    padding: 16px;
+    border-radius: 20px;
+  }
+  .wb-portal .wb-ci__scale {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 96px), 1fr));
+  }
+  .wb-portal .wb-claimform__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Shared NeoBanner (≤720px column layout): the nowrap span keeps its max-content
+     width and pushes the page sideways. Let it stretch and wrap inside Wellbeing. */
+  .neo[data-app='wellbeing'] .neo-banner__text {
+    align-items: stretch;
+  }
+  .neo[data-app='wellbeing'] .neo-banner__text span {
+    white-space: normal;
+  }
+}
+@media (max-width: 420px) {
+  .neo[data-app='wellbeing'] .wb-forecast__axis span:nth-child(even) {
+    display: none;
+  }
+  .neo[data-app='wellbeing'] .wb-match__slots {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 84px), 1fr));
+  }
+  .neo[data-app='wellbeing'] .wb-heat__row {
+    grid-template-columns: minmax(104px, 1.2fr) repeat(6, minmax(36px, 1fr));
+  }
+}

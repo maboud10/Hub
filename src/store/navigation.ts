@@ -49,6 +49,14 @@ const APP_AREA_META: Record<
   insights: { appId: 'analytics', label: 'Insights', icon: 'ChartPie', gradient: ['#38bdf8', '#6366f1'] },
   meet: { appId: 'meet', label: 'Meet', icon: 'Video', gradient: ['#34d399', '#06b6d4'] },
   calendar: { appId: 'calendar', label: 'Calendar', icon: 'CalendarDays', gradient: ['#f472b6', '#8b5cf6'] },
+  mail: { appId: 'mail', label: 'Mail', icon: 'Mail', gradient: ['#38bdf8', '#6366f1'] },
+  wellbeing: { appId: 'wellness', label: 'Wellbeing', icon: 'HeartPulse', gradient: ['#fb7185', '#a855f7'] },
+  devhub: { appId: 'devhub', label: 'DevHub', icon: 'GitBranch', gradient: ['#a3e635', '#22c55e'] },
+  cloud: { appId: 'cloud', label: 'Cloud Console', icon: 'Server', gradient: ['#38bdf8', '#2563eb'] },
+  incidents: { appId: 'incidents', label: 'Incident Command', icon: 'Siren', gradient: ['#f87171', '#f97316'] },
+  vault: { appId: 'vault', label: 'Vault', icon: 'KeyRound', gradient: ['#facc15', '#f59e0b'] },
+  security: { appId: 'security', label: 'Security Center', icon: 'ShieldCheck', gradient: ['#f472b6', '#e11d48'] },
+  spaces: { appId: 'spaces', label: 'Spaces', icon: 'Building2', gradient: ['#e879f9', '#a855f7'] },
   // The Control Center is a hub area, but it runs as an immersive NEO workspace like the apps.
   admin: { appId: 'admin', label: 'Control Center', icon: 'ShieldCheck', gradient: ['#38bdf8', '#818cf8'] },
 };

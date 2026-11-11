@@ -1,0 +1,1124 @@
+/* ==========================================================================
+   Spaces ("Orbit") — scoped under .neo[data-app='spaces']
+   ========================================================================== */
+
+.neo[data-app='spaces'] .sp-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ───────── Site Selector & Telemetry Toolbar ───────── */
+
+.neo[data-app='spaces'] .sp-sitebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.neo[data-app='spaces'] .sp-sitebar__hubs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='spaces'] .sp-hubpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+  text-align: start;
+}
+
+.neo[data-app='spaces'] .sp-hubpill:hover {
+  border-color: var(--border-2);
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-hubpill.is-active {
+  border-color: rgb(var(--app-rgb) / 0.55);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--app-rgb) / 0.18),
+    rgb(var(--app-rgb-2) / 0.12)
+  );
+  color: var(--text);
+  box-shadow: 0 4px 16px -6px rgb(var(--app-rgb) / 0.45);
+}
+
+.neo[data-app='spaces'] .sp-hubpill__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.neo[data-app='spaces'] .sp-hubpill__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.18;
+}
+
+.neo[data-app='spaces'] .sp-hubpill__name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-hubpill__meta {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='spaces'] .sp-sitebar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='spaces'] .sp-daystrip,
+.neo[data-app='spaces'] .sp-shift-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='spaces'] .sp-daybtn {
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.neo[data-app='spaces'] .sp-daybtn.is-active {
+  background: rgb(var(--app-rgb) / 0.22);
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-telemetry-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='spaces'] .sp-telepill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-telepill svg {
+  width: 13px;
+  height: 13px;
+  color: var(--app-c1);
+}
+
+/* ───────── Filter Bar ───────── */
+
+.neo[data-app='spaces'] .sp-filterbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='spaces'] .sp-filterbar__chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='spaces'] .sp-filterbar__near {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--text-3);
+}
+
+.neo[data-app='spaces'] .sp-filterbar__near svg {
+  width: 15px;
+  height: 15px;
+}
+
+.neo[data-app='spaces'] .sp-select {
+  width: auto;
+  min-width: 120px;
+}
+
+/* ───────── Interactive SVG Floorplan ───────── */
+
+.neo[data-app='spaces'] .sp-floorplan-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='spaces'] .sp-floorplan-legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.neo[data-app='spaces'] .sp-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.neo[data-app='spaces'] .sp-legend-dot.is-free {
+  background: rgba(52, 211, 153, 0.35);
+  border: 1.5px solid #34d399;
+}
+
+.neo[data-app='spaces'] .sp-legend-dot.is-mine {
+  background: rgba(232, 121, 249, 0.45);
+  border: 1.5px solid #e879f9;
+}
+
+.neo[data-app='spaces'] .sp-legend-dot.is-recommended {
+  background: rgba(56, 189, 248, 0.4);
+  border: 1.5px solid #38bdf8;
+}
+
+.neo[data-app='spaces'] .sp-legend-dot.is-occupied {
+  background: rgba(148, 163, 184, 0.35);
+  border: 1.5px solid #94a3b8;
+}
+
+.neo[data-app='spaces'] .sp-legend-dot.is-ghost {
+  background: rgba(251, 191, 36, 0.35);
+  border: 1.5px solid #fbbf24;
+}
+
+.neo[data-app='spaces'] .sp-floorplan-canvas {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(10, 14, 26, 0.65);
+  overflow: hidden;
+}
+
+.neo[data-app='spaces'] .sp-floorplan-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 490px;
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-floorplan-wrap--compact .sp-floorplan-svg {
+  max-height: 360px;
+}
+
+.neo[data-app='spaces'] .sp-svg-window-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  fill: #38bdf8;
+  opacity: 0.85;
+}
+
+.neo[data-app='spaces'] .sp-svg-zone-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.neo[data-app='spaces'] .sp-svg-zone-sensor {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  fill: var(--text-3);
+}
+
+.neo[data-app='spaces'] .sp-svg-room,
+.neo[data-app='spaces'] .sp-svg-desk {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.neo[data-app='spaces'] .sp-svg-room:hover,
+.neo[data-app='spaces'] .sp-svg-desk:hover {
+  opacity: 0.92;
+}
+
+.neo[data-app='spaces'] .sp-svg-room-name {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 650;
+  fill: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-svg-room-meta {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  fill: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-svg-room-holo {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 600;
+  fill: #e879f9;
+  letter-spacing: 0.06em;
+}
+
+.neo[data-app='spaces'] .sp-svg-desk-code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-svg-desk-user {
+  font-family: var(--font-sans);
+  font-size: 8.5px;
+  fill: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-svg-desk-match {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 600;
+  fill: #38bdf8;
+}
+
+@keyframes spHaloPulse {
+  0%, 100% {
+    stroke-opacity: 0.35;
+  }
+  50% {
+    stroke-opacity: 0.95;
+  }
+}
+
+.neo[data-app='spaces'] .sp-svg-desk-halo {
+  animation: spHaloPulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neo[data-app='spaces'] .sp-svg-desk-halo {
+    animation: none;
+  }
+}
+
+/* ───────── My Workplace Pass & Cards ───────── */
+
+.neo[data-app='spaces'] .sp-mypass {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='spaces'] .sp-mypass__main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.neo[data-app='spaces'] .sp-mypass__badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgb(var(--app-rgb) / 0.25), rgb(var(--app-rgb-2) / 0.2));
+  border: 1px solid rgb(var(--app-rgb) / 0.45);
+  flex-shrink: 0;
+}
+
+.neo[data-app='spaces'] .sp-mypass__badge strong {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-mypass__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.neo[data-app='spaces'] .sp-mypass__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-mypass__sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-mypass__addons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.neo[data-app='spaces'] .sp-mypass__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ───────── Grids (Colleagues, Recommendations, Rooms, Insights) ───────── */
+
+.neo[data-app='spaces'] .sp-colleagues-grid,
+.neo[data-app='spaces'] .sp-rec-grid,
+.neo[data-app='spaces'] .sp-rooms-grid,
+.neo[data-app='spaces'] .sp-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.neo[data-app='spaces'] .sp-colleague-card,
+.neo[data-app='spaces'] .sp-rec-card,
+.neo[data-app='spaces'] .sp-room-card,
+.neo[data-app='spaces'] .sp-insight-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.neo[data-app='spaces'] .sp-rec-card.is-selected,
+.neo[data-app='spaces'] .sp-room-card.is-selected,
+.neo[data-app='spaces'] .sp-insight-card.is-selected,
+.neo[data-app='spaces'] .sp-visitor-row.is-selected {
+  border-color: rgb(var(--app-rgb) / 0.65);
+  box-shadow: 0 0 0 1px rgb(var(--app-rgb) / 0.35);
+}
+
+.neo[data-app='spaces'] .sp-colleague-card__top,
+.neo[data-app='spaces'] .sp-rec-card__head,
+.neo[data-app='spaces'] .sp-room-card__head,
+.neo[data-app='spaces'] .sp-insight-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.neo[data-app='spaces'] .sp-colleague-card__identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.neo[data-app='spaces'] .sp-colleague-card__name,
+.neo[data-app='spaces'] .sp-room-card__title,
+.neo[data-app='spaces'] .sp-insight-card__title {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+  margin: 0;
+}
+
+.neo[data-app='spaces'] .sp-colleague-card__role,
+.neo[data-app='spaces'] .sp-rec-card__zone {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.neo[data-app='spaces'] .sp-colleague-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-colleague-card__actions,
+.neo[data-app='spaces'] .sp-rec-card__foot,
+.neo[data-app='spaces'] .sp-room-card__foot,
+.neo[data-app='spaces'] .sp-insight-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+.neo[data-app='spaces'] .sp-rec-card__reasons {
+  margin: 0;
+  padding-inline-start: 16px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-room-card__badges,
+.neo[data-app='spaces'] .sp-sensors,
+.neo[data-app='spaces'] .sp-chip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='spaces'] .sp-room-card__status {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+/* ───────── Inspector & Side Cards ───────── */
+
+.neo[data-app='spaces'] .sp-inspector,
+.neo[data-app='spaces'] .sp-side-list,
+.neo[data-app='spaces'] .sp-zone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.neo[data-app='spaces'] .sp-inspector__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neo[data-app='spaces'] .sp-inspector__why {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgb(var(--app-rgb) / 0.1);
+  border: 1px solid rgb(var(--app-rgb) / 0.25);
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-inspector__why ul {
+  margin: 6px 0 0;
+  padding-inline-start: 16px;
+}
+
+.neo[data-app='spaces'] .sp-addon-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.neo[data-app='spaces'] .sp-occupant-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--surface-3);
+  margin-top: 6px;
+}
+
+.neo[data-app='spaces'] .sp-occupant-box__name {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-occupant-box__role,
+.neo[data-app='spaces'] .sp-occupant-box__hours {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='spaces'] .sp-inspector__btns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='spaces'] .sp-attendee-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neo[data-app='spaces'] .sp-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.neo[data-app='spaces'] .sp-side-card,
+.neo[data-app='spaces'] .sp-zone-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='spaces'] .sp-zone-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.neo[data-app='spaces'] .sp-zone-row__title,
+.neo[data-app='spaces'] .sp-side-card__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-side-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neo[data-app='spaces'] .sp-side-card__body {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-side-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* ───────── Visitors, Requests & Printable QR Pass ───────── */
+
+.neo[data-app='spaces'] .sp-visitor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='spaces'] .sp-visitor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.neo[data-app='spaces'] .sp-visitor-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.neo[data-app='spaces'] .sp-visitor-row__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='spaces'] .sp-visitor-row__name {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-visitor-row__badge {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--app-c1);
+}
+
+.neo[data-app='spaces'] .sp-visitor-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='spaces'] .sp-host-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.neo[data-app='spaces'] .sp-visitor-row__tracker {
+  width: 240px;
+  max-width: 100%;
+}
+
+.neo[data-app='spaces'] .sp-tracker-actions,
+.neo[data-app='spaces'] .sp-banner-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='spaces'] .sp-qrpass {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: linear-gradient(
+    145deg,
+    rgb(var(--app-rgb) / 0.14),
+    var(--surface-2) 65%
+  );
+  border: 1px solid rgb(var(--app-rgb) / 0.38);
+}
+
+.neo[data-app='spaces'] .sp-qrpass__top,
+.neo[data-app='spaces'] .sp-qrpass__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.neo[data-app='spaces'] .sp-qrpass__name {
+  margin: 2px 0 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-qrpass__company {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-qrpass__body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='spaces'] .sp-qrpass__qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-qrpass__code {
+  font-size: 10px;
+  color: var(--app-c1);
+}
+
+.neo[data-app='spaces'] .sp-qrpass__details {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 140px;
+}
+
+.neo[data-app='spaces'] .sp-qrpass__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-qrpass__nda {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--success);
+}
+
+.neo[data-app='spaces'] .sp-qrpass__nda svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ───────── Insights & GreenOps ───────── */
+
+.neo[data-app='spaces'] .sp-insight-card__stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.neo[data-app='spaces'] .sp-stat-cell {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.neo[data-app='spaces'] .sp-stat-cell b {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-zone-audit-list,
+.neo[data-app='spaces'] .sp-rhythm-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.neo[data-app='spaces'] .sp-zone-audit-row {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='spaces'] .sp-zone-audit-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.neo[data-app='spaces'] .sp-zone-audit-row__sub {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.neo[data-app='spaces'] .sp-rhythm-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.neo[data-app='spaces'] .sp-rhythm-row__day {
+  width: 34px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-rhythm-row__bar {
+  flex: 1;
+}
+
+.neo[data-app='spaces'] .sp-rhythm-row__val {
+  width: 38px;
+  text-align: end;
+  font-size: 11.5px;
+  color: var(--text);
+}
+
+/* ───────── Nova Result & Modal / Drawer ───────── */
+
+.neo[data-app='spaces'] .sp-nova-result {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid rgb(var(--app-rgb) / 0.38);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='spaces'] .sp-nova-result__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='spaces'] .sp-nova-result__body {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-nova-result__bullets {
+  margin: 0;
+  padding-inline-start: 18px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-nova-result__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.neo[data-app='spaces'] .sp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(5, 8, 18, 0.72);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.neo[data-app='spaces'] .sp-modal,
+.neo[data-app='spaces'] .sp-drawer {
+  width: 100%;
+  max-width: 580px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.neo[data-app='spaces'] .sp-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.neo[data-app='spaces'] .sp-modal__title {
+  margin: 2px 0 0;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-modal__body,
+.neo[data-app='spaces'] .sp-drawer__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.neo[data-app='spaces'] .sp-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.neo[data-app='spaces'] .sp-modal__checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='spaces'] .sp-modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.neo[data-app='spaces'] .sp-drawer__form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.neo[data-app='spaces'] .sp-rating-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-star-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  padding: 2px;
+  cursor: pointer;
+}
+
+.neo[data-app='spaces'] .sp-star-btn.is-lit {
+  color: #fbbf24;
+}
+
+.neo[data-app='spaces'] .sp-star-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.neo[data-app='spaces'] .sp-kpi-unit {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-3);
+  margin-inline-start: 4px;
+}
+
+.neo[data-app='spaces'] .sp-request-detail {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.neo[data-app='spaces'] .sp-room-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.neo[data-app='spaces'] .sp-schedule-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-3);
+}
+
+.neo[data-app='spaces'] .sp-schedule-item__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.neo[data-app='spaces'] .sp-schedule-item__time {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ───────── Light Theme Overrides ───────── */
+
+[data-theme='light'] .neo[data-app='spaces'] .sp-floorplan-canvas {
+  background: #f8fafc;
+  border-color: var(--border-2);
+}
+
+[data-theme='light'] .neo[data-app='spaces'] .sp-svg-window-label {
+  fill: #0284c7;
+}
+
+[data-theme='light'] .neo[data-app='spaces'] .sp-svg-room-holo {
+  fill: #9333ea;
+}
+
+[data-theme='light'] .neo[data-app='spaces'] .sp-svg-desk-match {
+  fill: #0284c7;
+}
+
+/* ───────── RTL Support ───────── */
+
+[dir='rtl'] .neo[data-app='spaces'] .sp-floorplan-svg {
+  direction: ltr;
+}
+
+/* ───────── Responsive ≤ 720px ───────── */
+
+@media (max-width: 720px) {
+  .neo[data-app='spaces'] .sp-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .neo[data-app='spaces'] .sp-colleagues-grid,
+  .neo[data-app='spaces'] .sp-rec-grid,
+  .neo[data-app='spaces'] .sp-rooms-grid,
+  .neo[data-app='spaces'] .sp-insights-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .neo[data-app='spaces'] .sp-visitor-row__tracker {
+    width: 100%;
+  }
+
+  .neo[data-app='spaces'] .sp-sitebar__hubs {
+    width: 100%;
+  }
+
+  .neo[data-app='spaces'] .sp-hubpill {
+    flex: 1 1 calc(50% - 8px);
+  }
+}

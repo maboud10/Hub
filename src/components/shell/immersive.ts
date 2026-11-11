@@ -14,9 +14,11 @@ import { useUI } from '@/store/ui';
  * all behave the same way: Projects, Drive, Pulse Chat, IT Helpdesk,
  * Performance & OKRs, Talent Hub, HR Portal, Knowledge Base, Academy,
  * Travel & Expenses, Payroll Console, Procurement, CRM, Insights, Meet,
- * Calendar and the Control Center.
+ * Calendar, Mail, Wellbeing, DevHub, Cloud Console, Incident Command, Vault,
+ * Security Center, Spaces and the Control Center.
  */
-export const IMMERSIVE_ROUTE = /^\/(projects|drive|chat|helpdesk|performance|talent|hr|wiki|academy|expenses|travel|payroll|procurement|crm|insights|meet|calendar|admin)(\/|$)/;
+export const IMMERSIVE_ROUTE =
+  /^\/(projects|drive|chat|helpdesk|performance|talent|hr|wiki|academy|expenses|travel|payroll|procurement|crm|insights|meet|calendar|mail|wellbeing|devhub|cloud|incidents|vault|security|spaces|admin)(\/|$)/;
 
 export function useSidebarState() {
   const { pathname } = useLocation();

@@ -66,6 +66,14 @@ export const APP_META: Record<WorkspaceAppId, { name: string; c1: string; c2: st
   insights: { name: 'Insights', c1: '#38bdf8', c2: '#8b5cf6' },
   meet: { name: 'Helix Meet', c1: '#34d399', c2: '#06b6d4' },
   calendar: { name: 'Helix Calendar', c1: '#f472b6', c2: '#8b5cf6' },
+  mail: { name: 'Helix Mail', c1: '#38bdf8', c2: '#6366f1' },
+  wellbeing: { name: 'Helix Wellbeing', c1: '#fb7185', c2: '#a855f7' },
+  devhub: { name: 'DevHub', c1: '#a3e635', c2: '#22c55e' },
+  cloud: { name: 'Cloud Console', c1: '#38bdf8', c2: '#2563eb' },
+  incidents: { name: 'Incident Command', c1: '#f87171', c2: '#f97316' },
+  vault: { name: 'Vault', c1: '#facc15', c2: '#f59e0b' },
+  security: { name: 'Security Center', c1: '#f472b6', c2: '#e11d48' },
+  spaces: { name: 'Spaces', c1: '#e879f9', c2: '#a855f7' },
 };
 
 export const KUDOS_VALUES: { id: KudosValue; label: string; blurb: string; tone: 'cyan' | 'violet' | 'pink' | 'amber' | 'emerald' }[] = [

@@ -231,6 +231,8 @@ export function PulseWidget() {
   const me = useSessionUser();
   const pulse = useHub((s) => s.pulse);
   const vote = useHub((s) => s.votePulse);
+  const launch = useLaunchApp();
+  const canAura = useCan('app:wellness');
   const today = todayKey();
   const mine = me && pulse[me.id]?.date === today ? pulse[me.id].mood : null;
 
@@ -248,10 +250,24 @@ export function PulseWidget() {
       hud="Anonymous"
       title="Team pulse"
       action={
-        mine ? (
-          <Chip tone="app" size="sm" title="Team mood today">
-            {avg.toFixed(1)} / 5
-          </Chip>
+        mine || canAura ? (
+          <span className="lp-pulse__actions">
+            {mine && (
+              <Chip tone="app" size="sm" title="Team mood today">
+                {avg.toFixed(1)} / 5
+              </Chip>
+            )}
+            {canAura && (
+              <button
+                type="button"
+                className="neo-btn neo-btn--ghost neo-btn--xs"
+                onClick={() => launch('wellness', mine ? undefined : 'Daily check-in')}
+                title="Open your private Aura in Wellbeing"
+              >
+                Aura <ArrowRight />
+              </button>
+            )}
+          </span>
         ) : undefined
       }
     >

@@ -1,0 +1,3923 @@
+/**
+ * Helix Mail — "Nova Inbox" styles.
+ *
+ * NEO type scale (px): panel titles via <NeoPanel> (15.5 / 650) + .neo-hud;
+ * card titles 14 / 650; body 13; small 12; meta 11.5; HUD 10.5 mono caps.
+ * Radii 18 panels · 14 inner cards · 12 nested. Every selector is scoped to
+ * the Mail workspace (`.neo[data-app='mail']`) or to Mail portals
+ * (`body[data-neo-app='mail']`). Logical properties only (RTL mirrors).
+ */
+
+.neo[data-app='mail'] {
+  --ml-line: var(--plane-border);
+  --ml-line-2: var(--plane-border-2);
+  --ml-hover: var(--hover);
+  --ml-unread: var(--text);
+  --ml-sticky: rgb(250 204 21 / 0.12);
+  --ml-sticky-line: rgb(250 204 21 / 0.42);
+  --ml-sticky-ink: #fde68a;
+}
+[data-theme='light'] .neo[data-app='mail'] {
+  --ml-sticky: rgb(250 204 21 / 0.2);
+  --ml-sticky-line: rgb(202 138 4 / 0.45);
+  --ml-sticky-ink: #854d0e;
+}
+
+.neo[data-app='mail'] .ml-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+/* Light theme: the shared muted ink sits near 3.2:1 on glass — Mail's dense meta text (times, snippets,
+   counts, HUD labels) uses a deeper mix of the text tokens so it keeps ≥ 4.5:1. */
+[data-theme='light'] .neo[data-app='mail'] .neo-body,
+[data-theme='light'] .neo[data-app='mail'] .ml-dock,
+[data-theme='light'] .neo[data-app='mail'] .ml-undo,
+[data-theme='light'] .neo[data-app='mail'] .ml-shortcuts,
+[data-theme='light'] body[data-neo-app='mail'] .neo-portal {
+  --text-3: color-mix(in srgb, var(--text-2) 86%, transparent);
+}
+/* Mail banners carry real sentences (and long lookalike domains) — let them wrap instead of forcing a
+   one-line min-content width that pushes the stage sideways on phones. */
+.neo[data-app='mail'] .neo-banner__text {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.neo[data-app='mail'] .neo-banner__text > span,
+.neo[data-app='mail'] .neo-banner__text > span span {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+.neo[data-app='mail'] .ml-muted {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-danger {
+  color: rgb(var(--danger-rgb));
+}
+.neo[data-app='mail'] .ml-label {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding-inline: 7px;
+  border-radius: 999px;
+  border: 1px solid var(--ml-line-2);
+  font-size: 11px;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.neo[data-app='mail'] .ml-kbd-inline {
+  margin-inline-start: 2px;
+  opacity: 0.75;
+}
+.neo[data-app='mail'] .ml-linkbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--app-ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-linkbtn:hover {
+  text-decoration: underline;
+}
+.neo[data-app='mail'] .ml-linkbtn svg {
+  width: 14px;
+  height: 14px;
+}
+.neo[data-app='mail'] .ml-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding-inline: 11px;
+  border-radius: 999px;
+  border: 1px solid var(--ml-line-2);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.neo[data-app='mail'] .ml-pill b {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-pill[aria-checked='true'] {
+  border-color: rgb(var(--app-rgb) / 0.55);
+  background: rgb(var(--app-rgb) / 0.14);
+  color: var(--text);
+}
+.neo[data-app='mail'] [dir='rtl'] .ml-flip,
+[dir='rtl'] .neo[data-app='mail'] .ml-flip {
+  transform: scaleX(-1);
+}
+
+/* ---------- Avatars ---------- */
+.neo[data-app='mail'] .ml-avatar,
+body[data-neo-app='mail'] .ml-avatar {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.neo[data-app='mail'] .ml-avatar[data-external] .avatar {
+  box-shadow: 0 0 0 1.5px rgb(var(--warning-rgb) / 0.55);
+}
+.neo[data-app='mail'] .ml-avatar[data-kind='phish'] .avatar {
+  box-shadow: 0 0 0 1.5px rgb(var(--danger-rgb) / 0.7);
+}
+.neo[data-app='mail'] .ml-avatar__vip {
+  position: absolute;
+  inset-block-start: -5px;
+  inset-inline-end: -5px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fbbf24, #f97316);
+  color: #1a1206;
+  box-shadow: 0 0 0 2px var(--plane-solid);
+}
+.neo[data-app='mail'] .ml-avatar__vip svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* ---------- Switch ---------- */
+.neo[data-app='mail'] .ml-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: start;
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-switch__track {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--track);
+  border: 1px solid var(--ml-line-2);
+  transition: background var(--dur);
+}
+.neo[data-app='mail'] .ml-switch__track i {
+  position: absolute;
+  inset-block-start: 2px;
+  inset-inline-start: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-2);
+  transition:
+    inset-inline-start var(--dur),
+    background var(--dur);
+}
+.neo[data-app='mail'] .ml-switch[data-on] .ml-switch__track {
+  background: var(--app-grad);
+  border-color: transparent;
+}
+.neo[data-app='mail'] .ml-switch[data-on] .ml-switch__track i {
+  inset-inline-start: 16px;
+  background: #fff;
+}
+.neo[data-app='mail'] .ml-switch__label {
+  color: var(--text-2);
+}
+
+/* ==========================================================================
+   Inbox home
+   ========================================================================== */
+.neo[data-app='mail'] .ml-body-home {
+  display: flex;
+  flex-direction: column;
+}
+.neo[data-app='mail'] .ml-home {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px clamp(12px, 1.4vw, 18px) 14px;
+}
+
+/* ---------- Hero: brief + orbit ---------- */
+.neo[data-app='mail'] .ml-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
+  gap: 12px;
+  flex: none;
+}
+.neo[data-app='mail'] .ml-brief {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px 12px;
+  min-width: 0;
+  overflow: hidden;
+}
+.neo[data-app='mail'] .ml-brief > :not(.neo-nova__glow) {
+  position: relative;
+}
+.neo[data-app='mail'] .ml-brief__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.neo[data-app='mail'] .ml-brief__head .neo-novaorb {
+  width: 30px;
+  height: 30px;
+  flex: none;
+}
+.neo[data-app='mail'] .ml-brief__titles {
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-brief__title {
+  margin: 1px 0 0;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-brief__title b {
+  background: var(--nova-lin);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.neo[data-app='mail'] .ml-brief__text {
+  margin: 0;
+  min-height: 3.1em;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-caret {
+  display: inline-block;
+  width: 7px;
+  height: 1.05em;
+  margin-inline-start: 2px;
+  vertical-align: -2px;
+  border-radius: 2px;
+  background: var(--app-c1);
+  animation: ml-blink 0.9s steps(2) infinite;
+}
+.neo[data-app='mail'] .ml-brief__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.neo[data-app='mail'] .ml-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  height: 28px;
+  padding-inline: 10px;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--app-rgb) / 0.35);
+  background: rgb(var(--app-rgb) / 0.08);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--dur),
+    transform var(--dur);
+}
+.neo[data-app='mail'] .ml-jump span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.neo[data-app='mail'] .ml-jump svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-jump:hover {
+  background: rgb(var(--app-rgb) / 0.16);
+  transform: translateY(-1px);
+}
+.neo[data-app='mail'] .ml-jump[data-tone='warning'] {
+  border-color: rgb(var(--warning-rgb) / 0.45);
+  background: rgb(var(--warning-rgb) / 0.1);
+}
+.neo[data-app='mail'] .ml-jump[data-tone='success'] {
+  border-color: rgb(var(--success-rgb) / 0.45);
+  background: rgb(var(--success-rgb) / 0.1);
+}
+.neo[data-app='mail'] .ml-jump[data-tone='rose'] {
+  border-color: rgb(var(--danger-rgb) / 0.4);
+  background: rgb(var(--danger-rgb) / 0.08);
+}
+.neo[data-app='mail'] .ml-hero[data-collapsed] .ml-brief {
+  justify-content: center;
+}
+
+/* ---------- Inbox-zero orbit ---------- */
+.neo[data-app='mail'] .ml-orbit {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--ml-line);
+  background: var(--plane-2);
+  overflow: hidden;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-orbit__stage {
+  position: relative;
+  flex: none;
+  width: 112px;
+  height: 112px;
+  display: grid;
+  place-items: center;
+}
+.neo[data-app='mail'] .ml-orbit__ring {
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  border: 1px dashed rgb(var(--app-rgb) / 0.4);
+}
+.neo[data-app='mail'] .ml-orbit__ring--inner {
+  inset: 26px;
+  border-style: solid;
+  border-color: rgb(var(--app-rgb-2) / 0.25);
+}
+.neo[data-app='mail'] .ml-orbit__spin {
+  position: absolute;
+  inset: 0;
+  animation: ml-spin 26s linear infinite;
+}
+.neo[data-app='mail'] .ml-orbit__spin i {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  width: 7px;
+  height: 7px;
+  margin-block-start: -3.5px;
+  margin-inline-start: -3.5px;
+  border-radius: 50%;
+  background: var(--app-grad);
+  box-shadow: 0 0 8px rgb(var(--app-rgb) / 0.7);
+  transform: rotate(calc(var(--i) / var(--n) * 360deg)) translateX(50px);
+}
+.neo[data-app='mail'] .ml-orbit__spin i:nth-child(3n) {
+  width: 5px;
+  height: 5px;
+  transform: rotate(calc(var(--i) / var(--n) * 360deg)) translateX(36px);
+}
+.neo[data-app='mail'] .ml-orbit__core {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  line-height: 1;
+}
+.neo[data-app='mail'] .ml-orbit__core b {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-orbit__core span {
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-orbit__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-orbit__headline {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-orbit__streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-orbit__streak svg {
+  width: 14px;
+  height: 14px;
+  color: #f97316;
+}
+.neo[data-app='mail'] .ml-aurora {
+  position: absolute;
+  inset: -40%;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #22d3ee55, #a78bfa66, #f472b655, #34d39966, #22d3ee55);
+  filter: blur(18px);
+  animation: ml-spin 6s linear infinite;
+  opacity: 0.85;
+}
+.neo[data-app='mail'] .ml-orbit[data-zero] .ml-orbit__core b {
+  background: var(--nova-lin);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.neo[data-app='mail'] .ml-orbit[data-celebrate] {
+  border-color: rgb(var(--app-rgb) / 0.6);
+  box-shadow:
+    0 0 0 1px rgb(var(--app-rgb) / 0.3),
+    0 0 42px rgb(var(--app-rgb) / 0.35);
+}
+.neo[data-app='mail'] .ml-orbit[data-celebrate]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 20%, rgb(255 255 255 / 0.18) 45%, transparent 70%);
+  animation: ml-sheen 1.6s ease-in-out 3;
+}
+.neo[data-app='mail'] .ml-hero[data-collapsed] .ml-orbit__stage {
+  width: 64px;
+  height: 64px;
+}
+.neo[data-app='mail'] .ml-hero[data-collapsed] .ml-orbit__spin i {
+  transform: rotate(calc(var(--i) / var(--n) * 360deg)) translateX(28px);
+}
+.neo[data-app='mail'] .ml-hero[data-collapsed] .ml-orbit__ring--inner,
+.neo[data-app='mail'] .ml-hero[data-collapsed] .ml-orbit__core span {
+  display: none;
+}
+.neo[data-app='mail'] .ml-hero[data-collapsed] .ml-orbit__core b {
+  font-size: 18px;
+}
+
+/* ---------- Cockpit (three panes) ---------- */
+.neo[data-app='mail'] .ml-cockpit {
+  flex: 1;
+  min-height: 480px;
+  display: grid;
+  grid-template-columns: 188px minmax(300px, 384px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  border-radius: 18px;
+  border: 1px solid var(--ml-line);
+  background: var(--plane);
+  overflow: hidden;
+}
+.neo[data-app='mail'] .ml-cockpit[data-wide] {
+  grid-template-columns: 188px minmax(0, 1fr);
+}
+.neo[data-app='mail'] .ml-streams {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 10px 8px;
+  border-inline-end: 1px solid var(--ml-line);
+  background: rgb(var(--app-rgb) / 0.03);
+}
+.neo[data-app='mail'] .ml-streams__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.neo[data-app='mail'] .ml-stream {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 36px;
+  padding-inline: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--dur),
+    color var(--dur);
+}
+.neo[data-app='mail'] .ml-stream:hover {
+  background: var(--ml-hover);
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-stream[aria-selected='true'] {
+  background: rgb(var(--app-rgb) / 0.14);
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-stream[aria-selected='true']::before {
+  content: '';
+  position: absolute;
+  inset-block: 8px;
+  inset-inline-start: 0;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--app-grad);
+}
+.neo[data-app='mail'] .ml-stream__icon {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  flex: none;
+}
+.neo[data-app='mail'] .ml-stream__icon svg {
+  width: 16px;
+  height: 16px;
+}
+.neo[data-app='mail'] .ml-stream[data-stream='priority'] .ml-stream__icon {
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-stream[data-stream='approvals'] .ml-stream__icon {
+  color: rgb(var(--success-rgb));
+}
+.neo[data-app='mail'] .ml-stream__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.neo[data-app='mail'] .ml-stream__count {
+  min-width: 22px;
+  padding-inline: 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-stream__count[data-unread] {
+  background: rgb(var(--app-rgb) / 0.2);
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-streams__foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 6px 2px;
+  border-top: 1px solid var(--ml-line);
+}
+.neo[data-app='mail'] .ml-streams__note,
+.neo[data-app='mail'] .ml-streams__keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-streams__note svg,
+.neo[data-app='mail'] .ml-streams__keys svg {
+  width: 13px;
+  height: 13px;
+}
+.neo[data-app='mail'] .ml-streams__keys {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-streams__keys:hover {
+  color: var(--text);
+}
+
+/* ---------- List ---------- */
+.neo[data-app='mail'] .ml-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  border-inline-end: 1px solid var(--ml-line);
+}
+.neo[data-app='mail'] .ml-list__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid var(--ml-line);
+}
+.neo[data-app='mail'] .ml-search {
+  width: 100%;
+}
+.neo[data-app='mail'] .ml-search .neo-input {
+  width: 100%;
+}
+.neo[data-app='mail'] .ml-list__bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.neo[data-app='mail'] .ml-list__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-list__title svg {
+  width: 14px;
+  height: 14px;
+}
+.neo[data-app='mail'] .ml-list__title b {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='mail'] .ml-ops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.neo[data-app='mail'] .ml-bulk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ml-line);
+  background: rgb(var(--app-rgb) / 0.09);
+  animation: ml-drop 180ms var(--ease-out);
+}
+.neo[data-app='mail'] .ml-bulk__count {
+  margin-inline-end: 4px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-rows {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.neo[data-app='mail'] .ml-list__empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.neo[data-app='mail'] .ml-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  align-items: start;
+  border-bottom: 1px solid var(--ml-line);
+  transition: background var(--dur);
+}
+.neo[data-app='mail'] .ml-row:hover {
+  background: var(--ml-hover);
+}
+.neo[data-app='mail'] .ml-row[data-active] {
+  background: rgb(var(--app-rgb) / 0.1);
+}
+.neo[data-app='mail'] .ml-row[data-active]::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 3px;
+  background: var(--app-grad);
+}
+.neo[data-app='mail'] .ml-row[data-checked] {
+  background: rgb(var(--app-rgb) / 0.07);
+}
+.neo[data-app='mail'] .ml-row__check,
+.neo[data-app='mail'] .ml-row__star {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 40px;
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-row__check svg,
+.neo[data-app='mail'] .ml-row__star svg {
+  width: 15px;
+  height: 15px;
+}
+.neo[data-app='mail'] .ml-row__check[aria-checked='true'] {
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-row__star[aria-pressed='true'] svg {
+  color: #fbbf24;
+  fill: #fbbf24;
+}
+.neo[data-app='mail'] .ml-row__main {
+  display: flex;
+  gap: 9px;
+  min-width: 0;
+  padding: 10px 2px 10px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-row__main:focus-visible {
+  outline: 2px solid rgb(var(--app-rgb) / 0.8);
+  outline-offset: -2px;
+  border-radius: 10px;
+}
+.neo[data-app='mail'] .ml-row__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.neo[data-app='mail'] .ml-row__top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-row__from {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-row__n {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-row__time {
+  flex: none;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-row__subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-row__snippet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-row[data-unread] .ml-row__from,
+.neo[data-app='mail'] .ml-row[data-unread] .ml-row__subject {
+  color: var(--ml-unread);
+  font-weight: 650;
+}
+.neo[data-app='mail'] .ml-row[data-unread] .ml-row__time {
+  color: var(--app-ink);
+  font-weight: 600;
+}
+.neo[data-app='mail'] .ml-row[data-unread] .ml-row__main::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 22px;
+  inset-inline-start: 23px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--app-c1);
+  box-shadow: 0 0 6px rgb(var(--app-rgb) / 0.8);
+}
+.neo[data-app='mail'] .ml-row__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+}
+.neo[data-app='mail'] .ml-row__clip {
+  width: 13px;
+  height: 13px;
+  color: var(--text-3);
+}
+
+/* ---------- Reading pane ---------- */
+.neo[data-app='mail'] .ml-read {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-read__empty {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+.neo[data-app='mail'] .ml-reading {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.neo[data-app='mail'] .ml-read__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--ml-line);
+}
+.neo[data-app='mail'] .ml-read__back {
+  display: none;
+}
+.neo[data-app='mail'] .ml-read__titles {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-read__subject {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-read__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+.neo[data-app='mail'] .ml-read__tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+.neo[data-app='mail'] .ml-read__tools .neo-iconbtn[data-on] svg {
+  color: #fbbf24;
+  fill: #fbbf24;
+}
+.neo[data-app='mail'] .ml-tools__sep {
+  width: 1px;
+  height: 20px;
+  margin-inline: 4px;
+  background: var(--ml-line-2);
+}
+.neo[data-app='mail'] .ml-read__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 18px;
+}
+
+/* Nova summary */
+.neo[data-app='mail'] .ml-nova {
+  flex: none;
+  padding: 12px 14px;
+  overflow: hidden;
+}
+.neo[data-app='mail'] .ml-nova > :not(.neo-nova__glow) {
+  position: relative;
+}
+.neo[data-app='mail'] .ml-nova__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.neo[data-app='mail'] .ml-mood {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-inline-end: auto;
+}
+.neo[data-app='mail'] .ml-mood__u {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-mood__u b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.neo[data-app='mail'] .ml-nova__text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-nova__note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-nova__note svg {
+  width: 13px;
+  height: 13px;
+}
+.neo[data-app='mail'] .ml-do {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Cards in the reading pane */
+.neo[data-app='mail'] .ml-card {
+  flex: none;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--ml-line);
+  background: var(--plane-2);
+}
+.neo[data-app='mail'] .ml-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.neo[data-app='mail'] .ml-card__head > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-actions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.neo[data-app='mail'] .ml-actions li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.neo[data-app='mail'] .ml-actions__item {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 5px 6px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-actions__item:hover {
+  background: var(--ml-hover);
+}
+.neo[data-app='mail'] .ml-actions__item input {
+  margin-top: 2px;
+  accent-color: var(--app-c1);
+}
+.neo[data-app='mail'] .ml-actions__item[data-done] span {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+.neo[data-app='mail'] .ml-meetcard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  border-color: rgb(var(--success-rgb) / 0.35);
+  background: linear-gradient(135deg, rgb(var(--success-rgb) / 0.08), transparent 60%), var(--plane-2);
+}
+.neo[data-app='mail'] .ml-meetcard__icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 12px;
+  background: rgb(var(--success-rgb) / 0.16);
+  color: rgb(var(--success-rgb));
+}
+.neo[data-app='mail'] .ml-meetcard__icon svg {
+  width: 19px;
+  height: 19px;
+}
+.neo[data-app='mail'] .ml-meetcard__text {
+  flex: 1 1 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-meetcard__label {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-meetcard__when {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-meetcard__acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Messages */
+.neo[data-app='mail'] .ml-msgs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.neo[data-app='mail'] .ml-msg {
+  border-radius: 14px;
+  border: 1px solid var(--ml-line);
+  background: var(--plane);
+}
+.neo[data-app='mail'] .ml-msg[data-open] {
+  background: var(--plane-2);
+}
+.neo[data-app='mail'] .ml-msg__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-msg__who {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-msg__who b {
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-msg__email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-msg__time {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-msg__peek {
+  margin: -4px 0 0;
+  padding: 0 0 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-3);
+  padding-inline: 58px 12px;
+}
+.neo[data-app='mail'] .ml-msg__body {
+  padding: 0 14px 14px;
+}
+.neo[data-app='mail'] .ml-msg__to {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-msg__text {
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-msg__text p {
+  margin: 0 0 10px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.neo[data-app='mail'] .ml-msg__text p:last-child {
+  margin-bottom: 0;
+}
+.neo[data-app='mail'] .ml-msg__atts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+/* Attachment chip */
+.neo[data-app='mail'] .ml-att {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 6px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--ml-line-2);
+  background: var(--plane);
+}
+.neo[data-app='mail'] .ml-att[data-sensitivity='confidential'],
+.neo[data-app='mail'] .ml-att[data-sensitivity='restricted'] {
+  border-color: rgb(var(--warning-rgb) / 0.45);
+}
+.neo[data-app='mail'] .ml-att[data-offloaded] {
+  opacity: 0.6;
+}
+.neo[data-app='mail'] .ml-att__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 9px;
+  background: rgb(var(--app-rgb) / 0.12);
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-att__icon svg {
+  width: 16px;
+  height: 16px;
+}
+.neo[data-app='mail'] .ml-att__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-att__name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-att__meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-att__flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: rgb(var(--success-rgb));
+}
+.neo[data-app='mail'] .ml-att__flag svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Smart replies */
+.neo[data-app='mail'] .ml-replies {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+.neo[data-app='mail'] .ml-replies__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.neo[data-app='mail'] .ml-reply-chip {
+  max-width: 100%;
+  padding: 7px 12px;
+  border-radius: 14px;
+  border: 1px solid rgb(var(--app-rgb) / 0.35);
+  background: rgb(var(--app-rgb) / 0.07);
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    background var(--dur),
+    transform var(--dur);
+}
+.neo[data-app='mail'] .ml-reply-chip:hover {
+  background: rgb(var(--app-rgb) / 0.16);
+  transform: translateY(-1px);
+}
+.neo[data-app='mail'] .ml-replybar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px dashed var(--ml-line-2);
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13px;
+  text-align: start;
+  cursor: text;
+}
+.neo[data-app='mail'] .ml-replybar svg {
+  width: 15px;
+  height: 15px;
+}
+.neo[data-app='mail'] .ml-replybar b {
+  color: var(--text-2);
+  margin-inline-end: auto;
+}
+.neo[data-app='mail'] .ml-replybar:hover {
+  border-color: rgb(var(--app-rgb) / 0.5);
+  color: var(--text-2);
+}
+
+/* ==========================================================================
+   Approvals deck
+   ========================================================================== */
+.neo[data-app='mail'] .ml-wide {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 14px 16px 18px;
+}
+.neo[data-app='mail'] .ml-aps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.neo[data-app='mail'] .ml-aps__err {
+  margin: -4px 0 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-aps__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--ml-line);
+  background: var(--plane-2);
+}
+.neo[data-app='mail'] .ml-aps__count {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-hold {
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.neo[data-app='mail'] .ml-hold .neo-ring {
+  flex: none;
+}
+.neo[data-app='mail'] .ml-aps__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 12px;
+}
+.neo[data-app='mail'] .ml-ap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--ml-line);
+  background: var(--plane-2);
+  min-width: 0;
+  transition:
+    border-color var(--dur),
+    box-shadow var(--dur);
+}
+.neo[data-app='mail'] .ml-ap[data-selected] {
+  border-color: rgb(var(--success-rgb) / 0.55);
+  box-shadow: 0 0 0 1px rgb(var(--success-rgb) / 0.25);
+}
+.neo[data-app='mail'] .ml-ap__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.neo[data-app='mail'] .ml-ap__app {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-ap__app svg {
+  width: 14px;
+  height: 14px;
+}
+.neo[data-app='mail'] .ml-ap__age {
+  margin-inline-start: auto;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-ap__who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-ap__whotext {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-ap__whotext b {
+  font-size: 13px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-ap__whotext span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-ap__amount {
+  flex: none;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgb(var(--app-rgb) / 0.12);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-ap__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-ap__detail {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-ap__flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.neo[data-app='mail'] .ml-ap__note {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.neo[data-app='mail'] .ml-ap__note .neo-input {
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-ap__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+.neo[data-app='mail'] .ml-ap__reject:hover {
+  color: rgb(var(--danger-rgb));
+}
+.neo[data-app='mail'] .ml-aps__done {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px dashed var(--ml-line-2);
+}
+.neo[data-app='mail'] .ml-aps__done ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.neo[data-app='mail'] .ml-aps__done li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.neo[data-app='mail'] .ml-aps__done-title {
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-aps__done-msg {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+/* ==========================================================================
+   Composer dock (overlay)
+   ========================================================================== */
+.neo[data-app='mail'] .ml-dock {
+  position: fixed;
+  z-index: 60;
+  inset-block-end: 14px;
+  inset-inline-end: 22px;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: calc(100vw - 32px);
+  pointer-events: none;
+}
+.neo[data-app='mail'] .ml-dock > * {
+  pointer-events: auto;
+}
+.neo[data-app='mail'] .ml-dock__chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 220px;
+  padding: 4px 4px 4px 10px;
+  border-radius: 14px;
+  background: var(--plane-solid);
+  box-shadow: var(--shadow-lg);
+}
+.neo[data-app='mail'] .ml-dock__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-dock__open svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-comp {
+  display: flex;
+  flex-direction: column;
+  width: min(540px, calc(100vw - 32px));
+  max-height: calc(100dvh - var(--topbar-h) - 48px);
+  border-radius: 18px;
+  background: var(--plane-solid);
+  box-shadow:
+    0 40px 90px -30px rgb(0 0 0 / 0.65),
+    var(--plane-inset);
+  overflow: hidden;
+  animation: ml-rise 220ms var(--ease-out);
+}
+.neo[data-app='mail'] .ml-dock[data-expanded] {
+  inset: calc(var(--topbar-h) + 4vh) 0 4vh;
+  margin-inline: auto;
+  width: min(900px, calc(100vw - 40px));
+  justify-content: center;
+}
+.neo[data-app='mail'] .ml-dock[data-expanded] .ml-dock__chip {
+  display: none;
+}
+.neo[data-app='mail'] .ml-comp[data-expanded] {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+}
+.neo[data-app='mail'] .ml-comp__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 10px 14px;
+  border-bottom: 1px solid var(--ml-line);
+  background: linear-gradient(90deg, rgb(var(--app-rgb) / 0.14), rgb(var(--app-rgb-2) / 0.08));
+}
+.neo[data-app='mail'] .ml-comp__glyph {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--app-grad);
+  color: var(--app-on);
+}
+.neo[data-app='mail'] .ml-comp__glyph svg {
+  width: 14px;
+  height: 14px;
+}
+.neo[data-app='mail'] .ml-comp__title {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-comp__subj {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-comp__fields {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 14px 0;
+}
+.neo[data-app='mail'] .ml-comp__cc {
+  align-self: flex-end;
+  margin-top: -30px;
+  margin-bottom: 8px;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--text-3);
+  font-size: 11.5px;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+.neo[data-app='mail'] .ml-comp__cc:hover {
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-comp__hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 2px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgb(var(--app-rgb-2) / 0.1);
+  font-size: 12px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-comp__hint svg {
+  width: 14px;
+  height: 14px;
+  color: #a78bfa;
+}
+.neo[data-app='mail'] .ml-comp__subject {
+  width: 100%;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--ml-line);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+}
+.neo[data-app='mail'] .ml-comp__subject:focus {
+  border-bottom-color: rgb(var(--app-rgb) / 0.6);
+}
+.neo[data-app='mail'] .ml-comp__bodywrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.neo[data-app='mail'] .ml-comp__body {
+  flex: 1;
+  width: 100%;
+  min-height: 170px;
+  padding: 12px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+}
+.neo[data-app='mail'] .ml-comp[data-expanded] .ml-comp__body {
+  min-height: 320px;
+}
+.neo[data-app='mail'] .ml-snips {
+  position: absolute;
+  inset-inline-start: 14px;
+  inset-block-end: 8px;
+  z-index: 2;
+  min-width: 250px;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border-radius: 12px;
+  border: 1px solid var(--ml-line-2);
+  background: var(--plane-solid);
+  box-shadow: var(--shadow-lg);
+}
+.neo[data-app='mail'] .ml-snips li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-snips li[aria-selected='true'],
+.neo[data-app='mail'] .ml-snips li:hover {
+  background: rgb(var(--app-rgb) / 0.14);
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-snips .neo-mono {
+  font-size: 11px;
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-comp__atts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 14px 8px;
+}
+.neo[data-app='mail'] .ml-novabar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 14px 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgb(var(--app-rgb-2) / 0.35);
+  background: linear-gradient(135deg, rgb(var(--app-rgb-2) / 0.12), rgb(var(--app-rgb) / 0.06));
+}
+.neo[data-app='mail'] .ml-novabar__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.neo[data-app='mail'] .ml-novabar__row > svg {
+  width: 16px;
+  height: 16px;
+  color: #a78bfa;
+}
+.neo[data-app='mail'] .ml-novabar__input {
+  flex: 1;
+  min-width: 180px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--ml-line-2);
+  background: var(--plane);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.neo[data-app='mail'] .ml-novabar__input:focus {
+  border-color: rgb(var(--app-rgb) / 0.6);
+}
+.neo[data-app='mail'] .ml-novabar__note {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-tone {
+  flex: 1;
+  display: grid;
+  grid-template-columns: auto minmax(120px, 1fr);
+  align-items: center;
+  column-gap: 10px;
+  min-width: 220px;
+}
+.neo[data-app='mail'] .ml-tone input[type='range'] {
+  width: 100%;
+  accent-color: var(--app-c1);
+}
+.neo[data-app='mail'] .ml-tone__stops {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-tone__stops [data-on] {
+  color: var(--text);
+  font-weight: 650;
+}
+.neo[data-app='mail'] .ml-dlp,
+.neo[data-app='mail'] .ml-quiet {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 14px 8px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-dlp > svg,
+.neo[data-app='mail'] .ml-quiet > svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.neo[data-app='mail'] .ml-dlp[data-level='block'] {
+  border: 1px solid rgb(var(--danger-rgb) / 0.55);
+  background: rgb(var(--danger-rgb) / 0.12);
+}
+.neo[data-app='mail'] .ml-dlp[data-level='block'] > svg {
+  color: rgb(var(--danger-rgb));
+}
+.neo[data-app='mail'] .ml-dlp[data-level='warn'] {
+  border: 1px solid rgb(var(--warning-rgb) / 0.45);
+  background: rgb(var(--warning-rgb) / 0.1);
+}
+.neo[data-app='mail'] .ml-dlp[data-level='warn'] > svg {
+  color: rgb(var(--warning-rgb));
+}
+.neo[data-app='mail'] .ml-dlp__text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-quiet {
+  border: 1px solid rgb(var(--app-rgb-2) / 0.4);
+  background: rgb(var(--app-rgb-2) / 0.1);
+}
+.neo[data-app='mail'] .ml-quiet > svg {
+  color: #a78bfa;
+}
+.neo[data-app='mail'] .ml-comp__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--ml-line);
+}
+.neo[data-app='mail'] .ml-send {
+  display: inline-flex;
+}
+.neo[data-app='mail'] .ml-send > .neo-btn:first-child {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+.neo[data-app='mail'] .ml-send > .neo-btn:last-child {
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+  border-inline-start: 1px solid rgb(255 255 255 / 0.25);
+  padding-inline: 8px;
+}
+.neo[data-app='mail'] .ml-sens {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 10px;
+  border: 1px solid var(--ml-line-2);
+}
+.neo[data-app='mail'] .ml-sens button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding-inline: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-3);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-sens button svg {
+  width: 13px;
+  height: 13px;
+}
+.neo[data-app='mail'] .ml-sens button[aria-checked='true'] {
+  background: rgb(var(--app-rgb) / 0.16);
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-saved svg {
+  width: 13px;
+  height: 13px;
+  color: rgb(var(--success-rgb));
+}
+
+/* Recipients */
+.neo[data-app='mail'] .ml-rcpt {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 40px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ml-line);
+  cursor: text;
+}
+.neo[data-app='mail'] .ml-rcpt__label {
+  flex: none;
+  width: 24px;
+  padding-top: 5px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-rcpt__chips {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding-inline-end: 54px;
+}
+.neo[data-app='mail'] .ml-rcpt__input {
+  flex: 1;
+  min-width: 140px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.neo[data-app='mail'] .ml-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  height: 28px;
+  padding-inline: 3px 2px;
+  border-radius: 999px;
+  border: 1px solid var(--ml-line-2);
+  background: var(--plane-2);
+  font-size: 12px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-chip[data-external] {
+  border-color: rgb(var(--warning-rgb) / 0.5);
+}
+.neo[data-app='mail'] .ml-chip__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+  font-weight: 600;
+}
+.neo[data-app='mail'] .ml-chip__tz {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding-inline: 5px;
+  border-radius: 999px;
+  background: var(--track);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-chip[data-after] .ml-chip__tz {
+  background: rgb(167 139 250 / 0.18);
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-chip__tz svg {
+  width: 11px;
+  height: 11px;
+  color: #a78bfa;
+}
+.neo[data-app='mail'] .ml-chip__ext {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: rgb(var(--warning-rgb));
+}
+.neo[data-app='mail'] .ml-chip__x {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-chip__x:hover {
+  background: var(--ml-hover);
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-chip__x svg {
+  width: 12px;
+  height: 12px;
+}
+.neo[data-app='mail'] .ml-rcpt__list {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline: 24px 0;
+  z-index: 5;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  border-radius: 12px;
+  border: 1px solid var(--ml-line-2);
+  background: var(--plane-solid);
+  box-shadow: var(--shadow-lg);
+  max-height: 260px;
+  overflow: auto;
+}
+.neo[data-app='mail'] .ml-rcpt__list li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-rcpt__list li[aria-selected='true'],
+.neo[data-app='mail'] .ml-rcpt__list li:hover {
+  background: rgb(var(--app-rgb) / 0.14);
+}
+.neo[data-app='mail'] .ml-rcpt__who {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 12.5px;
+}
+.neo[data-app='mail'] .ml-rcpt__who b {
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-rcpt__who span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-rcpt__tz {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* Composer popovers (portaled) */
+body[data-neo-app='mail'] .ml-sched__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+body[data-neo-app='mail'] .ml-sched__text small {
+  font-size: 11px;
+  color: var(--text-3);
+}
+body[data-neo-app='mail'] .ml-sched__custom {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px 8px;
+}
+body[data-neo-app='mail'] .ml-sched__custom .neo-input {
+  flex: 1;
+  min-width: 0;
+}
+body[data-neo-app='mail'] .ml-drive .neo-menu__item .neo-chip {
+  flex: none;
+}
+
+/* Undo bar */
+.neo[data-app='mail'] .ml-undo {
+  position: fixed;
+  z-index: 70;
+  inset-block-end: 22px;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 8px 10px;
+  border-radius: 999px;
+  background: var(--plane-solid);
+  box-shadow: 0 24px 60px -20px rgb(0 0 0 / 0.6);
+  animation: ml-rise 200ms var(--ease-out);
+}
+.neo[data-app='mail'] .ml-undo__text {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-undo__text b {
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-undo__subj {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-undo__to {
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* Shortcut overlay */
+.neo[data-app='mail'] .ml-shortcuts {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(3 6 18 / 0.55);
+  backdrop-filter: blur(6px);
+  animation: neo-fade 160ms var(--ease-out);
+}
+[data-theme='light'] .neo[data-app='mail'] .ml-shortcuts {
+  background: rgb(15 23 42 / 0.25);
+}
+.neo[data-app='mail'] .ml-shortcuts__panel {
+  width: min(520px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 16px 18px;
+  background: var(--plane-solid);
+  outline: none;
+}
+.neo[data-app='mail'] .ml-shortcuts__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.neo[data-app='mail'] .ml-shortcuts__icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--app-grad);
+  color: var(--app-on);
+}
+.neo[data-app='mail'] .ml-shortcuts__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-shortcuts__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 16px;
+}
+.neo[data-app='mail'] .ml-shortcuts__list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--ml-line);
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-shortcuts__keys {
+  display: inline-flex;
+  gap: 3px;
+  min-width: 64px;
+}
+.neo[data-app='mail'] .ml-shortcuts__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ==========================================================================
+   Screener
+   ========================================================================== */
+.neo[data-app='mail'] .ml-screener {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 18px;
+  align-items: start;
+}
+.neo[data-app='mail'] .ml-screener__main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-screener__side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-screener__tip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-stack {
+  position: relative;
+  padding-bottom: 18px;
+}
+.neo[data-app='mail'] .ml-stack__ghost {
+  position: absolute;
+  inset: 0 calc(var(--d) * 14px) 0;
+  transform: translateY(calc(var(--d) * 9px));
+  opacity: calc(0.75 - var(--d) * 0.25);
+  border-radius: 18px;
+}
+.neo[data-app='mail'] .ml-scard {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: var(--plane-solid);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+  transition:
+    transform 260ms var(--ease-out),
+    opacity 220ms ease;
+}
+.neo[data-app='mail'] .ml-scard:active {
+  cursor: grabbing;
+}
+.neo[data-app='mail'] .ml-scard[data-verdict='danger'] {
+  box-shadow:
+    0 0 0 1px rgb(var(--danger-rgb) / 0.35),
+    var(--plane-shadow);
+}
+.neo[data-app='mail'] .ml-scard__hint {
+  position: absolute;
+  inset-block-start: 16px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 2px solid currentColor;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 650;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.neo[data-app='mail'] .ml-scard__hint svg {
+  width: 16px;
+  height: 16px;
+}
+.neo[data-app='mail'] .ml-scard__hint[data-kind='allow'] {
+  inset-inline-end: 18px;
+  color: rgb(var(--success-rgb));
+  transform: rotate(8deg);
+}
+.neo[data-app='mail'] .ml-scard__hint[data-kind='block'] {
+  inset-inline-start: 18px;
+  color: rgb(var(--danger-rgb));
+  transform: rotate(-8deg);
+}
+.neo[data-app='mail'] .ml-scard__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.neo[data-app='mail'] .ml-scard__who {
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-scard__name {
+  margin: 1px 0 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 650;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-scard__email {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.neo[data-app='mail'] .ml-scard__grid {
+  display: grid;
+  grid-template-columns: minmax(200px, 250px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+.neo[data-app='mail'] .ml-radar {
+  position: relative;
+  display: grid;
+  justify-items: center;
+}
+.neo[data-app='mail'] .ml-radar__svg {
+  width: 100%;
+  max-width: 230px;
+  height: auto;
+  overflow: visible;
+}
+.neo[data-app='mail'] .ml-radar__grid {
+  fill: none;
+  stroke: var(--ml-line-2);
+  stroke-width: 1;
+}
+.neo[data-app='mail'] .ml-radar__axis {
+  stroke: var(--ml-line);
+  stroke-width: 1;
+}
+.neo[data-app='mail'] .ml-radar__shape {
+  fill: rgb(var(--app-rgb) / 0.22);
+  stroke: var(--app-c1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  transition: all 400ms var(--ease-out);
+}
+.neo[data-app='mail'] .ml-radar[data-verdict='danger'] .ml-radar__shape {
+  fill: rgb(var(--danger-rgb) / 0.2);
+  stroke: rgb(var(--danger-rgb));
+}
+.neo[data-app='mail'] .ml-radar[data-verdict='caution'] .ml-radar__shape {
+  fill: rgb(var(--warning-rgb) / 0.2);
+  stroke: rgb(var(--warning-rgb));
+}
+.neo[data-app='mail'] .ml-radar[data-verdict='trusted'] .ml-radar__shape {
+  fill: rgb(var(--success-rgb) / 0.18);
+  stroke: rgb(var(--success-rgb));
+}
+.neo[data-app='mail'] .ml-radar__dot[data-state='ok'] {
+  fill: rgb(var(--success-rgb));
+}
+.neo[data-app='mail'] .ml-radar__dot[data-state='warn'] {
+  fill: rgb(var(--warning-rgb));
+}
+.neo[data-app='mail'] .ml-radar__dot[data-state='fail'] {
+  fill: rgb(var(--danger-rgb));
+}
+.neo[data-app='mail'] .ml-radar__label {
+  fill: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.neo[data-app='mail'] .ml-radar__score {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: -6px;
+}
+.neo[data-app='mail'] .ml-checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.neo[data-app='mail'] .ml-checks li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--plane-2);
+  font-size: 12.5px;
+}
+.neo[data-app='mail'] .ml-checks li > svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+.neo[data-app='mail'] .ml-checks li[data-state='ok'] > svg {
+  color: rgb(var(--success-rgb));
+}
+.neo[data-app='mail'] .ml-checks li[data-state='warn'] > svg {
+  color: rgb(var(--warning-rgb));
+}
+.neo[data-app='mail'] .ml-checks li[data-state='fail'] > svg {
+  color: rgb(var(--danger-rgb));
+}
+.neo[data-app='mail'] .ml-checks li[data-state='fail'] {
+  background: rgb(var(--danger-rgb) / 0.08);
+}
+.neo[data-app='mail'] .ml-checks__label {
+  flex: 1;
+  color: var(--text);
+  font-weight: 600;
+}
+.neo[data-app='mail'] .ml-checks__val {
+  font-size: 12px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-scard__mail {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--ml-line);
+  background: var(--plane);
+}
+.neo[data-app='mail'] .ml-scard__mail > svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-scard__mailtext {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-scard__mailtext b {
+  font-size: 13px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-scard__when {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-scard__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.neo[data-app='mail'] .ml-scard__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.neo[data-app='mail'] .ml-dest {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 12px;
+  border: 1px solid var(--ml-line-2);
+}
+.neo[data-app='mail'] .ml-dest button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding-inline: 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-dest button svg {
+  width: 14px;
+  height: 14px;
+}
+.neo[data-app='mail'] .ml-dest button[aria-checked='true'] {
+  background: rgb(var(--success-rgb) / 0.16);
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-mini,
+.neo[data-app='mail'] .ml-decided {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.neo[data-app='mail'] .ml-mini li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border-radius: 12px;
+}
+.neo[data-app='mail'] .ml-mini li[data-top] {
+  background: rgb(var(--app-rgb) / 0.1);
+}
+.neo[data-app='mail'] .ml-mini__text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 12.5px;
+}
+.neo[data-app='mail'] .ml-mini__text b {
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-mini__text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-decided li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ml-line);
+}
+.neo[data-app='mail'] .ml-decided li:last-child {
+  border-bottom: 0;
+}
+.neo[data-app='mail'] .ml-decided__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+/* ==========================================================================
+   Later & Sent
+   ========================================================================== */
+.neo[data-app='mail'] .ml-later__grid,
+.neo[data-app='mail'] .ml-sent__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.neo[data-app='mail'] .ml-sent__grid {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+}
+.neo[data-app='mail'] .ml-tl {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.neo[data-app='mail'] .ml-tl::before {
+  content: '';
+  position: absolute;
+  inset-block: 8px;
+  inset-inline-start: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(var(--app-c1), var(--app-c2));
+  opacity: 0.45;
+}
+.neo[data-app='mail'] .ml-tl__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 14px minmax(96px, 120px) minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: start;
+}
+.neo[data-app='mail'] .ml-tl__dot {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 3px solid var(--plane-solid);
+  background: var(--app-grad);
+  box-shadow: 0 0 0 1px rgb(var(--app-rgb) / 0.5);
+}
+.neo[data-app='mail'] .ml-tl__when {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-tl__in {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-tl__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-tl__subj {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-tl__from {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-tl__acts {
+  grid-column: 3;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.neo[data-app='mail'] .ml-sch,
+.neo[data-app='mail'] .ml-fu,
+.neo[data-app='mail'] .ml-rem,
+.neo[data-app='mail'] .ml-drafts,
+.neo[data-app='mail'] .ml-hist,
+.neo[data-app='mail'] .ml-top,
+.neo[data-app='mail'] .ml-clutter,
+.neo[data-app='mail'] .ml-store {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.neo[data-app='mail'] .ml-sch__item {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 6px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--ml-line);
+  background: var(--plane-2);
+}
+.neo[data-app='mail'] .ml-sch__item .neo-ring__label svg {
+  width: 16px;
+  height: 16px;
+}
+.neo[data-app='mail'] .ml-sch__body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-sch__subj {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-sch__to {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-sch__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.neo[data-app='mail'] .ml-sch__at {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-sch__count {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.neo[data-app='mail'] .ml-sch__count b {
+  font-size: 15px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-sch__acts {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.neo[data-app='mail'] .ml-fu__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--ml-line);
+  background: var(--plane-2);
+}
+.neo[data-app='mail'] .ml-fu__item[data-due] {
+  border-color: rgb(var(--warning-rgb) / 0.45);
+  background: linear-gradient(135deg, rgb(var(--warning-rgb) / 0.09), transparent 60%), var(--plane-2);
+}
+.neo[data-app='mail'] .ml-fu__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-fu__line {
+  font-size: 13px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-fu__subj {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-fu__next {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-fu__acts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.neo[data-app='mail'] .ml-rem__add {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.neo[data-app='mail'] .ml-rem__add .neo-input {
+  flex: 1;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-rem__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.neo[data-app='mail'] .ml-rem li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 12px;
+  font-size: 12.5px;
+}
+.neo[data-app='mail'] .ml-rem li[data-due] {
+  background: rgb(var(--warning-rgb) / 0.1);
+}
+.neo[data-app='mail'] .ml-rem li[data-done] .ml-rem__text {
+  color: var(--text-3);
+  text-decoration: line-through;
+}
+.neo[data-app='mail'] .ml-rem__check {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  padding: 0;
+  border-radius: 6px;
+  border: 1.5px solid var(--ml-line-2);
+  background: none;
+  color: var(--app-on);
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-rem__check[aria-checked='true'] {
+  border-color: transparent;
+  background: var(--app-grad);
+}
+.neo[data-app='mail'] .ml-rem__check svg {
+  width: 12px;
+  height: 12px;
+}
+.neo[data-app='mail'] .ml-rem__text {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-rem__due {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-drafts li,
+.neo[data-app='mail'] .ml-hist li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--ml-line);
+}
+.neo[data-app='mail'] .ml-drafts li > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-drafts__text,
+.neo[data-app='mail'] .ml-hist__text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-drafts__text b,
+.neo[data-app='mail'] .ml-hist__text b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-drafts__at {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-hist__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 10px;
+  background: rgb(var(--app-rgb-2) / 0.14);
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-hist__icon svg {
+  width: 15px;
+  height: 15px;
+}
+.neo[data-app='mail'] .ml-sentlist {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.neo[data-app='mail'] .ml-sentrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ml-line);
+}
+.neo[data-app='mail'] .ml-sentrow:last-child {
+  border-bottom: 0;
+}
+.neo[data-app='mail'] .ml-sentrow__main {
+  flex: 1 1 280px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-sentrow__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-sentrow__to {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-sentrow__subj {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-sentrow__main:hover .ml-sentrow__subj {
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-sentrow__time {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-sentrow__state {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* ==========================================================================
+   Shared inboxes
+   ========================================================================== */
+.neo[data-app='mail'] .ml-shared__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.neo[data-app='mail'] .ml-shared__top .neo-tabs {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.neo[data-app='mail'] .ml-shared__desc {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-shared__grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.neo[data-app='mail'] .ml-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-queue__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.neo[data-app='mail'] .ml-queue__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.neo[data-app='mail'] .ml-q {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--ml-line);
+  background: var(--plane-2);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    border-color var(--dur),
+    background var(--dur);
+}
+.neo[data-app='mail'] .ml-q:hover {
+  border-color: var(--ml-line-2);
+}
+.neo[data-app='mail'] .ml-q[aria-current] {
+  border-color: rgb(var(--app-rgb) / 0.55);
+  background: rgb(var(--app-rgb) / 0.1);
+}
+.neo[data-app='mail'] .ml-q .neo-ring__label svg {
+  width: 15px;
+  height: 15px;
+}
+.neo[data-app='mail'] .ml-q__mins {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.neo[data-app='mail'] .ml-q__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-q__top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-q__top b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.neo[data-app='mail'] .ml-q__time {
+  font-size: 11px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-q__subj {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-q__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.neo[data-app='mail'] .ml-q__eye {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-q__eye svg {
+  width: 12px;
+  height: 12px;
+}
+.neo[data-app='mail'] .ml-conv {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--ml-line);
+  background: var(--plane);
+}
+.neo[data-app='mail'] .ml-conv--empty {
+  min-height: 260px;
+  display: grid;
+  place-items: center;
+}
+.neo[data-app='mail'] .ml-conv__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+.neo[data-app='mail'] .ml-conv__titles {
+  flex: 1 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-conv__subject {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-conv__from {
+  font-size: 12px;
+  color: var(--text-3);
+  overflow-wrap: anywhere;
+}
+.neo[data-app='mail'] .ml-conv__from b {
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-conv__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.neo[data-app='mail'] .ml-conv__sla {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.neo[data-app='mail'] .ml-conv__sla .neo-ring__label svg {
+  width: 18px;
+  height: 18px;
+}
+.neo[data-app='mail'] .ml-conv__slatext {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-conv__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.neo[data-app='mail'] .ml-presence-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.neo[data-app='mail'] .ml-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding-inline: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgb(var(--app-rgb) / 0.35);
+  background: rgb(var(--app-rgb) / 0.08);
+  font-size: 12px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-presence b {
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-presence[data-mode='typing'] {
+  border-color: rgb(var(--warning-rgb) / 0.55);
+  background: rgb(var(--warning-rgb) / 0.12);
+}
+.neo[data-app='mail'] .ml-presence[data-mode='alone'] {
+  padding-inline: 10px;
+  border-style: dashed;
+  border-color: var(--ml-line-2);
+  background: transparent;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-presence[data-mode='alone'] svg {
+  width: 13px;
+  height: 13px;
+}
+.neo[data-app='mail'] .ml-conv__thread {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.neo[data-app='mail'] .ml-bubble {
+  display: flex;
+  gap: 10px;
+  max-width: 88%;
+}
+.neo[data-app='mail'] .ml-bubble[data-side='us'] {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+.neo[data-app='mail'] .ml-bubble__body {
+  padding: 9px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--ml-line);
+  background: var(--plane-2);
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-bubble[data-side='us'] .ml-bubble__body {
+  border-color: rgb(var(--app-rgb) / 0.3);
+  background: rgb(var(--app-rgb) / 0.1);
+}
+.neo[data-app='mail'] .ml-bubble__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-bubble__meta b {
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-bubble__body p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-line;
+}
+.neo[data-app='mail'] .ml-sticky {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px dashed var(--ml-sticky-line);
+  background: var(--ml-sticky);
+  transform: rotate(-0.4deg);
+}
+.neo[data-app='mail'] .ml-sticky > svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--ml-sticky-ink);
+}
+.neo[data-app='mail'] .ml-sticky__meta {
+  font-size: 11.5px;
+  color: var(--ml-sticky-ink);
+}
+.neo[data-app='mail'] .ml-sticky p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-conv__reply {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--ml-line-2);
+  background: var(--plane-2);
+}
+.neo[data-app='mail'] .ml-conv__reply[data-mode='note'] {
+  border-color: var(--ml-sticky-line);
+  background: var(--ml-sticky);
+}
+.neo[data-app='mail'] .ml-conv__modes {
+  display: inline-flex;
+  gap: 4px;
+}
+.neo[data-app='mail'] .ml-conv__modes button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding-inline: 10px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.neo[data-app='mail'] .ml-conv__modes button svg {
+  width: 14px;
+  height: 14px;
+}
+.neo[data-app='mail'] .ml-conv__modes button[aria-selected='true'] {
+  background: var(--plane-solid);
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-conv__input {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+}
+.neo[data-app='mail'] .ml-collide {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgb(var(--warning-rgb) / 0.55);
+  background: rgb(var(--warning-rgb) / 0.12);
+  font-size: 12.5px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-conv__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ==========================================================================
+   Insights
+   ========================================================================== */
+.neo[data-app='mail'] .ml-insights__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.neo[data-app='mail'] .ml-span-2 {
+  grid-column: span 2;
+}
+.neo[data-app='mail'] .ml-trend svg {
+  display: block;
+  width: 100%;
+  height: 150px;
+}
+.neo[data-app='mail'] .ml-trend__grid {
+  stroke: var(--ml-line);
+  stroke-dasharray: 3 4;
+}
+.neo[data-app='mail'] .ml-trend__line {
+  fill: none;
+  stroke: var(--app-c1);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.neo[data-app='mail'] .ml-trend__dot {
+  fill: var(--plane-solid);
+  stroke: var(--app-c1);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.neo[data-app='mail'] .ml-trend__dot[data-last] {
+  fill: var(--app-c1);
+}
+.neo[data-app='mail'] .ml-trend__labels {
+  display: flex;
+  justify-content: space-between;
+  padding-inline: 12px;
+  margin-top: 4px;
+}
+.neo[data-app='mail'] .ml-trend__labels span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-trend__labels b {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-trend__labels small {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+}
+/* RTL: time flows right-to-left — mirror the plot so its points line up with the (mirrored) week labels. */
+[dir='rtl'] .neo[data-app='mail'] .ml-trend svg {
+  transform: scaleX(-1);
+}
+[dir='rtl'] .neo[data-app='mail'] .ml-trend__labels small {
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+.neo[data-app='mail'] .ml-after {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+.neo[data-app='mail'] .ml-after__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.neo[data-app='mail'] .ml-after__text p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-heat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.neo[data-app='mail'] .ml-heat__hours,
+.neo[data-app='mail'] .ml-heat__row {
+  display: grid;
+  grid-template-columns: 34px repeat(24, minmax(12px, 1fr));
+  gap: 3px;
+  min-width: 420px;
+}
+.neo[data-app='mail'] .ml-heat__hours span {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-heat__day {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-3);
+  align-self: center;
+}
+/* Arabic weekday names are full words — give the label column room and a proportional face. */
+[dir='rtl'] .neo[data-app='mail'] .ml-heat__hours,
+[dir='rtl'] .neo[data-app='mail'] .ml-heat__row {
+  grid-template-columns: 56px repeat(24, minmax(12px, 1fr));
+}
+[dir='rtl'] .neo[data-app='mail'] .ml-heat__day {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+.neo[data-app='mail'] .ml-heat__cell {
+  height: 16px;
+  border-radius: 4px;
+  background: rgb(var(--app-rgb) / calc(0.06 + var(--v) * 0.85));
+}
+.neo[data-app='mail'] .ml-heat__cell[data-quiet] {
+  background: rgb(167 139 250 / calc(0.05 + var(--v) * 0.85));
+  outline: 1px dashed rgb(167 139 250 / 0.28);
+  outline-offset: -1px;
+}
+.neo[data-app='mail'] .ml-heat__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-heat__legend b {
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-heat__swatch {
+  width: 14px;
+  height: 10px;
+  border-radius: 3px;
+  background: rgb(var(--app-rgb) / 0.7);
+}
+.neo[data-app='mail'] .ml-heat__swatch[data-kind='quiet'] {
+  background: rgb(167 139 250 / 0.55);
+}
+.neo[data-app='mail'] .ml-top li {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) minmax(60px, 90px) 28px;
+  gap: 10px;
+  align-items: center;
+}
+.neo[data-app='mail'] .ml-top__name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 12.5px;
+}
+.neo[data-app='mail'] .ml-top__name b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-top__name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-top__n {
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-clutter li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1.2fr) minmax(120px, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 12px;
+}
+.neo[data-app='mail'] .ml-clutter li[data-on] {
+  background: rgb(var(--danger-rgb) / 0.08);
+}
+.neo[data-app='mail'] .ml-clutter__name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 12.5px;
+}
+.neo[data-app='mail'] .ml-clutter__name b {
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-clutter__name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-clutter__rate {
+  display: grid;
+  grid-template-columns: auto minmax(40px, 1fr) 36px;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-clutter__vol {
+  font-size: 12px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.neo[data-app='mail'] .ml-clutter__vol b {
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-clutter__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.neo[data-app='mail'] .ml-digest {
+  margin-top: 6px;
+}
+.neo[data-app='mail'] .ml-digest__next {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-digest__next .neo-ring__label svg {
+  width: 16px;
+  height: 16px;
+}
+.neo[data-app='mail'] .ml-store__sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.neo[data-app='mail'] .ml-store__sum > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.neo[data-app='mail'] .ml-store__sum svg {
+  width: 14px;
+  height: 14px;
+  color: rgb(var(--success-rgb));
+}
+.neo[data-app='mail'] .ml-store__sum b {
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-store li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) minmax(60px, 140px) 64px auto;
+  gap: 10px;
+  align-items: center;
+}
+.neo[data-app='mail'] .ml-store__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: rgb(var(--app-rgb) / 0.12);
+  color: var(--app-ink);
+}
+.neo[data-app='mail'] .ml-store__icon svg {
+  width: 15px;
+  height: 15px;
+}
+.neo[data-app='mail'] .ml-store__name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.neo[data-app='mail'] .ml-store__name b,
+.neo[data-app='mail'] .ml-store__name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.neo[data-app='mail'] .ml-store__name b {
+  font-size: 12.5px;
+  color: var(--text);
+}
+.neo[data-app='mail'] .ml-store__size {
+  font-size: 12px;
+  color: var(--text-2);
+  text-align: end;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+@media (max-width: 1320px) {
+  .neo[data-app='mail'] .ml-cockpit {
+    grid-template-columns: 168px minmax(280px, 340px) minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-cockpit[data-wide] {
+    grid-template-columns: 168px minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-insights__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1180px) {
+  .neo[data-app='mail'] .ml-cockpit,
+  .neo[data-app='mail'] .ml-cockpit[data-wide] {
+    grid-template-columns: minmax(270px, 330px) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-streams {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 8px;
+    border-inline-end: 0;
+    border-bottom: 1px solid var(--ml-line);
+    overflow-x: auto;
+  }
+  .neo[data-app='mail'] .ml-streams__list {
+    flex-direction: row;
+  }
+  .neo[data-app='mail'] .ml-stream {
+    height: 32px;
+  }
+  .neo[data-app='mail'] .ml-stream[aria-selected='true']::before {
+    inset-block: auto 0;
+    inset-inline: 10px;
+    width: auto;
+    height: 2px;
+  }
+  .neo[data-app='mail'] .ml-streams__foot {
+    flex-direction: row;
+    margin: 0;
+    margin-inline-start: auto;
+    padding: 0 6px;
+    border-top: 0;
+    flex: none;
+  }
+  .neo[data-app='mail'] .ml-wide {
+    grid-column: 1 / -1;
+  }
+  .neo[data-app='mail'] .ml-screener {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-screener__side {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .neo[data-app='mail'] .ml-later__grid,
+  .neo[data-app='mail'] .ml-sent__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 1024px) {
+  .neo[data-app='mail'] .ml-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 250px);
+  }
+  .neo[data-app='mail'] .ml-orbit__stage {
+    width: 88px;
+    height: 88px;
+  }
+  .neo[data-app='mail'] .ml-orbit__spin i {
+    transform: rotate(calc(var(--i) / var(--n) * 360deg)) translateX(38px);
+  }
+  .neo[data-app='mail'] .ml-orbit__spin i:nth-child(3n) {
+    transform: rotate(calc(var(--i) / var(--n) * 360deg)) translateX(27px);
+  }
+  .neo[data-app='mail'] .ml-orbit__ring--inner {
+    inset: 20px;
+  }
+  .neo[data-app='mail'] .ml-shared__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-insights__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-span-2 {
+    grid-column: auto;
+  }
+  .neo[data-app='mail'] .ml-scard__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 860px) {
+  .neo[data-app='mail'] .ml-cockpit,
+  .neo[data-app='mail'] .ml-cockpit[data-wide] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-list {
+    border-inline-end: 0;
+  }
+  .neo[data-app='mail'] .ml-cockpit:not([data-reading]) .ml-read {
+    display: none;
+  }
+  .neo[data-app='mail'] .ml-cockpit[data-reading] .ml-list,
+  .neo[data-app='mail'] .ml-cockpit[data-reading] .ml-streams {
+    display: none;
+  }
+  .neo[data-app='mail'] .ml-cockpit[data-reading] {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-read__back {
+    display: inline-flex;
+    flex-basis: 100%;
+    width: fit-content;
+    margin-block-start: -2px;
+    margin-inline-start: -6px;
+  }
+  .neo[data-app='mail'] .ml-streams__foot {
+    display: none;
+  }
+}
+@media (max-width: 720px) {
+  .neo[data-app='mail'] .ml-home {
+    padding: 10px 0 0;
+  }
+  .neo[data-app='mail'] .ml-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-orbit {
+    padding: 8px 12px;
+  }
+  .neo[data-app='mail'] .ml-orbit__stage {
+    width: 72px;
+    height: 72px;
+  }
+  .neo[data-app='mail'] .ml-orbit__spin i,
+  .neo[data-app='mail'] .ml-orbit__spin i:nth-child(3n) {
+    width: 5px;
+    height: 5px;
+    transform: rotate(calc(var(--i) / var(--n) * 360deg)) translateX(31px);
+  }
+  .neo[data-app='mail'] .ml-orbit__ring--inner,
+  .neo[data-app='mail'] .ml-orbit__core span {
+    display: none;
+  }
+  .neo[data-app='mail'] .ml-orbit__core b {
+    font-size: 19px;
+  }
+  .neo[data-app='mail'] .ml-orbit__meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+  }
+  .neo[data-app='mail'] .ml-cockpit {
+    min-height: 0;
+    overflow: visible;
+  }
+  .neo[data-app='mail'] .ml-rows,
+  .neo[data-app='mail'] .ml-read__scroll,
+  .neo[data-app='mail'] .ml-wide {
+    overflow: visible;
+  }
+  .neo[data-app='mail'] .ml-read__tools {
+    width: 100%;
+  }
+  .neo[data-app='mail'] .ml-dock {
+    inset: calc(var(--topbar-h) + var(--safe-top) + 4px) 6px calc(var(--mobile-nav-h) + var(--safe-bottom) + 6px);
+    align-items: stretch;
+    max-width: none;
+  }
+  .neo[data-app='mail'] .ml-dock:not(:has(.ml-comp)) {
+    inset: auto 10px calc(var(--mobile-nav-h) + var(--safe-bottom) + 10px) auto;
+  }
+  .neo[data-app='mail'] .ml-dock__chip {
+    align-self: flex-end;
+  }
+  .neo[data-app='mail'] .ml-dock:has(.ml-comp) .ml-dock__chip {
+    display: none;
+  }
+  .neo[data-app='mail'] .ml-comp,
+  .neo[data-app='mail'] .ml-comp[data-expanded] {
+    width: 100%;
+    height: 100%;
+    max-height: none;
+  }
+  .neo[data-app='mail'] .ml-comp__expand {
+    display: none;
+  }
+  .neo[data-app='mail'] .ml-sens span {
+    display: none;
+  }
+  .neo[data-app='mail'] .ml-undo {
+    inset-block-end: calc(var(--mobile-nav-h) + var(--safe-bottom) + 12px);
+  }
+  .neo[data-app='mail'] .ml-undo__to {
+    display: none;
+  }
+  .neo[data-app='mail'] .ml-shortcuts__list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-screener__side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-scard {
+    padding: 14px;
+  }
+  .neo[data-app='mail'] .ml-scard__acts,
+  .neo[data-app='mail'] .ml-scard__btns {
+    width: 100%;
+  }
+  .neo[data-app='mail'] .ml-scard__btns .neo-btn {
+    flex: 1;
+    justify-content: center;
+  }
+  .neo[data-app='mail'] .ml-dest {
+    width: 100%;
+  }
+  .neo[data-app='mail'] .ml-dest button {
+    flex: 1;
+    justify-content: center;
+  }
+  .neo[data-app='mail'] .ml-aps__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-tl__item {
+    grid-template-columns: 14px minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-tl__body,
+  .neo[data-app='mail'] .ml-tl__acts {
+    grid-column: 2;
+  }
+  .neo[data-app='mail'] .ml-sch__item {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+  .neo[data-app='mail'] .ml-sch__count {
+    grid-column: 2;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .neo[data-app='mail'] .ml-sch__acts {
+    grid-column: 1 / -1;
+  }
+  .neo[data-app='mail'] .ml-clutter li {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+  }
+  .neo[data-app='mail'] .ml-clutter__rate {
+    grid-column: 2 / -1;
+  }
+  .neo[data-app='mail'] .ml-clutter__vol {
+    grid-column: 2;
+  }
+  .neo[data-app='mail'] .ml-store li {
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+  }
+  .neo[data-app='mail'] .ml-store li .neo-bar {
+    display: none;
+  }
+  .neo[data-app='mail'] .ml-store__size {
+    grid-column: 2;
+    text-align: start;
+  }
+  .neo[data-app='mail'] .ml-top li {
+    grid-template-columns: 26px minmax(0, 1fr) 28px;
+  }
+  .neo[data-app='mail'] .ml-top li .neo-bar {
+    display: none;
+  }
+  .neo[data-app='mail'] .ml-bubble {
+    max-width: 100%;
+  }
+  /* Phone: keep the reply-time numbers, label only the oldest week and "Now". */
+  .neo[data-app='mail'] .ml-trend__labels span:not(:first-child):not(:last-child) small {
+    display: none;
+  }
+}
+
+/* RTL: Arabic stream names run longer — give the stream column a little more room on the wide layouts. */
+@media (min-width: 1321px) {
+  [dir='rtl'] .neo[data-app='mail'] .ml-cockpit {
+    grid-template-columns: 206px minmax(300px, 384px) minmax(0, 1fr);
+  }
+  [dir='rtl'] .neo[data-app='mail'] .ml-cockpit[data-wide] {
+    grid-template-columns: 206px minmax(0, 1fr);
+  }
+}
+@media (min-width: 1181px) and (max-width: 1320px) {
+  [dir='rtl'] .neo[data-app='mail'] .ml-cockpit {
+    grid-template-columns: 190px minmax(270px, 330px) minmax(0, 1fr);
+  }
+  [dir='rtl'] .neo[data-app='mail'] .ml-cockpit[data-wide] {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+}
+
+/* ==========================================================================
+   Motion
+   ========================================================================== */
+@keyframes ml-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ml-blink {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes ml-sheen {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes ml-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+@keyframes ml-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .neo[data-app='mail'] .ml-orbit__spin,
+  .neo[data-app='mail'] .ml-aurora,
+  .neo[data-app='mail'] .ml-caret,
+  .neo[data-app='mail'] .ml-orbit[data-celebrate]::after,
+  .neo[data-app='mail'] .ml-comp,
+  .neo[data-app='mail'] .ml-undo,
+  .neo[data-app='mail'] .ml-bulk {
+    animation: none;
+  }
+  .neo[data-app='mail'] .ml-scard {
+    transition: none;
+  }
+}
+[data-motion='reduced'] .neo[data-app='mail'] .ml-orbit__spin,
+[data-motion='reduced'] .neo[data-app='mail'] .ml-aurora,
+[data-motion='reduced'] .neo[data-app='mail'] .ml-caret {
+  animation: none;
+}

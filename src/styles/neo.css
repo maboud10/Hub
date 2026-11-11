@@ -2783,7 +2783,12 @@ button.neo-kpi:hover {
   }
   .neo-banner__text {
     flex-direction: column;
+    align-items: stretch;
     gap: 2px;
+  }
+  .neo-banner__text :is(b, span) {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
   .neo-banner__meta {
     display: none;
@@ -2796,6 +2801,14 @@ button.neo-kpi:hover {
   }
   .neo-novaprompt__form .neo-btn span {
     display: none;
+  }
+  .neo-panel__head {
+    flex-wrap: wrap;
+  }
+  .neo-panel__actions {
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
   }
 }
 

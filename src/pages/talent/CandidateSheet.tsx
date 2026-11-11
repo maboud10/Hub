@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useLocation } from 'react-router';
 import { Archive, Ban, BriefcaseBusiness, Copy, History, IdCard, Linkedin, Lock, Mail, MapPin, NotebookPen, Phone, Send, ShieldCheck, SquareKanban, UserPlus, UserRoundX, X } from 'lucide-react';
 import { Sheet } from '@/components/ui/Sheet';
+import { EmailLink } from '@/components/apps/EmailLink';
 import { EmptyState } from '@/components/ui/primitives';
 import { useTalentUI } from '@/talent/ui';
 import { useTalent } from '@/talent/store';
@@ -154,10 +155,10 @@ export function CandidateSheet() {
           <>
             {cand.email && (
               <span className="tl-sheet-contact__item">
-                <a href={`mailto:${cand.email}`}>
+                <EmailLink to={cand.email}>
                   <Mail aria-hidden="true" />
                   <span className="truncate">{cand.email}</span>
-                </a>
+                </EmailLink>
                 <button type="button" className="tl-sheet-contact__copy" onClick={() => copy('Email', cand.email!)} aria-label="Copy email address">
                   <Copy aria-hidden="true" />
                 </button>

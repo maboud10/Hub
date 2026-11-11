@@ -21,12 +21,14 @@ import { roleFromProfile, scoreMatch, writeOutreach } from '@/talent/ai/engine';
 import { useTalent } from '@/talent/store';
 import { useTalentCaps, useTalentScope } from '@/talent/selectors';
 import { toast } from '@/store/toast';
+import { useCan } from '@/store/selectors';
 import { Modal } from '@/components/ui/Modal';
 import { Segmented } from '@/components/ui/primitives';
+import { EmailLink } from '@/components/apps/EmailLink';
 import { cx } from '@/lib/cx';
 import { CandidateAvatar, EngineBadge, MatchRing, OutreachStatusBadge, SampleTag, SourceBadge } from '../components/shared';
 import { copyText, fmtRelativeDay, fmtWhen } from '../components/format';
-import { ChannelPicker, CharMeter, DegreeBadge, FallbackNotice, HookChips, STEP_LABEL, TonePicker, daysAgo, mailtoHref, toOutreachPerson, useSender } from '../sourcing/kit';
+import { ChannelPicker, CharMeter, DegreeBadge, FallbackNotice, HookChips, STEP_LABEL, TonePicker, daysAgo, toOutreachPerson, useSender } from '../sourcing/kit';
 import { useStudio } from '../sourcing/store';
 
 type Step = 1 | 2 | 3;
@@ -43,6 +45,7 @@ const first = (name: string) => name.split(/\s+/)[0];
 
 export function OutreachModal({ modal, open, onClose }: { modal: Extract<TalentModal, { kind: 'outreach' }>; open: boolean; onClose: () => void }) {
   const caps = useTalentCaps();
+  const canMail = useCan('app:mail');
   const canLog = caps.source || caps.manage;
   const prospect = modal.prospect;
   // The talent-pool record: by id, or a prospect that was already saved (same name + company).
@@ -365,9 +368,9 @@ export function OutreachModal({ modal, open, onClose }: { modal: Extract<TalentM
               </span>
             )}
             {channel === 'email' && caps.contact && email && (
-              <a className="btn btn--sm" href={mailtoHref(email, subject, body)}>
-                <Mail aria-hidden="true" /> Open in mail app
-              </a>
+              <EmailLink className="btn btn--sm" to={email} subject={subject} body={body}>
+                <Mail aria-hidden="true" /> {canMail ? 'Open in Helix Mail' : 'Open in mail app'}
+              </EmailLink>
             )}
           </div>
         </section>

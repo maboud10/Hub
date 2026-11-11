@@ -6,6 +6,7 @@ import { memo, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   AudioWaveform,
+  Building2,
   FileArchive,
   FileCode2,
   FileImage,
@@ -13,10 +14,17 @@ import {
   FileText,
   FileVideo,
   FolderKanban,
+  GitBranch,
   HardDrive,
+  HeartPulse,
+  KeyRound,
   LifeBuoy,
+  Mail,
   MessageCircle,
   Presentation,
+  Server,
+  ShieldCheck,
+  Siren,
   Sparkles,
   Trophy,
   type LucideIcon,
@@ -110,6 +118,14 @@ export const APP_ICON: Record<string, LucideIcon> = {
   insights: Sparkles,
   meet: Sparkles,
   calendar: Sparkles,
+  mail: Mail,
+  wellbeing: HeartPulse,
+  devhub: GitBranch,
+  cloud: Server,
+  incidents: Siren,
+  vault: KeyRound,
+  security: ShieldCheck,
+  spaces: Building2,
 };
 
 export function GlyphTile({ c1, c2, icon: Icon, size = 36, round }: { c1: string; c2: string; icon: LucideIcon; size?: number; round?: boolean }) {

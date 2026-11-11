@@ -33,6 +33,7 @@ import { toast } from '@/store/toast';
 import { clearanceOf, isGrantActive, primaryRole } from '@/lib/rbac';
 import { firstName, relativeTime, tzLabel } from '@/lib/format';
 import { cx } from '@/lib/cx';
+import { EmailLink } from '@/components/apps/EmailLink';
 import { LocalTime } from './PersonCard';
 import {
   DEPARTMENT_ICON,
@@ -174,9 +175,9 @@ export function ProfileSheet({ userId, open, now, viewerOffset, onClose, onSelec
           <MessagesSquare /> Message
         </button>
       )}
-      <a className={cx('btn', !user.active && 'grow')} href={`mailto:${user.email}`}>
+      <EmailLink className={cx('btn', !user.active && 'grow')} to={user.email}>
         <Mail /> Email
-      </a>
+      </EmailLink>
       {canKudos && user.active && (
         <button type="button" className="btn" onClick={() => onKudos(user)}>
           <Award /> Kudos
@@ -256,9 +257,9 @@ export function ProfileSheet({ userId, open, now, viewerOffset, onClose, onSelec
             </Fact>
             <Fact icon={<Mail aria-hidden="true" />} label="Work email">
               <span className="ppl-fact__inline">
-                <a className="ppl-link truncate" href={`mailto:${user.email}`}>
+                <EmailLink className="ppl-link truncate" to={user.email}>
                   {user.email}
-                </a>
+                </EmailLink>
                 <button
                   type="button"
                   className="icon-btn ppl-copy"

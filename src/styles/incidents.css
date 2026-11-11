@@ -1,0 +1,1350 @@
+/**
+ * Incident Command ("Sentinel") — Scoped styles under `.neo[data-app='incidents']`.
+ * Dark + Light (`[data-theme='light']`), RTL (`[dir='rtl']`), and responsive `<= 720px`.
+ */
+
+.neo[data-app='incidents'] {
+  --inc-red: #ef4444;
+  --inc-orange: #f97316;
+  --inc-amber: #f59e0b;
+  --inc-green: #22c55e;
+  --inc-cyan: #38bdf8;
+}
+
+.neo[data-app='incidents'] .inc-muted {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.neo[data-app='incidents'] .inc-inline-ico {
+  width: 13px;
+  height: 13px;
+  vertical-align: -2px;
+  color: var(--success, #22c55e);
+}
+
+.neo[data-app='incidents'] .inc-inline-actions,
+.neo[data-app='incidents'] .inc-tracker-actions,
+.neo[data-app='incidents'] .inc-chip-cloud,
+.neo[data-app='incidents'] .inc-declare-preview__pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-banner-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ───────────── Live Elapsed Clock & User Pills ───────────── */
+
+.neo[data-app='incidents'] .inc-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.neo[data-app='incidents'] .inc-clock svg {
+  width: 12px;
+  height: 12px;
+}
+
+.neo[data-app='incidents'] .inc-clock[data-active] {
+  color: #fca5a5;
+  background: rgb(239 68 68 / 0.14);
+  border-color: rgb(239 68 68 / 0.35);
+}
+
+.neo[data-app='incidents'] .inc-userpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text);
+  max-width: 100%;
+}
+
+.neo[data-app='incidents'] .inc-userpill--empty {
+  padding-inline: 10px;
+  color: var(--text-3);
+}
+
+.neo[data-app='incidents'] .inc-userpill__name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neo[data-app='incidents'] .inc-userpill__role {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgb(var(--app-rgb) / 0.16);
+  color: var(--app-c1);
+  font-family: var(--font-mono);
+}
+
+/* ───────────── Signature Blast-Radius Radar & Service Matrix ───────────── */
+
+.neo[data-app='incidents'] .inc-radar-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.neo[data-app='incidents'] .inc-radar-regions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-region-card {
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.neo[data-app='incidents'] .inc-region-card[data-degraded] {
+  border-color: rgb(239 68 68 / 0.45);
+  background: linear-gradient(145deg, rgb(239 68 68 / 0.12), var(--surface-2));
+}
+
+.neo[data-app='incidents'] .inc-region-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-region-card__city {
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+
+.neo[data-app='incidents'] .inc-region-card__code {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.neo[data-app='incidents'] .inc-region-inc {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #fca5a5;
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: rgb(239 68 68 / 0.14);
+}
+
+.neo[data-app='incidents'] .inc-region-inc svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.neo[data-app='incidents'] .inc-service-matrix {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-svc-tile {
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.neo[data-app='incidents'] .inc-svc-tile[data-status='degraded'],
+.neo[data-app='incidents'] .inc-svc-tile[data-status='down'] {
+  border-color: rgb(249 115 22 / 0.48);
+  background: linear-gradient(155deg, rgb(249 115 22 / 0.1), var(--surface-2));
+}
+
+.neo[data-app='incidents'] .inc-svc-tile__top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+}
+
+.neo[data-app='incidents'] .inc-svc-tile__tier {
+  margin-inline-start: auto;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+}
+
+.neo[data-app='incidents'] .inc-svc-tile__metrics {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.neo[data-app='incidents'] .inc-svc-tile__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.neo[data-app='incidents'] .inc-deploy-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  background: var(--surface-3);
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.neo[data-app='incidents'] .inc-deploy-pill svg {
+  width: 11px;
+  height: 11px;
+}
+
+.neo[data-app='incidents'] .inc-deploy-pill--suspect {
+  background: rgb(239 68 68 / 0.18);
+  border: 1px solid rgb(239 68 68 / 0.45);
+  color: #fca5a5;
+}
+
+.neo[data-app='incidents'] .inc-svc-inc-link {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--app-c1);
+  text-decoration: none;
+}
+
+/* ───────────── Incident & Alert Cards ───────────── */
+
+.neo[data-app='incidents'] .inc-list,
+.neo[data-app='incidents'] .inc-side-list,
+.neo[data-app='incidents'] .inc-rotations-stack,
+.neo[data-app='incidents'] .inc-swaps-list,
+.neo[data-app='incidents'] .inc-fatigue-list,
+.neo[data-app='incidents'] .inc-rules-list,
+.neo[data-app='incidents'] .inc-uptime-list,
+.neo[data-app='incidents'] .inc-updates-history,
+.neo[data-app='incidents'] .inc-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-row-card,
+.neo[data-app='incidents'] .inc-alert-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='incidents'] .inc-row-card[data-active],
+.neo[data-app='incidents'] .inc-alert-card[data-state='firing'] {
+  border-color: rgb(var(--app-rgb) / 0.38);
+}
+
+.neo[data-app='incidents'] .inc-row-card__main,
+.neo[data-app='incidents'] .inc-alert-card__main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.neo[data-app='incidents'] .inc-row-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.neo[data-app='incidents'] .inc-code {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--app-c1);
+}
+
+.neo[data-app='incidents'] .inc-row-card__title,
+.neo[data-app='incidents'] .inc-alert-card__title {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--text);
+  text-decoration: none;
+  margin: 0;
+}
+
+.neo[data-app='incidents'] .inc-row-card__summary {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+.neo[data-app='incidents'] .inc-row-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.neo[data-app='incidents'] .inc-row-card__actions,
+.neo[data-app='incidents'] .inc-alert-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ───────────── Nova Copilot Answer & Wellbeing Card ───────────── */
+
+.neo[data-app='incidents'] .inc-nova-answer {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid rgb(var(--app-rgb) / 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-nova-answer__head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--app-c1);
+}
+
+.neo[data-app='incidents'] .inc-nova-answer__head svg {
+  width: 15px;
+  height: 15px;
+}
+
+.neo[data-app='incidents'] .inc-nova-answer__body {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.neo[data-app='incidents'] .inc-wellbeing-card,
+.neo[data-app='incidents'] .inc-side-card,
+.neo[data-app='incidents'] .inc-suggest-card {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-wellbeing-card__top,
+.neo[data-app='incidents'] .inc-suggest-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='incidents'] .inc-wellbeing-card__text {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+.neo[data-app='incidents'] .inc-wellbeing-card__actions,
+.neo[data-app='incidents'] .inc-side-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.neo[data-app='incidents'] .inc-oncall-mini {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.neo[data-app='incidents'] .inc-oncall-mini__top {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.neo[data-app='incidents'] .inc-oncall-mini__rot {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.neo[data-app='incidents'] .inc-oncall-mini__user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+/* ───────────── War Room Controls, Timeline, Runbook & Switcher ───────────── */
+
+.neo[data-app='incidents'] .inc-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-switcher__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 12.5px;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.neo[data-app='incidents'] .inc-switcher__pill[data-active] {
+  border-color: var(--app-c1);
+  background: rgb(var(--app-rgb) / 0.14);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.neo[data-app='incidents'] .inc-war-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.neo[data-app='incidents'] .inc-war-control-card {
+  padding: 13px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-war-control-card[data-tone='warning'] {
+  border-color: rgb(245 158 11 / 0.45);
+  background: linear-gradient(150deg, rgb(245 158 11 / 0.12), var(--surface-2));
+}
+
+.neo[data-app='incidents'] .inc-war-control-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-war-control-card__head h3 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.neo[data-app='incidents'] .inc-comms-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-scribe-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.neo[data-app='incidents'] .inc-scribe-form > .neo-input {
+  flex: 1;
+  min-width: 180px;
+}
+
+.neo[data-app='incidents'] .inc-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-timeline__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='incidents'] .inc-timeline__node {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-3);
+  color: var(--app-c1);
+  flex-shrink: 0;
+}
+
+.neo[data-app='incidents'] .inc-timeline__node svg {
+  width: 14px;
+  height: 14px;
+}
+
+.neo[data-app='incidents'] .inc-timeline__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neo[data-app='incidents'] .inc-timeline__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.neo[data-app='incidents'] .inc-timeline__text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.neo[data-app='incidents'] .inc-roles-list,
+.neo[data-app='incidents'] .inc-runbook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.neo[data-app='incidents'] .inc-role-row,
+.neo[data-app='incidents'] .inc-signal-row,
+.neo[data-app='incidents'] .inc-sub-row,
+.neo[data-app='incidents'] .inc-rule-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='incidents'] .inc-role-row__label {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.neo[data-app='incidents'] .inc-runbook-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.neo[data-app='incidents'] .inc-runbook-item[data-done] {
+  opacity: 0.72;
+  text-decoration: line-through;
+}
+
+/* ───────────── On-Call Schedule, Swaps & Fatigue ───────────── */
+
+.neo[data-app='incidents'] .inc-rot-card,
+.neo[data-app='incidents'] .inc-swap-card,
+.neo[data-app='incidents'] .inc-fatigue-card {
+  padding: 13px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-rot-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='incidents'] .inc-rot-card__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-rot-card__title h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.neo[data-app='incidents'] .inc-rot-card__active {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.neo[data-app='incidents'] .inc-fts-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-fts-cell {
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.neo[data-app='incidents'] .inc-fts-cell[data-live] {
+  border-color: var(--app-c1);
+  background: rgb(var(--app-rgb) / 0.14);
+}
+
+.neo[data-app='incidents'] .inc-fts-cell__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11.5px;
+}
+
+.neo[data-app='incidents'] .inc-sched-days {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-sched-day {
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.neo[data-app='incidents'] .inc-sched-day__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+
+.neo[data-app='incidents'] .inc-sched-day__blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neo[data-app='incidents'] .inc-sched-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.neo[data-app='incidents'] .inc-swap-form {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-swap-form__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-fatigue-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='incidents'] .inc-hour-heat {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  align-items: end;
+  gap: 2px;
+  height: 24px;
+  padding-top: 2px;
+}
+
+.neo[data-app='incidents'] .inc-hour-bar {
+  display: block;
+  width: 100%;
+  border-radius: 2px;
+  background: var(--surface-3);
+}
+
+.neo[data-app='incidents'] .inc-hour-bar[data-night] {
+  background: rgb(168 85 247 / 0.25);
+}
+
+.neo[data-app='incidents'] .inc-hour-bar[data-active] {
+  background: var(--app-c1);
+}
+
+.neo[data-app='incidents'] .inc-fatigue-nudge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+
+.neo[data-app='incidents'] .inc-policy-list,
+.neo[data-app='incidents'] .inc-bullet-list {
+  margin: 0;
+  padding-inline-start: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+/* ───────────── Status Page Uptime Bars & Hub Sync ───────────── */
+
+.neo[data-app='incidents'] .inc-uptime-row {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-uptime-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='incidents'] .inc-uptime-row__title,
+.neo[data-app='incidents'] .inc-uptime-row__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.neo[data-app='incidents'] .inc-uptime-pct {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.neo[data-app='incidents'] .inc-uptime-bars {
+  display: grid;
+  grid-template-columns: repeat(40, minmax(0, 1fr));
+  gap: 3px;
+  height: 20px;
+}
+
+.neo[data-app='incidents'] .inc-uptime-bar {
+  display: block;
+  border-radius: 3px;
+  background: rgb(34 197 94 / 0.72);
+}
+
+.neo[data-app='incidents'] .inc-uptime-bar[data-status='degraded'] {
+  background: #f59e0b;
+}
+
+.neo[data-app='incidents'] .inc-uptime-bar[data-status='partial'] {
+  background: #f97316;
+}
+
+.neo[data-app='incidents'] .inc-uptime-bar[data-status='outage'] {
+  background: #ef4444;
+}
+
+.neo[data-app='incidents'] .inc-hub-apps-strip {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-hub-apps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-hub-app-pill {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12.5px;
+}
+
+.neo[data-app='incidents'] .inc-hub-app-pill > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.neo[data-app='incidents'] .inc-hub-app-pill[data-status='degraded'] {
+  border-color: rgb(245 158 11 / 0.45);
+}
+
+.neo[data-app='incidents'] .inc-status-form,
+.neo[data-app='incidents'] .inc-mnt-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.neo[data-app='incidents'] .inc-update-card {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ───────────── Postmortems & 5 Whys ───────────── */
+
+.neo[data-app='incidents'] .inc-pm-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-pm-block {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='incidents'] .inc-pm-block--highlight {
+  border-color: rgb(var(--app-rgb) / 0.4);
+  background: linear-gradient(145deg, rgb(var(--app-rgb) / 0.1), var(--surface-2));
+}
+
+.neo[data-app='incidents'] .inc-pm-block p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.neo[data-app='incidents'] .inc-pm-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.neo[data-app='incidents'] .inc-pm-col {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.neo[data-app='incidents'] .inc-whys-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-why-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border-inline-start: 3px solid var(--app-c1);
+}
+
+.neo[data-app='incidents'] .inc-why-num {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgb(var(--app-rgb) / 0.15);
+  color: var(--app-c1);
+  flex-shrink: 0;
+}
+
+.neo[data-app='incidents'] .inc-why-item p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.neo[data-app='incidents'] .inc-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.neo[data-app='incidents'] .inc-action-row[data-done] .inc-action-row__check span {
+  text-decoration: line-through;
+  color: var(--text-3);
+}
+
+.neo[data-app='incidents'] .inc-action-row__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.neo[data-app='incidents'] .inc-action-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ───────────── Declare Modal & Nova Drawer ───────────── */
+
+.neo[data-app='incidents'] .inc-modal-backdrop,
+.neo[data-app='incidents'] .inc-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgb(5 8 18 / 0.72);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+}
+
+.neo[data-app='incidents'] .inc-modal {
+  width: min(720px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.neo[data-app='incidents'] .inc-modal__head,
+.neo[data-app='incidents'] .inc-drawer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.neo[data-app='incidents'] .inc-modal__title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.neo[data-app='incidents'] .inc-modal__glyph {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(239 68 68 / 0.18);
+  color: #f87171;
+}
+
+.neo[data-app='incidents'] .inc-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.neo[data-app='incidents'] .inc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.neo[data-app='incidents'] .inc-field__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.neo[data-app='incidents'] .inc-field__label svg {
+  width: 13px;
+  height: 13px;
+}
+
+.neo[data-app='incidents'] .inc-field-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.neo[data-app='incidents'] .inc-sev-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-sev-card {
+  text-align: start;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.neo[data-app='incidents'] .inc-sev-card[data-active] {
+  border-color: var(--app-c1);
+  background: rgb(var(--app-rgb) / 0.16);
+}
+
+.neo[data-app='incidents'] .inc-sev-card__top {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+}
+
+.neo[data-app='incidents'] .inc-sev-card__top svg {
+  width: 13px;
+  height: 13px;
+  color: var(--app-c1);
+}
+
+.neo[data-app='incidents'] .inc-sev-card__guide {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.35;
+}
+
+.neo[data-app='incidents'] .inc-sev-card__policy {
+  font-size: 10.5px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+}
+
+.neo[data-app='incidents'] .inc-toggle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.neo[data-app='incidents'] .inc-declare-preview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.neo[data-app='incidents'] .inc-declare-preview__col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.neo[data-app='incidents'] .inc-modal__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.neo[data-app='incidents'] .inc-drawer-backdrop {
+  justify-content: flex-end;
+  padding: 0;
+}
+
+.neo[data-app='incidents'] .inc-drawer {
+  width: min(420px, 100vw);
+  height: 100vh;
+  border-radius: 0;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.neo[data-app='incidents'] .inc-drawer__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.neo[data-app='incidents'] .inc-drawer__card {
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.neo[data-app='incidents'] .inc-drawer__card h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.neo[data-app='incidents'] .inc-drawer__card p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+.neo[data-app='incidents'] .inc-suggest-card__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.neo[data-app='incidents'] .inc-suggest-card__evidence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.neo[data-app='incidents'] .inc-ev-chip {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+
+.neo[data-app='incidents'] .inc-toolbar-row {
+  margin-bottom: 12px;
+}
+
+/* ───────────── Light Theme Overrides (`[data-theme='light']`) ───────────── */
+
+[data-theme='light'] .neo[data-app='incidents'] .inc-clock[data-active],
+[data-theme='light'] .neo[data-app='incidents'] .inc-region-inc,
+[data-theme='light'] .neo[data-app='incidents'] .inc-deploy-pill--suspect {
+  color: #b91c1c;
+  background: rgb(239 68 68 / 0.12);
+  border-color: rgb(220 38 38 / 0.35);
+}
+
+[data-theme='light'] .neo[data-app='incidents'] .inc-userpill__role,
+[data-theme='light'] .neo[data-app='incidents'] .inc-code,
+[data-theme='light'] .neo[data-app='incidents'] .inc-svc-inc-link,
+[data-theme='light'] .neo[data-app='incidents'] .inc-nova-answer__head,
+[data-theme='light'] .neo[data-app='incidents'] .inc-why-num {
+  color: #c2410c;
+}
+
+[data-theme='light'] .neo[data-app='incidents'] .inc-modal-backdrop,
+[data-theme='light'] .neo[data-app='incidents'] .inc-drawer-backdrop {
+  background: rgb(15 23 42 / 0.42);
+}
+
+/* ───────────── RTL Overrides (`[dir='rtl']`) ───────────── */
+
+[dir='rtl'] .neo[data-app='incidents'] .inc-rot-card__active {
+  align-items: flex-start;
+}
+
+/* ───────────── Responsive (`<= 1024px` and `<= 720px`) ───────────── */
+
+@media (max-width: 1024px) {
+  .neo[data-app='incidents'] .inc-radar-regions,
+  .neo[data-app='incidents'] .inc-fts-strip,
+  .neo[data-app='incidents'] .inc-swap-form__grid,
+  .neo[data-app='incidents'] .inc-sev-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .neo[data-app='incidents'] .inc-service-matrix,
+  .neo[data-app='incidents'] .inc-war-controls,
+  .neo[data-app='incidents'] .inc-pm-columns,
+  .neo[data-app='incidents'] .inc-hub-apps-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .neo[data-app='incidents'] .inc-sched-days {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .neo[data-app='incidents'] .inc-radar-regions,
+  .neo[data-app='incidents'] .inc-service-matrix,
+  .neo[data-app='incidents'] .inc-war-controls,
+  .neo[data-app='incidents'] .inc-fts-strip,
+  .neo[data-app='incidents'] .inc-sched-days,
+  .neo[data-app='incidents'] .inc-swap-form__grid,
+  .neo[data-app='incidents'] .inc-pm-columns,
+  .neo[data-app='incidents'] .inc-hub-apps-grid,
+  .neo[data-app='incidents'] .inc-field-row,
+  .neo[data-app='incidents'] .inc-sev-grid,
+  .neo[data-app='incidents'] .inc-declare-preview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .neo[data-app='incidents'] .inc-row-card,
+  .neo[data-app='incidents'] .inc-alert-card {
+    flex-direction: column;
+  }
+
+  .neo[data-app='incidents'] .inc-uptime-bars {
+    grid-template-columns: repeat(20, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .neo[data-app='incidents'] .inc-region-card {
+    transition: none;
+  }
+}

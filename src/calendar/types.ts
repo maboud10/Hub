@@ -17,7 +17,7 @@ export type HubTimezoneId =
   | 'America/New_York';
 
 export interface LinkedAppContext {
-  app: 'crm' | 'projects' | 'performance' | 'talent' | 'wiki' | 'chat';
+  app: 'crm' | 'projects' | 'performance' | 'talent' | 'wiki' | 'chat' | 'mail' | 'wellbeing' | 'devhub' | 'cloud' | 'incidents' | 'vault' | 'security' | 'spaces';
   label: string;
   to: string;
   entityId?: string;

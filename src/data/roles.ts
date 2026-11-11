@@ -97,6 +97,7 @@ export const SEED_ROLES: Role[] = [
       'app:procurement',
       'app:analytics',
       'app:crm',
+      'app:cloud',
     ],
   },
   {
@@ -136,6 +137,8 @@ export const SEED_ROLES: Role[] = [
       'app:spaces',
       'app:travel',
       'app:wellness',
+      'app:vault',
+      'app:security',
     ],
   },
   {

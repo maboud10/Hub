@@ -1509,3 +1509,42 @@ html[dir='rtl']::view-transition-old(app-rail):only-child {
     animation: none !important;
   }
 }
+
+/* ==========================================================================
+   Phone top bar must fit the viewport (≤720px)
+   Brand + Return pill + language orb + bell + avatar used to need ~458px, which
+   widened the mobile layout viewport (EN) and shifted RTL content by ~47px.
+   ========================================================================== */
+@media (max-width: 720px) {
+  .topbar {
+    gap: 8px;
+    min-width: 0;
+  }
+  .topbar > * {
+    min-width: 0;
+  }
+  .topbar__brand,
+  .topbar__actions,
+  .topbar .return-portal {
+    flex: none;
+  }
+  .topbar__actions {
+    gap: 2px;
+  }
+  /* While the Return pill is shown the mark alone is enough to say "home". */
+  .topbar:has(.return-portal:not(.return-portal--resume)) .topbar__brand .brand__text {
+    display: none;
+  }
+  .topbar .lang-orb-btn {
+    padding: 0 6px;
+    gap: 0;
+  }
+  .topbar .lang-orb-btn :is(.lang-orb-btn__label, .lang-orb-btn__dir) {
+    display: none;
+  }
+}
+@media (max-width: 360px) {
+  .topbar .return-portal__deck-btn {
+    display: none;
+  }
+}

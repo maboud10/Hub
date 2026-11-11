@@ -11,6 +11,7 @@ import {
   KeyRound,
   LayoutDashboard,
   Megaphone,
+  MoonStar,
   Newspaper,
   Signal,
   SquareKanban,
@@ -18,11 +19,14 @@ import {
   UserPlus,
   type LucideIcon,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import type { NotificationKind, WidgetId } from '@/types';
 import { useHub } from '@/store/hub';
 import { useCan, usePrefs } from '@/store/selectors';
 import { Switch } from '@/components/ui/primitives';
 import { cx } from '@/lib/cx';
+import { currentViewer, loadBridge, type QuietHours } from '@/lib/appBridge';
 import { SettingRow, SettingsSection } from './SettingsSection';
 
 interface ToggleMeta<T extends string> {
@@ -152,7 +156,42 @@ export function NotificationsSection() {
             </SettingRow>
           );
         })}
+        <QuietHoursRow />
       </div>
     </SettingsSection>
+  );
+}
+
+const hh = (h: number) => `${String(((h % 24) + 24) % 24).padStart(2, '0')}:00`;
+
+/** Right-to-disconnect window owned by Wellbeing · Rhythm (Mail's schedule-send honours it). */
+function QuietHoursRow() {
+  const canAura = useCan('app:wellness');
+  const [qh, setQh] = useState<QuietHours | null>(null);
+  useEffect(() => {
+    const viewer = currentViewer();
+    if (!canAura || !viewer) return;
+    let alive = true;
+    loadBridge('wellbeing')
+      .then((b) => alive && setQh(b.quietHours(viewer)))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [canAura]);
+  if (!canAura) return null;
+  return (
+    <SettingRow
+      icon={<MoonStar />}
+      title="Quiet hours"
+      badge={<span className="badge badge--muted">Wellbeing</span>}
+      description="Right to disconnect: Mail schedules your late sends for the morning and the hub holds nudges in this window."
+      className={cx(qh && !qh.enabled && 'is-off')}
+    >
+      <span className="set-counter mono">{qh ? (qh.enabled ? `${hh(qh.startHour)}–${hh(qh.endHour)}` : 'Off') : '—'}</span>
+      <Link to="/wellbeing/rhythm" className="btn btn--sm">
+        Tune in Rhythm
+      </Link>
+    </SettingRow>
   );
 }

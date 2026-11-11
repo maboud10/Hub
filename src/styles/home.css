@@ -734,6 +734,11 @@ button.lp-brief__stat:hover {
 }
 
 /* Pulse */
+.lp-pulse__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .lp-pulse {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

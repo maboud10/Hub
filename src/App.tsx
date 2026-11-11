@@ -31,6 +31,14 @@ const CrmPage = lazy(() => import('@/pages/crm/CrmPage').then((m) => ({ default:
 const InsightsPage = lazy(() => import('@/pages/insights/InsightsPage').then((m) => ({ default: m.InsightsPage })));
 const MeetPage = lazy(() => import('@/pages/meet/MeetPage').then((m) => ({ default: m.MeetPage })));
 const CalendarPage = lazy(() => import('@/pages/calendar/CalendarPage').then((m) => ({ default: m.CalendarPage })));
+const MailPage = lazy(() => import('@/pages/mail/MailPage').then((m) => ({ default: m.MailPage })));
+const WellbeingPage = lazy(() => import('@/pages/wellbeing/WellbeingPage').then((m) => ({ default: m.WellbeingPage })));
+const DevHubPage = lazy(() => import('@/pages/devhub/DevHubPage').then((m) => ({ default: m.DevHubPage })));
+const CloudPage = lazy(() => import('@/pages/cloud/CloudPage').then((m) => ({ default: m.CloudPage })));
+const IncidentsPage = lazy(() => import('@/pages/incidents/IncidentsPage').then((m) => ({ default: m.IncidentsPage })));
+const VaultPage = lazy(() => import('@/pages/vault/VaultPage').then((m) => ({ default: m.VaultPage })));
+const SecurityPage = lazy(() => import('@/pages/security/SecurityPage').then((m) => ({ default: m.SecurityPage })));
+const SpacesPage = lazy(() => import('@/pages/spaces/SpacesPage').then((m) => ({ default: m.SpacesPage })));
 
 function TravelRedirect() {
   const loc = useLocation();
@@ -203,6 +211,70 @@ export default function App() {
             element={
               <RequirePermission perm="app:calendar" area="Helix Calendar">
                 <CalendarPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="mail/*"
+            element={
+              <RequirePermission perm="app:mail" area="Helix Mail">
+                <MailPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="wellbeing/*"
+            element={
+              <RequirePermission perm="app:wellness" area="Helix Wellbeing">
+                <WellbeingPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="devhub/*"
+            element={
+              <RequirePermission perm="app:devhub" area="DevHub">
+                <DevHubPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="cloud/*"
+            element={
+              <RequirePermission perm="app:cloud" area="Cloud Console">
+                <CloudPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="incidents/*"
+            element={
+              <RequirePermission perm="app:incidents" area="Incident Command">
+                <IncidentsPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="vault/*"
+            element={
+              <RequirePermission perm="app:vault" area="Vault">
+                <VaultPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="security/*"
+            element={
+              <RequirePermission perm="app:security" area="Security Center">
+                <SecurityPage />
+              </RequirePermission>
+            }
+          />
+          <Route
+            path="spaces/*"
+            element={
+              <RequirePermission perm="app:spaces" area="Spaces">
+                <SpacesPage />
               </RequirePermission>
             }
           />
